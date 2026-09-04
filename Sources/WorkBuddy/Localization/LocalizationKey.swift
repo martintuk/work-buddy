@@ -26,6 +26,17 @@ extension L10n {
         case settingsSavedOrganization
         case settingsNoOrganizations
 
+        // MARK: - Editor
+        case settingsEditor
+        case editorChoose
+        case editorSelect
+        case editorOther
+        case editorOpen
+        case editorOpenIn
+        case editorInvalidApplication
+        case editorMissingApplication
+        case editorMissingFolder
+
         // MARK: - Notifications
         case notificationsTitle
         case notificationsTest

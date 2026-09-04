@@ -9,9 +9,13 @@ struct PullRequestRow: View {
     let isActing: Bool
     /// Commits atrás de la base. `nil` = no se pudo medir, que no es `0`.
     let behindBy: Int?
+    let localFolder: URL?
+    let editor: EditorStore
     let perform: (PullRequestAction) -> Void
 
     @State private var isHovering = false
+    @State private var showingEditorPicker = false
+    @State private var editorError: String?
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -47,6 +51,29 @@ struct PullRequestRow: View {
             }
         }
         .onHover { isHovering = $0 }
+        // La presentación pertenece a la fila: el menú desaparece al elegir una acción.
+        .sheet(isPresented: $showingEditorPicker) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(L10n.text(.editorChoose)).font(.headline)
+                EditorPicker(store: editor) {
+                    showingEditorPicker = false
+                    openLocalFolder()
+                }
+                HStack {
+                    Spacer()
+                    Button(L10n.text(.commonCancel), role: .cancel) { showingEditorPicker = false }
+                }
+            }
+            .padding(20)
+            .frame(width: 300)
+        }
+        .alert(L10n.text(.editorOpen), isPresented: Binding(
+            get: { editorError != nil }, set: { if !$0 { editorError = nil } }
+        )) {
+            Button(L10n.text(.commonBack), role: .cancel) { editorError = nil }
+        } message: {
+            Text(editorError ?? "")
+        }
     }
 
     private var details: some View {
@@ -123,6 +150,19 @@ struct PullRequestRow: View {
     @ViewBuilder
     private var actionMenuItems: some View {
         button(.open)
+        if let localFolder {
+            Button {
+                if editor.selectedURL == nil {
+                    showingEditorPicker = true
+                } else {
+                    openLocalFolder()
+                }
+            } label: {
+                Label(editor.selectedName.map { L10n.text(.editorOpenIn, $0) }
+                    ?? L10n.text(.editorOpen), systemImage: "chevron.left.forwardslash.chevron.right")
+            }
+            .help(localFolder.path)
+        }
 
         // Sólo ofrecemos lo que puede funcionar. Un botón que sólo puede
         // fallar entrena a ignorar los errores.
@@ -144,6 +184,14 @@ struct PullRequestRow: View {
 
         Divider()
         button(isIgnored ? .restore : .ignore)
+    }
+
+    private func openLocalFolder() {
+        guard let localFolder else { return }
+        Task {
+            do { try await editor.open(localFolder) }
+            catch { editorError = error.localizedDescription }
+        }
     }
 }
 

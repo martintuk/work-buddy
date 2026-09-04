@@ -66,6 +66,13 @@ paso solo guarda la carpeta elegida: no clona ni cambia de rama, y no verifica
 que el remoto corresponda al repo; las acciones locales deberán validarlo antes
 de operar.
 
+Con una carpeta asociada, el menú `⋯` del PR ofrece **Abrir en editor**.
+La primera vez permite elegir una app; después muestra **Abrir en RubyMine**,
+por ejemplo. La preferencia global se puede cambiar en **Configuración → Editor**.
+Detecta los IDEs de JetBrains (incluidas instalaciones de Toolbox), VS Code,
+Cursor, Xcode y otros editores instalados, con **Elegir otra app…** para ubicaciones
+personalizadas. Abre la carpeta en su rama actual, sin cambiar el checkout.
+
 ## Requisitos
 
 - macOS 14+

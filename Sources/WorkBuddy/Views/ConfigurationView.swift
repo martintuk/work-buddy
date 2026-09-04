@@ -53,6 +53,14 @@ struct ConfigurationView: View {
 
                 NotificationSettingsView(notifier: store.notifier)
 
+                HStack(spacing: 8) {
+                    Text(L10n.text(.settingsEditor))
+                        .font(.system(size: 12, weight: .semibold))
+                    Spacer()
+                    EditorPicker(store: store.editor)
+                }
+                .controlSize(.small)
+
                 organizationsSelector
 
                 VStack(alignment: .leading, spacing: 6) {

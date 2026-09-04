@@ -26,6 +26,17 @@ extension L10n {
         case .settingsSavedOrganization: "Guardada · no disponible en la lista"
         case .settingsNoOrganizations: "GitHub no devolvió organizaciones para esta sesión de gh."
 
+        // MARK: - Editor
+        case .settingsEditor: "Editor"
+        case .editorChoose: "Elegir editor…"
+        case .editorSelect: "Elegir"
+        case .editorOther: "Elegir otra app…"
+        case .editorOpen: "Abrir en editor…"
+        case .editorOpenIn: "Abrir en %@"
+        case .editorInvalidApplication: "Elegí una aplicación válida (.app)."
+        case .editorMissingApplication: "El editor elegido ya no está disponible. Elegí otro en Configuración."
+        case .editorMissingFolder: "La carpeta Git asociada ya no está disponible. Volvé a elegirla en Repositorios."
+
         // MARK: - Notifications
         case .notificationsTitle: "Notificaciones"
         case .notificationsTest: "Probar"

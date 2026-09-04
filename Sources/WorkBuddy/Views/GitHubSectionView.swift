@@ -275,7 +275,9 @@ struct GitHubSectionView: View {
                 pullRequest: pullRequest,
                 isIgnored: store.isIgnored(pullRequest),
                 isActing: store.isActing(on: pullRequest),
-                behindBy: store.behindCount(for: pullRequest)
+                behindBy: store.behindCount(for: pullRequest),
+                localFolder: store.localRepositories.folder(for: pullRequest.repository),
+                editor: store.editor
             ) { action in
                 if action.needsConfirmation {
                     pendingAction = PendingAction(

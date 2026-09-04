@@ -19,6 +19,7 @@ final class ReviewQueueStore {
     private(set) var configuration = AppConfiguration.load()
     private(set) var repositoryFilter = RepositoryFilter.load()
     let localRepositories = LocalRepositoryStore()
+    let editor = EditorStore()
     private(set) var pullRequests: [PullRequest] = []
     /// PRs de dependabot en la cola de review, mostrados en automatización.
     /// Los que están para mergear llegan por `mergeCandidates`.
