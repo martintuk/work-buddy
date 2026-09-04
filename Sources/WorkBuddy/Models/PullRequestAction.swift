@@ -49,6 +49,10 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
         }
     }
 
-    /// Todas las acciones requieren confirmación, incluidas las locales.
-    var needsConfirmation: Bool { true }
+    var needsConfirmation: Bool {
+        switch self {
+        case .open, .ignore: false
+        case .restore, .approve, .rebase, .dependabotRebase, .merge: true
+        }
+    }
 }

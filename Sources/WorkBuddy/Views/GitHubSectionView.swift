@@ -282,7 +282,6 @@ struct GitHubSectionView: View {
                 isActing: store.isActing(on: pullRequest),
                 behindBy: store.behindCount(for: pullRequest)
             ) { action in
-                // Tanto las acciones locales como las de GitHub se confirman.
                 if action.needsConfirmation {
                     pendingAction = PendingAction(
                         pullRequest: pullRequest,
