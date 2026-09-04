@@ -16,21 +16,21 @@ struct RepositoryFilterView: View {
         VStack(spacing: 0) {
             HStack {
                 Button(action: close) {
-                    Label("Volver", systemImage: "chevron.left")
+                    Label(L10n.text(.commonBack), systemImage: "chevron.left")
                 }
                 .buttonStyle(.borderless)
                 Spacer()
             }
             .overlay {
-                Text("Repositorios").font(.system(size: 13, weight: .semibold))
+                Text(L10n.text(.repositoriesTitle)).font(.system(size: 13, weight: .semibold))
             }
             .padding(14)
 
             HStack(spacing: 8) {
-                TextField("Buscar repositorio…", text: $search)
+                TextField(L10n.text(.repositoriesSearchPlaceholder), text: $search)
                     .textFieldStyle(.roundedBorder)
-                    .accessibilityLabel("Buscar repositorio")
-                Button("Limpiar") { store.clearRepositoryFilter() }
+                    .accessibilityLabel(L10n.text(.repositoriesSearch))
+                Button(L10n.text(.commonClear)) { store.clearRepositoryFilter() }
                     .buttonStyle(.borderless)
                     .disabled(!store.repositoryFilter.isActive)
                     .fixedSize()
@@ -41,11 +41,11 @@ struct RepositoryFilterView: View {
 
             if repositories.isEmpty {
                 ContentUnavailableView {
-                    Label("Sin repositorios", systemImage: "folder")
+                    Label(L10n.text(.repositoriesEmpty), systemImage: "folder")
                 } description: {
                     Text(search.isEmpty
-                        ? "Los repositorios aparecerán al cargar los resultados de GitHub."
-                        : "No hay repositorios que coincidan con la búsqueda.")
+                        ? L10n.text(.repositoriesNotLoaded)
+                        : L10n.text(.repositoriesNoMatches))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -69,10 +69,10 @@ struct RepositoryFilterView: View {
         let muted = store.repositoryFilter.muted.contains(repository.id)
         return HStack(spacing: 6) {
             filterButton(favorite ? "star.fill" : "star", active: favorite, tint: .yellow,
-                         help: favorite ? "Quitar de favoritos" : "Marcar como favorito") {
+                         help: favorite ? L10n.text(.repositoriesUnfavorite) : L10n.text(.repositoriesFavorite)) {
                 store.toggleRepositoryFavorite(repository.id)
             }
-            .accessibilityLabel("Favorito: \(repository.id)")
+            .accessibilityLabel(L10n.text(.repositoriesFavoriteAccessibility, repository.id))
 
             Text(repository.id)
                 .font(.system(size: 11, weight: .medium))
@@ -82,15 +82,15 @@ struct RepositoryFilterView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             filterButton(solo ? "eye.fill" : "eye", active: solo, tint: .orange,
-                         help: solo ? "Quitar de la selección" : "Ver solo los repositorios seleccionados") {
+                         help: solo ? L10n.text(.repositoriesDeselect) : L10n.text(.repositoriesSolo)) {
                 store.toggleRepositorySolo(repository.id)
             }
-            .accessibilityLabel("Seleccionar \(repository.id)")
+            .accessibilityLabel(L10n.text(.repositoriesSelectAccessibility, repository.id))
             filterButton(muted ? "speaker.slash.fill" : "speaker.slash", active: muted, tint: .red,
-                         help: muted ? "Dejar de mutear" : "Mutear repositorio") {
+                         help: muted ? L10n.text(.repositoriesUnmute) : L10n.text(.repositoriesMute)) {
                 store.toggleRepositoryMute(repository.id)
             }
-            .accessibilityLabel("Mutear \(repository.id)")
+            .accessibilityLabel(L10n.text(.repositoriesMuteAccessibility, repository.id))
         }
         .frame(height: 30)
     }
@@ -108,6 +108,6 @@ struct RepositoryFilterView: View {
         }
         .buttonStyle(.plain)
         .help(help)
-        .accessibilityValue(active ? "Activado" : "Desactivado")
+        .accessibilityValue(active ? L10n.text(.commonEnabled) : L10n.text(.commonDisabled))
     }
 }

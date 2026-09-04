@@ -68,6 +68,9 @@ en la lista aunque no tengan resultados actuales, para poder restaurarlos.
 
 El engranaje del panel abre la configuración del entorno:
 
+- **Idioma:** español o inglés, aplicado al instante y guardado entre reinicios.
+  Se conserva español por defecto.
+
 - **Organización de GitHub:** opcional; limita todas las búsquedas a ese owner.
   Vacía conserva el alcance global de `@me`.
 - **Cuentas de automatización:** logins que GitHub reporta como `User`, pero que
@@ -173,6 +176,7 @@ Sources/WorkBuddy/
 │   ├── ReviewQueueStore.swift Estado del panel, refresh, acciones.
 │   ├── IgnoreList.swift     PRs ignorados, persistidos.
 │   └── PullRequestAction.swift Acciones sobre un PR.
+├── Localization/            Claves semánticas y catálogos Spanish.swift / English.swift.
 ├── Notifications/Notifier.swift
 ├── Views/                   PanelView y PullRequestRow.
 └── Debug/                   Volcados y diagnósticos por CLI.
@@ -210,3 +214,22 @@ que un project file.
 
 El hueco es `PanelView.content`. El `popover` se configura en
 `MenuBarController.configurePopover()` si hay que cambiar el tamaño.
+
+## Textos e idiomas
+
+Los textos de la interfaz, tooltips, accesibilidad, errores y notificaciones
+están en `Sources/WorkBuddy/Localization/`, agrupados por funcionalidad.
+`LocalizationKey.swift` define las claves y cada idioma implementa un `switch`
+exhaustivo: agregar una clave obliga a traducirla en ambos catálogos al compilar.
+Para usarla, llamá a `L10n.text(.settingsTitle)`. Los textos con variables usan
+`%@` y argumentos separados; los plurales tienen frases completas por idioma.
+
+Los catálogos se compilan dentro del ejecutable. La selección se lee de
+`UserDefaults` una vez y se mantiene en memoria con acceso sincronizado.
+SwiftUI observa esa selección sin reconstruir el panel ni perder sus borradores;
+la locale del panel también cambia para el formato nativo de fechas. No se leen
+archivos ni se parsean recursos durante el renderizado. Los mensajes visibles
+conservan su expresión de origen para poder traducirse de nuevo.
+
+Los nombres de repositorios, títulos de PRs/tickets, respuestas externas de los
+CLIs, comandos y diagnósticos de desarrollo se conservan tal como vienen.

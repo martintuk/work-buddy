@@ -143,17 +143,17 @@ enum ReplyQueue {
             let payload = try GraphQLResponse<[String: Node?]>.decode(try await run(arguments))
             for (index, page) in batch.enumerated() {
                 guard let value = payload["pr\(index)"], let node = value, node.id == page.nodeID else {
-                    throw GH.Failure.badJSON("Faltan hilos del PR \(page.prID)")
+                    throw GH.Failure.missingThreads(page.prID)
                 }
                 let threads: [Thread]
                 if page.threadID != nil {
                     guard let comments = node.comments, let isResolved = node.isResolved else {
-                        throw GH.Failure.badJSON("Faltan comentarios del hilo \(node.id)")
+                        throw GH.Failure.missingComments(node.id)
                     }
                     threads = [Thread(id: node.id, isResolved: isResolved, comments: comments)]
                 } else {
                     guard let connection = node.reviewThreads else {
-                        throw GH.Failure.badJSON("Faltan hilos del PR \(node.id)")
+                        throw GH.Failure.missingThreads(node.id)
                     }
                     threads = connection.nodes
                     if connection.pageInfo.hasNextPage == true {
@@ -193,7 +193,7 @@ enum ReplyQueue {
 
     private static func nextCursor(_ cursor: String?, previous: String?) throws -> String {
         guard let cursor, cursor != previous else {
-            throw GH.Failure.badJSON("Falta el cursor de la conversación")
+            throw GH.Failure.missingConversationCursor
         }
         return cursor
     }

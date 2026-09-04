@@ -15,7 +15,7 @@ struct JiraSectionView: View {
         Group {
             switch store.state {
             case .idle, .checking:
-                ProgressView("Consultando Jira…")
+                ProgressView(L10n.text(.jiraLoading))
                     .controlSize(.small)
             case .signedOut:
                 signedOut
@@ -23,17 +23,17 @@ struct JiraSectionView: View {
                 queue
             case .unavailable:
                 ContentUnavailableView {
-                    Label("ACLI no está instalado", systemImage: "terminal")
+                    Label(L10n.text(.jiraMissingCLI), systemImage: "terminal")
                 } description: {
-                    Text("Instalalo fuera de work-buddy y volvé a verificar.")
+                    Text(L10n.text(.jiraInstallCLI))
                 } actions: {
                     retryButton
                 }
             case .failed(let message):
                 ContentUnavailableView {
-                    Label("No pude consultar Jira", systemImage: "exclamationmark.triangle")
+                    Label(L10n.text(.jiraLoadFailed), systemImage: "exclamationmark.triangle")
                 } description: {
-                    Text(message).font(.caption)
+                    Text(message.text).font(.caption)
                 } actions: {
                     retryButton
                 }
@@ -47,19 +47,19 @@ struct JiraSectionView: View {
             VStack(alignment: .leading, spacing: 4) {
                 if !showEmptySections && store.shrItems.isEmpty && store.recentlyCreatedItems.isEmpty {
                     ContentUnavailableView {
-                        Label("Nada pendiente", systemImage: "checkmark.circle")
+                        Label(L10n.text(.commonNothingPending), systemImage: "checkmark.circle")
                     }
                 }
 
                 if showEmptySections || !store.shrItems.isEmpty {
                     QueueSectionHeader(
-                        title: "Esperan mi SHR",
+                        title: L10n.text(.jiraAwaitingSHR),
                         subtitle: nil,
                         symbol: "person.2",
                         tint: .orange,
                         count: store.shrItems.count,
                         isExpanded: isSHRExpanded,
-                        accessibilityItemName: "tickets"
+                        accessibilityItemName: L10n.text(.jiraTickets)
                     ) {
                         withAnimation(.easeInOut(duration: 0.18)) {
                             isSHRExpanded.toggle()
@@ -75,13 +75,13 @@ struct JiraSectionView: View {
 
                 if showEmptySections || !store.recentlyCreatedItems.isEmpty {
                     QueueSectionHeader(
-                        title: "Creados recientemente",
+                        title: L10n.text(.jiraRecentlyCreated),
                         subtitle: nil,
                         symbol: "clock",
                         tint: .blue,
                         count: store.recentlyCreatedItems.count,
                         isExpanded: isRecentlyCreatedExpanded,
-                        accessibilityItemName: "tickets"
+                        accessibilityItemName: L10n.text(.jiraTickets)
                     ) {
                         withAnimation(.easeInOut(duration: 0.18)) {
                             isRecentlyCreatedExpanded.toggle()
@@ -122,7 +122,8 @@ struct JiraSectionView: View {
         }
         .buttonStyle(.plain)
         .disabled(store.url(for: workItem) == nil)
-        .help("Abrir \(workItem.key) en Jira")
+        .help(L10n.text(.jiraOpen, workItem.key))
+
     }
 
     private var signedOut: some View {
@@ -130,7 +131,7 @@ struct JiraSectionView: View {
             Image(systemName: "person.crop.circle.badge.exclamationmark")
                 .font(.system(size: 30))
                 .foregroundStyle(.secondary)
-            Text("Conectá Jira desde Terminal")
+            Text(L10n.text(.jiraConnect))
                 .font(.headline)
 
             HStack(spacing: 8) {
@@ -143,8 +144,8 @@ struct JiraSectionView: View {
                     Image(systemName: copiedLoginCommand ? "checkmark" : "doc.on.doc")
                 }
                 .buttonStyle(.borderless)
-                .help(copiedLoginCommand ? "Comando copiado" : "Copiar comando")
-                .accessibilityLabel(copiedLoginCommand ? "Comando copiado" : "Copiar comando")
+                .help(copiedLoginCommand ? L10n.text(.jiraCommandCopied) : L10n.text(.jiraCopyCommand))
+                .accessibilityLabel(copiedLoginCommand ? L10n.text(.jiraCommandCopied) : L10n.text(.jiraCopyCommand))
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
@@ -156,7 +157,7 @@ struct JiraSectionView: View {
     }
 
     private var retryButton: some View {
-        Button("Volver a verificar") { store.refresh() }
+        Button(L10n.text(.jiraCheckAgain)) { store.refresh() }
             .controlSize(.small)
             .disabled(store.isChecking)
     }

@@ -4,12 +4,12 @@ struct NotificationSettingsView: View {
     let notifier: Notifier
 
     @State private var isWorking = false
-    @State private var errorMessage: String?
+    @State private var errorMessage: (any Error)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Text("Notificaciones")
+                Text(L10n.text(.notificationsTitle))
                     .font(.system(size: 12, weight: .semibold))
 
                 Spacer()
@@ -18,13 +18,13 @@ struct NotificationSettingsView: View {
                     ProgressView().controlSize(.mini)
                 }
 
-                Button("Probar") {
+                Button(L10n.text(.notificationsTest)) {
                     perform { try await notifier.sendTest() }
                 }
                 .disabled(isWorking || !notifier.isAvailable)
-                .help("Enviar una notificación de prueba")
+                .help(L10n.text(.notificationsTestHelp))
 
-                Toggle("Habilitar", isOn: Binding(
+                Toggle(L10n.text(.notificationsEnable), isOn: Binding(
                     get: { notifier.isEnabled },
                     set: { enabled in
                         perform { try await notifier.setEnabled(enabled) }
@@ -34,14 +34,14 @@ struct NotificationSettingsView: View {
                 .toggleStyle(.switch)
                 .fixedSize()
                 .disabled(isWorking || !notifier.isAvailable)
-                .help("Activar o desactivar los envíos de notificaciones de work-buddy")
-                .accessibilityLabel("Habilitar notificaciones de work-buddy")
+                .help(L10n.text(.notificationsToggleHelp))
+                .accessibilityLabel(L10n.text(.notificationsEnableAccessibility))
 
             }
             .controlSize(.small)
 
             if let errorMessage {
-                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                Label(errorMessage.localizedDescription, systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 10))
                     .foregroundStyle(.red)
             }
@@ -56,7 +56,7 @@ struct NotificationSettingsView: View {
             do {
                 try await action()
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = error
             }
         }
     }

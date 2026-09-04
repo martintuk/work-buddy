@@ -3,13 +3,13 @@ import Foundation
 @MainActor
 @Observable
 final class JiraStore {
-    enum State: Equatable {
+    enum State {
         case idle
         case checking
         case signedOut
         case loaded
         case unavailable
-        case failed(String)
+        case failed(LocalizedMessage)
     }
 
     private(set) var state: State = .idle
@@ -19,7 +19,10 @@ final class JiraStore {
     private(set) var lastUpdated: Date?
     private var inFlight: Task<Void, Never>?
 
-    var isChecking: Bool { state == .checking }
+    var isChecking: Bool {
+        if case .checking = state { return true }
+        return false
+    }
 
     func refresh() {
         guard inFlight == nil else { return }
@@ -48,10 +51,7 @@ final class JiraStore {
             } catch ACLI.Failure.notAuthenticated {
                 state = .signedOut
             } catch {
-                state = .failed(
-                    (error as? LocalizedError)?.errorDescription
-                        ?? error.localizedDescription
-                )
+                state = .failed(LocalizedMessage(error.localizedDescription))
             }
         }
     }

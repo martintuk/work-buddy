@@ -12,9 +12,9 @@ enum MergeMethod: String, CaseIterable, Sendable {
 
     var title: String {
         switch self {
-        case .squash: "Squash and merge"
-        case .merge: "Merge commit"
-        case .rebase: "Rebase and merge"
+        case .squash: L10n.text(.mergeSquash)
+        case .merge: L10n.text(.mergeCommit)
+        case .rebase: L10n.text(.mergeRebase)
         }
     }
 
@@ -76,10 +76,10 @@ enum GitHubWrite: Sendable {
     /// Lo que la acción hizo, en pasado, para el aviso al usuario.
     var pastTense: String {
         switch self {
-        case .approve: "Aprobado"
-        case .rebase: "Rebaseado"
-        case .dependabotRebase: "Rebase solicitado a Dependabot"
-        case .merge: "Mergeado"
+        case .approve: L10n.text(.prApproved)
+        case .rebase: L10n.text(.prRebased)
+        case .dependabotRebase: L10n.text(.prDependabotRequested)
+        case .merge: L10n.text(.prMerged)
         }
     }
 }

@@ -1,0 +1,176 @@
+extension L10n {
+    static func spanish(_ key: Key) -> String {
+        switch key {
+        // MARK: - Common
+        case .commonBack: "Volver"
+        case .commonRetry: "Reintentar"
+        case .commonClear: "Limpiar"
+        case .commonCancel: "Cancelar"
+        case .commonConfirm: "Confirmar"
+        case .commonNothingPending: "Nada pendiente"
+        case .commonEnabled: "Activado"
+        case .commonDisabled: "Desactivado"
+        case .commonRefreshing: "Actualizando"
+
+        // MARK: - Settings
+        case .settingsTitle: "Configuración"
+        case .settingsClose: "Cerrar configuración"
+        case .settingsLanguage: "Idioma"
+        case .settingsEmptySections: "Mostrar secciones vacías"
+        case .settingsEmptySectionsHelp: "Mostrar u ocultar las secciones sin elementos"
+        case .settingsMachineAccounts: "Cuentas de automatización"
+        case .settingsMachineAccountsPlaceholder: "ci-bot, release-bot"
+        case .settingsMachineAccountsHelp: "Logins que GitHub identifica como User aunque sean cuentas de máquina. Separalos con comas o espacios."
+        case .settingsOrganizations: "Tus organizaciones de GitHub"
+        case .settingsRefreshOrganizations: "Actualizar lista de organizaciones"
+        case .settingsSavedOrganization: "Guardada · no disponible en la lista"
+        case .settingsNoOrganizations: "GitHub no devolvió organizaciones para esta sesión de gh."
+
+        // MARK: - Notifications
+        case .notificationsTitle: "Notificaciones"
+        case .notificationsTest: "Probar"
+        case .notificationsTestHelp: "Enviar una notificación de prueba"
+        case .notificationsEnable: "Habilitar"
+        case .notificationsToggleHelp: "Activar o desactivar los envíos de notificaciones de work-buddy"
+        case .notificationsEnableAccessibility: "Habilitar notificaciones de work-buddy"
+        case .notificationsTestBody: "Notificación de prueba"
+        case .notificationsUnavailable: "Las notificaciones requieren ejecutar la app desde su bundle."
+        case .notificationsDenied: "macOS bloqueó las notificaciones de work-buddy. Permitilas una vez en Configuración del Sistema → Notificaciones → work-buddy."
+        case .notificationsNewReview: "Nuevo PR para revisar"
+        case .notificationsNewMerge: "Nuevo PR para mergear"
+
+        // MARK: - Repositories
+        case .repositoriesTitle: "Repositorios"
+        case .repositoriesSearchPlaceholder: "Buscar repositorio…"
+        case .repositoriesSearch: "Buscar repositorio"
+        case .repositoriesEmpty: "Sin repositorios"
+        case .repositoriesNotLoaded: "Los repositorios aparecerán al cargar los resultados de GitHub."
+        case .repositoriesNoMatches: "No hay repositorios que coincidan con la búsqueda."
+        case .repositoriesUnfavorite: "Quitar de favoritos"
+        case .repositoriesFavorite: "Marcar como favorito"
+        case .repositoriesDeselect: "Quitar de la selección"
+        case .repositoriesSolo: "Ver solo los repositorios seleccionados"
+        case .repositoriesUnmute: "Dejar de mutear"
+        case .repositoriesMute: "Mutear repositorio"
+        case .repositoriesFilterActive: "Filtro activo"
+        case .repositoriesAll: "Todos"
+        case .repositoriesFilterHelp: "Filtrar repositorios de GitHub"
+        case .repositoriesFilteredEmpty: "Sin PRs con este filtro"
+        case .repositoriesHiddenResults: "Hay resultados en repositorios ocultos. Podés cambiar el filtro o ver todos."
+        case .repositoriesShowAll: "Ver todos"
+        case .repositoriesFavoriteAccessibility: "Favorito: %@"
+        case .repositoriesSelectAccessibility: "Seleccionar %@"
+        case .repositoriesMuteAccessibility: "Mutear %@"
+
+        // MARK: - Panel
+        case .panelCategory: "Categoría"
+        case .panelRefresh: "Actualizar GitHub y Jira"
+
+        // MARK: - Menu
+        case .menuAbout: "Acerca de work-buddy"
+        case .menuQuit: "Salir"
+
+        // MARK: - Jira
+        case .jiraLoading: "Consultando Jira…"
+        case .jiraMissingCLI: "ACLI no está instalado"
+        case .jiraInstallCLI: "Instalalo fuera de work-buddy y volvé a verificar."
+        case .jiraLoadFailed: "No pude consultar Jira"
+        case .jiraAwaitingSHR: "Esperan mi SHR"
+        case .jiraRecentlyCreated: "Creados recientemente"
+        case .jiraTickets: "tickets"
+        case .jiraConnect: "Conectá Jira desde Terminal"
+        case .jiraCommandCopied: "Comando copiado"
+        case .jiraCopyCommand: "Copiar comando"
+        case .jiraCheckAgain: "Volver a verificar"
+        case .jiraOpen: "Abrir %@ en Jira"
+
+        // MARK: - Github
+        case .githubReplyHelp: "Tus PRs o menciones a vos en PRs ajenos.\nHilos sin resolver que esperan tu respuesta."
+        case .githubWaitingHelp: "PRs ajenos donde comentaste último.\nHilos sin resolver que esperan una respuesta."
+        case .githubDependabotWarning: "@dependabot rebase · puede reemplazar el PR"
+        case .githubUnknownMergeMethod: "método desconocido"
+        case .githubLoadFailed: "No pude leer la cola"
+        case .githubLoading: "Consultando GitHub…"
+        case .githubNoReviews: "No hay PRs esperando tu review."
+        case .githubMerge: "Para mergear"
+        case .githubFix: "Para Fixear"
+        case .githubReply: "Para responder"
+        case .githubWaiting: "Esperando respuesta"
+        case .githubAutomation: "Automatización"
+        case .githubIgnored: "Ignorados"
+        case .githubReview: "Para revisar"
+        case .githubApproved: "Ya aprobados"
+        case .githubApprovedHelp: "tu review es opcional, ya tienen los approvals"
+        case .githubPullRequests: "pull requests"
+
+        // MARK: - Section
+        case .sectionExpanded: "Expandido"
+        case .sectionCollapsed: "Contraído"
+        case .sectionHide: "Ocultar la sección"
+        case .sectionShow: "Mostrar la sección"
+        case .sectionHideTitle: "Ocultar %@"
+        case .sectionShowTitle: "Mostrar %@"
+
+        // MARK: - Pr
+        case .prDraft: "borrador"
+        case .prCI: "CI"
+        case .prActions: "Acciones"
+        case .prOpen: "Abrir en el navegador"
+        case .prIgnore: "Ignorar"
+        case .prRestore: "Dejar de ignorar"
+        case .prApprove: "Aprobar"
+        case .prRebase: "Rebasear"
+        case .prDependabotRebase: "Rebasear con Dependabot"
+        case .prMerge: "Mergear"
+        case .prApproved: "Aprobado"
+        case .prRebased: "Rebaseado"
+        case .prDependabotRequested: "Rebase solicitado a Dependabot"
+        case .prMerged: "Mergeado"
+        case .prBehindOne: "%@ commit atrás de %@"
+        case .prBehindMany: "%@ commits atrás de %@"
+
+        // MARK: - Merge
+        case .mergeSquash: "Squash y merge"
+        case .mergeCommit: "Commit de merge"
+        case .mergeRebase: "Rebase y merge"
+
+        // MARK: - Error
+        case .errorGHMissing: "No encontré el CLI `gh`. Instalalo con `brew install gh`."
+        case .errorACLIMissing: "No encontré el CLI `acli`."
+        case .errorACLIAuthentication: "`acli` no está autenticado. Corré `acli jira auth login`."
+        case .errorConversationCursor: "Falta el cursor de la conversación"
+        case .errorNoAttempts: "sin intentos"
+        case .errorDependabotRebase: "Dependabot no puede rebasear %@"
+        case .errorMergeMethod: "No sé qué método de merge usa %@"
+        case .errorOrganization: "La organización `%@` no parece un identificador válido de GitHub."
+        case .errorMachineAccount: "La cuenta `%@` no parece un login válido de GitHub."
+        case .errorGHAuthentication: "`gh` no está autenticado. Corré `gh auth login`.\n%@"
+        case .errorGHCommand: "`gh` falló (código %@): %@"
+        case .errorGHResponse: "No pude parsear la respuesta de `gh`: %@"
+        case .errorACLICommand: "`acli` falló (código %@): %@"
+        case .errorACLIResponse: "No pude parsear la respuesta de `acli`: %@"
+        case .errorMissingThreads: "Faltan hilos del PR %@"
+        case .errorMissingComments: "Faltan comentarios del hilo %@"
+
+        // MARK: - Summary
+        case .summaryReview: "%@ para revisar"
+        case .summaryMerge: "%@ para mergear"
+        case .summaryFix: "%@ para fixear"
+        case .summaryReply: "%@ para responder"
+
+        // MARK: - Confirm
+        case .confirmDependabot: "¿Rebasear %@ #%@ con Dependabot?"
+        case .confirmAction: "¿%@ %@ #%@?"
+
+        // MARK: - Updated
+        case .updatedSecondsOne: "Actualizado hace %@ segundo"
+        case .updatedSecondsMany: "Actualizado hace %@ segundos"
+        case .updatedMinutesOne: "Actualizado hace %@ minuto"
+        case .updatedMinutesMany: "Actualizado hace %@ minutos"
+        case .updatedHoursOne: "Actualizado hace %@ hora"
+        case .updatedHoursMany: "Actualizado hace %@ horas"
+        case .updatedDaysOne: "Actualizado hace %@ día"
+        case .updatedDaysMany: "Actualizado hace %@ días"
+        }
+    }
+}

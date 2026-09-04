@@ -20,7 +20,7 @@ struct LastUpdatedTextTests {
     func elapsedTime(seconds: Double, expected: String) {
         let lastUpdated = Date(timeIntervalSince1970: 1_000)
         #expect(LastUpdatedText.format(
-            lastUpdated, relativeTo: lastUpdated.addingTimeInterval(seconds)
+            lastUpdated, relativeTo: lastUpdated.addingTimeInterval(seconds), language: .spanish
         ) == expected)
     }
 }

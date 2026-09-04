@@ -10,17 +10,29 @@ enum GH {
         case notAuthenticated(String)
         case commandFailed(exitCode: Int32, stderr: String)
         case badJSON(String)
+        case missingThreads(String)
+        case missingComments(String)
+        case missingConversationCursor
+        case noAttempts
 
         var errorDescription: String? {
             switch self {
             case .notInstalled:
-                "No encontré el CLI `gh`. Instalalo con `brew install gh`."
+                L10n.text(.errorGHMissing)
             case .notAuthenticated(let detail):
-                "`gh` no está autenticado. Corré `gh auth login`.\n\(detail)"
+                L10n.text(.errorGHAuthentication, detail)
             case .commandFailed(let code, let stderr):
-                "`gh` falló (código \(code)): \(stderr)"
+                L10n.text(.errorGHCommand, String(code), stderr)
             case .badJSON(let detail):
-                "No pude parsear la respuesta de `gh`: \(detail)"
+                L10n.text(.errorGHResponse, detail)
+            case .missingThreads(let id):
+                L10n.text(.errorGHResponse, L10n.text(.errorMissingThreads, id))
+            case .missingComments(let id):
+                L10n.text(.errorGHResponse, L10n.text(.errorMissingComments, id))
+            case .missingConversationCursor:
+                L10n.text(.errorGHResponse, L10n.text(.errorConversationCursor))
+            case .noAttempts:
+                L10n.text(.errorGHCommand, "-1", L10n.text(.errorNoAttempts))
             }
         }
     }
@@ -64,7 +76,7 @@ enum GH {
     /// conexiones anidadas: medido contra la API real, falla más o menos 1 de
     /// cada 4 intentos. Sin reintentar, el panel mostraría un error al azar.
     static func runRetrying(_ arguments: [String], attempts: Int = 4) async throws -> Data {
-        var lastError: Error = Failure.commandFailed(exitCode: -1, stderr: "sin intentos")
+        var lastError: Error = Failure.noAttempts
         for attempt in 0 ..< attempts {
             do {
                 return try await run(arguments)

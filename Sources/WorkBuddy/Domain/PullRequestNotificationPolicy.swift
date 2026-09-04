@@ -7,8 +7,8 @@ struct PullRequestNotification: Sendable {
 
         var title: String {
             switch self {
-            case .review: "Nuevo PR para revisar"
-            case .merge: "Nuevo PR para mergear"
+            case .review: L10n.text(.notificationsNewReview)
+            case .merge: L10n.text(.notificationsNewMerge)
             }
         }
     }

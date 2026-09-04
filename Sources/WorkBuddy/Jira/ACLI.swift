@@ -19,13 +19,13 @@ enum ACLI {
         var errorDescription: String? {
             switch self {
             case .notInstalled:
-                "No encontré el CLI `acli`."
+                L10n.text(.errorACLIMissing)
             case .notAuthenticated:
-                "`acli` no está autenticado. Corré `acli jira auth login`."
+                L10n.text(.errorACLIAuthentication)
             case .commandFailed(let exitCode, let output):
-                "`acli` falló (código \(exitCode)): \(output)"
+                L10n.text(.errorACLICommand, String(exitCode), output)
             case .badJSON(let detail):
-                "No pude parsear la respuesta de `acli`: \(detail)"
+                L10n.text(.errorACLIResponse, detail)
             }
         }
     }

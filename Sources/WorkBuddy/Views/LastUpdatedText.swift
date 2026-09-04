@@ -1,22 +1,24 @@
 import Foundation
 
 enum LastUpdatedText {
-    static func format(_ lastUpdated: Date, relativeTo now: Date) -> String {
-        // Un refresh puede terminar después de la fecha del tick actual.
-        // Nunca describir una actualización ya realizada como futura.
+    static func format(
+        _ lastUpdated: Date, relativeTo now: Date, language: AppLanguage? = nil
+    ) -> String {
+        // A refresh can finish after the current tick; never describe it as future.
         let seconds = max(0, Int(now.timeIntervalSince(lastUpdated)))
         let value: Int
-        let unit: String
+        let singular: L10n.Key
+        let plural: L10n.Key
         switch seconds {
         case 0..<60:
-            (value, unit) = (seconds, "segundo")
+            (value, singular, plural) = (seconds, .updatedSecondsOne, .updatedSecondsMany)
         case 60..<3_600:
-            (value, unit) = (seconds / 60, "minuto")
+            (value, singular, plural) = (seconds / 60, .updatedMinutesOne, .updatedMinutesMany)
         case 3_600..<86_400:
-            (value, unit) = (seconds / 3_600, "hora")
+            (value, singular, plural) = (seconds / 3_600, .updatedHoursOne, .updatedHoursMany)
         default:
-            (value, unit) = (seconds / 86_400, "día")
+            (value, singular, plural) = (seconds / 86_400, .updatedDaysOne, .updatedDaysMany)
         }
-        return "Actualizado hace \(value) \(unit)\(value == 1 ? "" : "s")"
+        return L10n.text(value == 1 ? singular : plural, String(value), language: language)
     }
 }

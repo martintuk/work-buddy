@@ -66,7 +66,9 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         popover.behavior = .transient // se cierra solo al clickear afuera
         popover.animates = false // sin esto el panel "resbala" al abrirse
         popover.contentViewController = NSHostingController(
-            rootView: PanelView(store: store, jiraStore: jiraStore)
+            rootView: PanelView(store: store, jiraStore: jiraStore) { [weak self] in
+                self?.updateBadge()
+            }
         )
     }
 
@@ -190,9 +192,9 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         closePanel()
 
         let menu = NSMenu()
-        menu.addItem(menuItem(title: "Acerca de work-buddy", action: #selector(showAbout)))
+        menu.addItem(menuItem(title: L10n.text(.menuAbout), action: #selector(showAbout)))
         menu.addItem(.separator())
-        menu.addItem(menuItem(title: "Salir", action: #selector(quit), keyEquivalent: "q"))
+        menu.addItem(menuItem(title: L10n.text(.menuQuit), action: #selector(quit), keyEquivalent: "q"))
 
         menu.popUp(
             positioning: nil,

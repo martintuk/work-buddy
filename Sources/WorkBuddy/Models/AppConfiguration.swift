@@ -13,9 +13,9 @@ struct AppConfiguration: Equatable, Sendable {
         var errorDescription: String? {
             switch self {
             case .invalidOrganization(let value):
-                "La organización `\(value)` no parece un identificador válido de GitHub."
+                L10n.text(.errorOrganization, value)
             case .invalidMachineAccount(let value):
-                "La cuenta `\(value)` no parece un login válido de GitHub."
+                L10n.text(.errorMachineAccount, value)
             }
         }
     }

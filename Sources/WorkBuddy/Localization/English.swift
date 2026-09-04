@@ -1,0 +1,176 @@
+extension L10n {
+    static func english(_ key: Key) -> String {
+        switch key {
+        // MARK: - Common
+        case .commonBack: "Back"
+        case .commonRetry: "Retry"
+        case .commonClear: "Clear"
+        case .commonCancel: "Cancel"
+        case .commonConfirm: "Confirm"
+        case .commonNothingPending: "Nothing pending"
+        case .commonEnabled: "Enabled"
+        case .commonDisabled: "Disabled"
+        case .commonRefreshing: "Refreshing"
+
+        // MARK: - Settings
+        case .settingsTitle: "Settings"
+        case .settingsClose: "Close settings"
+        case .settingsLanguage: "Language"
+        case .settingsEmptySections: "Show empty sections"
+        case .settingsEmptySectionsHelp: "Show or hide sections with no items"
+        case .settingsMachineAccounts: "Automation accounts"
+        case .settingsMachineAccountsPlaceholder: "ci-bot, release-bot"
+        case .settingsMachineAccountsHelp: "Logins that GitHub identifies as User even though they are machine accounts. Separate them with commas or spaces."
+        case .settingsOrganizations: "Your GitHub organizations"
+        case .settingsRefreshOrganizations: "Refresh organization list"
+        case .settingsSavedOrganization: "Saved · unavailable in the list"
+        case .settingsNoOrganizations: "GitHub returned no organizations for this gh session."
+
+        // MARK: - Notifications
+        case .notificationsTitle: "Notifications"
+        case .notificationsTest: "Test"
+        case .notificationsTestHelp: "Send a test notification"
+        case .notificationsEnable: "Enable"
+        case .notificationsToggleHelp: "Turn work-buddy notifications on or off"
+        case .notificationsEnableAccessibility: "Enable work-buddy notifications"
+        case .notificationsTestBody: "Test notification"
+        case .notificationsUnavailable: "Notifications require running the app from its bundle."
+        case .notificationsDenied: "macOS blocked work-buddy notifications. Allow them in System Settings → Notifications → work-buddy."
+        case .notificationsNewReview: "New PR to review"
+        case .notificationsNewMerge: "New PR to merge"
+
+        // MARK: - Repositories
+        case .repositoriesTitle: "Repositories"
+        case .repositoriesSearchPlaceholder: "Search repositories…"
+        case .repositoriesSearch: "Search repositories"
+        case .repositoriesEmpty: "No repositories"
+        case .repositoriesNotLoaded: "Repositories will appear when GitHub results load."
+        case .repositoriesNoMatches: "No repositories match your search."
+        case .repositoriesUnfavorite: "Remove from favorites"
+        case .repositoriesFavorite: "Add to favorites"
+        case .repositoriesDeselect: "Remove from selection"
+        case .repositoriesSolo: "Show only selected repositories"
+        case .repositoriesUnmute: "Unmute repository"
+        case .repositoriesMute: "Mute repository"
+        case .repositoriesFilterActive: "Filter active"
+        case .repositoriesAll: "All"
+        case .repositoriesFilterHelp: "Filter GitHub repositories"
+        case .repositoriesFilteredEmpty: "No PRs match this filter"
+        case .repositoriesHiddenResults: "There are results in hidden repositories. Change the filter or show all."
+        case .repositoriesShowAll: "Show all"
+        case .repositoriesFavoriteAccessibility: "Favorite: %@"
+        case .repositoriesSelectAccessibility: "Select %@"
+        case .repositoriesMuteAccessibility: "Mute %@"
+
+        // MARK: - Panel
+        case .panelCategory: "Category"
+        case .panelRefresh: "Refresh GitHub and Jira"
+
+        // MARK: - Menu
+        case .menuAbout: "About work-buddy"
+        case .menuQuit: "Quit"
+
+        // MARK: - Jira
+        case .jiraLoading: "Loading Jira…"
+        case .jiraMissingCLI: "ACLI is not installed"
+        case .jiraInstallCLI: "Install it outside work-buddy, then check again."
+        case .jiraLoadFailed: "Could not load Jira"
+        case .jiraAwaitingSHR: "Awaiting my SHR"
+        case .jiraRecentlyCreated: "Recently created"
+        case .jiraTickets: "tickets"
+        case .jiraConnect: "Connect Jira from Terminal"
+        case .jiraCommandCopied: "Command copied"
+        case .jiraCopyCommand: "Copy command"
+        case .jiraCheckAgain: "Check again"
+        case .jiraOpen: "Open %@ in Jira"
+
+        // MARK: - Github
+        case .githubReplyHelp: "Your PRs or mentions of you in other PRs.\nUnresolved threads awaiting your reply."
+        case .githubWaitingHelp: "Other PRs where you commented last.\nUnresolved threads awaiting a reply."
+        case .githubDependabotWarning: "@dependabot rebase · may replace the PR"
+        case .githubUnknownMergeMethod: "unknown method"
+        case .githubLoadFailed: "Could not load the queue"
+        case .githubLoading: "Loading GitHub…"
+        case .githubNoReviews: "No PRs are waiting for your review."
+        case .githubMerge: "To merge"
+        case .githubFix: "To fix"
+        case .githubReply: "To reply"
+        case .githubWaiting: "Awaiting reply"
+        case .githubAutomation: "Automation"
+        case .githubIgnored: "Ignored"
+        case .githubReview: "To review"
+        case .githubApproved: "Already approved"
+        case .githubApprovedHelp: "your review is optional; they already have the approvals"
+        case .githubPullRequests: "pull requests"
+
+        // MARK: - Section
+        case .sectionExpanded: "Expanded"
+        case .sectionCollapsed: "Collapsed"
+        case .sectionHide: "Hide section"
+        case .sectionShow: "Show section"
+        case .sectionHideTitle: "Hide %@"
+        case .sectionShowTitle: "Show %@"
+
+        // MARK: - Pr
+        case .prDraft: "draft"
+        case .prCI: "CI"
+        case .prActions: "Actions"
+        case .prOpen: "Open in browser"
+        case .prIgnore: "Ignore"
+        case .prRestore: "Stop ignoring"
+        case .prApprove: "Approve"
+        case .prRebase: "Rebase"
+        case .prDependabotRebase: "Rebase with Dependabot"
+        case .prMerge: "Merge"
+        case .prApproved: "Approved"
+        case .prRebased: "Rebased"
+        case .prDependabotRequested: "Rebase requested from Dependabot"
+        case .prMerged: "Merged"
+        case .prBehindOne: "%@ commit behind %@"
+        case .prBehindMany: "%@ commits behind %@"
+
+        // MARK: - Merge
+        case .mergeSquash: "Squash and merge"
+        case .mergeCommit: "Merge commit"
+        case .mergeRebase: "Rebase and merge"
+
+        // MARK: - Error
+        case .errorGHMissing: "Could not find the `gh` CLI. Install it with `brew install gh`."
+        case .errorACLIMissing: "Could not find the `acli` CLI."
+        case .errorACLIAuthentication: "`acli` is not authenticated. Run `acli jira auth login`."
+        case .errorConversationCursor: "Missing conversation cursor"
+        case .errorNoAttempts: "no attempts"
+        case .errorDependabotRebase: "Dependabot cannot rebase %@"
+        case .errorMergeMethod: "Unknown merge method for %@"
+        case .errorOrganization: "The organization `%@` does not look like a valid GitHub identifier."
+        case .errorMachineAccount: "The account `%@` does not look like a valid GitHub login."
+        case .errorGHAuthentication: "`gh` is not authenticated. Run `gh auth login`.\n%@"
+        case .errorGHCommand: "`gh` failed (code %@): %@"
+        case .errorGHResponse: "Could not parse the `gh` response: %@"
+        case .errorACLICommand: "`acli` failed (code %@): %@"
+        case .errorACLIResponse: "Could not parse the `acli` response: %@"
+        case .errorMissingThreads: "Missing threads for PR %@"
+        case .errorMissingComments: "Missing comments for thread %@"
+
+        // MARK: - Summary
+        case .summaryReview: "%@ to review"
+        case .summaryMerge: "%@ to merge"
+        case .summaryFix: "%@ to fix"
+        case .summaryReply: "%@ to reply"
+
+        // MARK: - Confirm
+        case .confirmDependabot: "Rebase %@ #%@ with Dependabot?"
+        case .confirmAction: "%@ %@ #%@?"
+
+        // MARK: - Updated
+        case .updatedSecondsOne: "Updated %@ second ago"
+        case .updatedSecondsMany: "Updated %@ seconds ago"
+        case .updatedMinutesOne: "Updated %@ minute ago"
+        case .updatedMinutesMany: "Updated %@ minutes ago"
+        case .updatedHoursOne: "Updated %@ hour ago"
+        case .updatedHoursMany: "Updated %@ hours ago"
+        case .updatedDaysOne: "Updated %@ day ago"
+        case .updatedDaysMany: "Updated %@ days ago"
+        }
+    }
+}

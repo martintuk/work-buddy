@@ -19,7 +19,7 @@ struct RefreshButton: View {
         .buttonStyle(.borderless)
         .help(label)
         .accessibilityLabel(label)
-        .accessibilityValue(isRefreshing ? "Actualizando" : "")
+        .accessibilityValue(isRefreshing ? L10n.text(.commonRefreshing) : "")
         .disabled(isRefreshing)
     }
 }

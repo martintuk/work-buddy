@@ -29,9 +29,9 @@ struct GitHubSectionView: View {
         var summary: String? {
             switch self {
             case .needingReply:
-                "Tus PRs o menciones a vos en PRs ajenos.\nHilos sin resolver que esperan tu respuesta."
+                L10n.text(.githubReplyHelp)
             case .waitingForReply:
-                "PRs ajenos donde comentaste último.\nHilos sin resolver que esperan una respuesta."
+                L10n.text(.githubWaitingHelp)
             default:
                 nil
             }
@@ -81,12 +81,12 @@ struct GitHubSectionView: View {
         VStack(spacing: 0) {
             Button(action: showRepositories) {
                 HStack(spacing: 6) {
-                    Label("Repositorios", systemImage: store.repositoryFilter.isActive
+                    Label(L10n.text(.repositoriesTitle), systemImage: store.repositoryFilter.isActive
                         ? "line.3.horizontal.decrease.circle.fill"
                         : "line.3.horizontal.decrease.circle")
                         .foregroundStyle(store.repositoryFilter.isActive ? Color.accentColor : Color.primary)
                     Spacer()
-                    Text(store.repositoryFilter.isActive ? "Filtro activo" : "Todos")
+                    Text(store.repositoryFilter.isActive ? L10n.text(.repositoriesFilterActive) : L10n.text(.repositoriesAll))
                         .foregroundStyle(.secondary)
                     Image(systemName: "chevron.right")
                         .foregroundStyle(.secondary)
@@ -98,7 +98,7 @@ struct GitHubSectionView: View {
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .help("Filtrar repositorios de GitHub")
+            .help(L10n.text(.repositoriesFilterHelp))
             Divider()
 
             // La confirmación tapa el aviso: son el mismo lugar y nunca hacen
@@ -133,9 +133,9 @@ struct GitHubSectionView: View {
                 }
             }
             Spacer(minLength: 4)
-            Button("Cancelar") { pendingAction = nil }
+            Button(L10n.text(.commonCancel)) { pendingAction = nil }
                 .controlSize(.small)
-            Button("Confirmar") {
+            Button(L10n.text(.commonConfirm)) {
                 store.perform(pending.action, on: pending.pullRequest)
                 pendingAction = nil
             }
@@ -148,27 +148,22 @@ struct GitHubSectionView: View {
     }
 
     private func confirmationTitle(for pending: PendingAction) -> String {
-        switch pending.action {
-        case .dependabotRebase:
-            "¿Rebasear \(pending.pullRequest.shortRepository) "
-                + "#\(pending.pullRequest.number) con Dependabot?"
-        case .merge:
-            "¿Mergear \(pending.pullRequest.shortRepository) "
-                + "#\(pending.pullRequest.number)?"
-        default:
-            "¿\(pending.action.title) \(pending.pullRequest.shortRepository) "
-                + "#\(pending.pullRequest.number)?"
+        let repository = pending.pullRequest.shortRepository
+        let number = String(pending.pullRequest.number)
+        if pending.action == .dependabotRebase {
+            return L10n.text(.confirmDependabot, repository, number)
         }
+        return L10n.text(.confirmAction, pending.action.title, repository, number)
     }
 
     private func confirmationDetail(for pending: PendingAction) -> String? {
         switch pending.action {
         case .dependabotRebase:
-            "@dependabot rebase · puede reemplazar el PR"
+            L10n.text(.githubDependabotWarning)
         case .merge:
             // El método sale del repo: lo mostramos para que sepas qué va a
             // pasar, no para que elijas.
-            pending.pullRequest.defaultMergeMethod?.title ?? "método desconocido"
+            pending.pullRequest.defaultMergeMethod?.title ?? L10n.text(.githubUnknownMergeMethod)
         default:
             nil
         }
@@ -216,11 +211,11 @@ struct GitHubSectionView: View {
         case .failed(let message):
             centered {
                 ContentUnavailableView {
-                    Label("No pude leer la cola", systemImage: "exclamationmark.triangle")
+                    Label(L10n.text(.githubLoadFailed), systemImage: "exclamationmark.triangle")
                 } description: {
-                    Text(message).font(.caption)
+                    Text(message.text).font(.caption)
                 } actions: {
-                    Button("Reintentar") { store.refresh(force: true) }
+                    Button(L10n.text(.commonRetry)) { store.refresh(force: true) }
                 }
             }
         default:
@@ -229,7 +224,7 @@ struct GitHubSectionView: View {
     }
 
     private var loading: some View {
-        centered { ProgressView("Consultando GitHub…").controlSize(.small) }
+        centered { ProgressView(L10n.text(.githubLoading)).controlSize(.small) }
     }
 
     @ViewBuilder
@@ -241,24 +236,24 @@ struct GitHubSectionView: View {
                 if !hasVisiblePullRequests && (!showEmptySections || store.hasRepositoryFilteredResults) {
                     centered {
                         ContentUnavailableView {
-                            Label(store.hasRepositoryFilteredResults ? "Sin PRs con este filtro" : "Nada pendiente",
+                            Label(store.hasRepositoryFilteredResults ? L10n.text(.repositoriesFilteredEmpty) : L10n.text(.commonNothingPending),
                                   systemImage: store.hasRepositoryFilteredResults ? "line.3.horizontal.decrease.circle" : "checkmark.circle")
                         } description: {
                             Text(store.hasRepositoryFilteredResults
-                                ? "Hay resultados en repositorios ocultos. Podés cambiar el filtro o ver todos."
-                                : "No hay PRs esperando tu review.")
+                                ? L10n.text(.repositoriesHiddenResults)
+                                : L10n.text(.githubNoReviews))
                         } actions: {
                             if store.repositoryFilter.isActive {
-                                Button("Ver todos") { store.clearRepositoryFilter() }
+                                Button(L10n.text(.repositoriesShowAll)) { store.clearRepositoryFilter() }
                             }
                         }
                     }
                 }
                 // Primero, porque es lo que se resuelve con un click.
-                queueSection(.readyToMerge, title: "Para mergear", items: merge)
-                queueSection(.needingCIFix, title: "Para Fixear", items: store.needingCIFix)
-                queueSection(.needingReply, title: "Para responder", items: store.needingReply)
-                queueSection(.waitingForReply, title: "Esperando respuesta", items: store.waitingForReply)
+                queueSection(.readyToMerge, title: L10n.text(.githubMerge), items: merge)
+                queueSection(.needingCIFix, title: L10n.text(.githubFix), items: store.needingCIFix)
+                queueSection(.needingReply, title: L10n.text(.githubReply), items: store.needingReply)
+                queueSection(.waitingForReply, title: L10n.text(.githubWaiting), items: store.waitingForReply)
                 ForEach(ReviewBucket.allCases, id: \.self) { bucket in
                     queueSection(
                         .review(bucket),
@@ -267,8 +262,8 @@ struct GitHubSectionView: View {
                         items: sections.first { $0.bucket == bucket }?.items ?? []
                     )
                 }
-                queueSection(.automation, title: "Automatización", items: store.automation)
-                queueSection(.ignored, title: "Ignorados", items: store.ignored)
+                queueSection(.automation, title: L10n.text(.githubAutomation), items: store.automation)
+                queueSection(.ignored, title: L10n.text(.githubIgnored), items: store.ignored)
             }
             .padding(10)
         }
@@ -312,7 +307,7 @@ struct GitHubSectionView: View {
                     tint: section.tint,
                     count: items.count,
                     isExpanded: isExpanded,
-                    accessibilityItemName: "pull requests"
+                    accessibilityItemName: L10n.text(.githubPullRequests)
                 ) {
                     withAnimation(.easeInOut(duration: 0.18)) {
                         var updated = collapsed
@@ -410,9 +405,9 @@ struct QueueSectionHeader: View {
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
         .accessibilityLabel("\(title), \(count) \(accessibilityItemName)")
-        .accessibilityValue(isExpanded ? "Expandido" : "Contraído")
-        .accessibilityHint(isExpanded ? "Ocultar la sección" : "Mostrar la sección")
-        .help(isExpanded ? "Ocultar \(title)" : "Mostrar \(title)")
+        .accessibilityValue(isExpanded ? L10n.text(.sectionExpanded) : L10n.text(.sectionCollapsed))
+        .accessibilityHint(isExpanded ? L10n.text(.sectionHide) : L10n.text(.sectionShow))
+        .help(isExpanded ? L10n.text(.sectionHideTitle, title) : L10n.text(.sectionShowTitle, title))
     }
 }
 
@@ -420,15 +415,15 @@ struct QueueSectionHeader: View {
 extension ReviewBucket {
     var title: String {
         switch self {
-        case .needsReview: "Para revisar"
-        case .approvedAlready: "Ya aprobados"
+        case .needsReview: L10n.text(.githubReview)
+        case .approvedAlready: L10n.text(.githubApproved)
         }
     }
 
     var subtitle: String? {
         switch self {
         case .needsReview: nil
-        case .approvedAlready: "tu review es opcional, ya tienen los approvals"
+        case .approvedAlready: L10n.text(.githubApprovedHelp)
         }
     }
 }

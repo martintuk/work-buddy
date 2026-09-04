@@ -7,6 +7,7 @@ struct PanelView: View {
 
     let store: ReviewQueueStore
     let jiraStore: JiraStore
+    var onLanguageChange: () -> Void = {}
 
     @State private var selectedCategory: Category = .github
     @State private var showingConfiguration = false
@@ -28,6 +29,8 @@ struct PanelView: View {
             }
         }
         .frame(width: Self.preferredSize.width, height: Self.preferredSize.height)
+        .environment(\.locale, Locale(identifier: Localization.shared.language.rawValue))
+        .onChange(of: Localization.shared.language) { _, _ in onLanguageChange() }
     }
 
     private var panel: some View {
@@ -38,7 +41,7 @@ struct PanelView: View {
                 Divider()
                 ConfigurationView(store: store)
             } else {
-                Picker("Categoría", selection: $selectedCategory) {
+                Picker(L10n.text(.panelCategory), selection: $selectedCategory) {
                     ForEach(Category.allCases) { category in
                         Text(category.rawValue).tag(category)
                     }
@@ -63,7 +66,7 @@ struct PanelView: View {
             Text("Work Buddy")
                 .font(.system(size: 13, weight: .semibold))
             Spacer()
-            RefreshButton(isRefreshing: isRefreshing, label: "Actualizar GitHub y Jira") { refresh() }
+            RefreshButton(isRefreshing: isRefreshing, label: L10n.text(.panelRefresh)) { refresh() }
 
             Button {
                 showingConfiguration.toggle()
@@ -72,7 +75,7 @@ struct PanelView: View {
                     .foregroundStyle(showingConfiguration ? Color.accentColor : Color.secondary)
             }
             .buttonStyle(.borderless)
-            .help(showingConfiguration ? "Cerrar configuración" : "Configuración")
+            .help(showingConfiguration ? L10n.text(.settingsClose) : L10n.text(.settingsTitle))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)

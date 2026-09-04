@@ -19,13 +19,13 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
 
     var title: String {
         switch self {
-        case .open: "Abrir en el navegador"
-        case .ignore: "Ignorar"
-        case .restore: "Dejar de ignorar"
-        case .approve: "Aprobar"
-        case .rebase: "Rebasear"
-        case .dependabotRebase: "Rebasear con Dependabot"
-        case .merge: "Mergear"
+        case .open: L10n.text(.prOpen)
+        case .ignore: L10n.text(.prIgnore)
+        case .restore: L10n.text(.prRestore)
+        case .approve: L10n.text(.prApprove)
+        case .rebase: L10n.text(.prRebase)
+        case .dependabotRebase: L10n.text(.prDependabotRebase)
+        case .merge: L10n.text(.prMerge)
         }
     }
 

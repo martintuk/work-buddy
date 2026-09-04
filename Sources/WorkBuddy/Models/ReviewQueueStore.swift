@@ -9,7 +9,7 @@ final class ReviewQueueStore {
         case idle
         case loading
         case loaded
-        case failed(String)
+        case failed(LocalizedMessage)
     }
 
     /// Pasado este tiempo, abrir el panel dispara un refresh.
@@ -33,8 +33,14 @@ final class ReviewQueueStore {
 
     /// Resultado de la última acción que escribió en GitHub.
     struct Outcome {
-        let text: String
+        private let message: LocalizedMessage
         let isError: Bool
+        var text: String { message.text }
+
+        init(text: @autoclosure @escaping () -> String, isError: Bool) {
+            message = LocalizedMessage(text())
+            self.isError = isError
+        }
     }
 
     /// `behindBy` por id de PR. Un id **ausente** es "no medido", que no es lo
@@ -139,12 +145,12 @@ final class ReviewQueueStore {
         let fix = needingCIFix.count
         let reply = needingReply.count
         let parts = [
-            review > 0 ? "\(review) para revisar" : nil,
-            merge > 0 ? "\(merge) para mergear" : nil,
-            fix > 0 ? "\(fix) para fixear" : nil,
-            reply > 0 ? "\(reply) para responder" : nil
+            review > 0 ? L10n.text(.summaryReview, String(review)) : nil,
+            merge > 0 ? L10n.text(.summaryMerge, String(merge)) : nil,
+            fix > 0 ? L10n.text(.summaryFix, String(fix)) : nil,
+            reply > 0 ? L10n.text(.summaryReply, String(reply)) : nil
         ].compactMap(\.self)
-        return parts.isEmpty ? "Nada pendiente" : parts.joined(separator: " · ")
+        return parts.isEmpty ? L10n.text(.commonNothingPending) : parts.joined(separator: " · ")
     }
 
     /// Ignorados que siguen abiertos y en tu cola. Los que se cerraron no
@@ -196,7 +202,7 @@ final class ReviewQueueStore {
                 behindBy: behindCount(for: pullRequest)
             ) else {
                 outcome = Outcome(
-                    text: "Dependabot no puede rebasear \(pullRequest.shortRepository)",
+                    text: L10n.text(.errorDependabotRebase, pullRequest.shortRepository),
                     isError: true
                 )
                 break
@@ -221,7 +227,7 @@ final class ReviewQueueStore {
             // acción ni se ofrece, así que llegar acá sin método sería un bug.
             guard let method = pullRequest.defaultMergeMethod else {
                 outcome = Outcome(
-                    text: "No sé qué método de merge usa \(pullRequest.shortRepository)",
+                    text: L10n.text(.errorMergeMethod, pullRequest.shortRepository),
                     isError: true
                 )
                 break
@@ -427,8 +433,7 @@ final class ReviewQueueStore {
                 behindCounts = await BehindCount.fetch(for: allKnown)
             } catch {
                 guard requestedRevision == configurationRevision else { return }
-                state = .failed((error as? LocalizedError)?.errorDescription
-                    ?? error.localizedDescription)
+                state = .failed(LocalizedMessage(error.localizedDescription))
             }
             guard requestedRevision == configurationRevision else { return }
             inFlight = nil

@@ -29,9 +29,9 @@ final class Notifier: NSObject {
 
         var errorDescription: String? {
             switch self {
-            case .unavailable: "Las notificaciones requieren ejecutar la app desde su bundle."
+            case .unavailable: L10n.text(.notificationsUnavailable)
             case .permissionRequired:
-                "macOS bloqueó las notificaciones de work-buddy. Permitilas una vez en Configuración del Sistema → Notificaciones → work-buddy."
+                L10n.text(.notificationsDenied)
             }
         }
     }
@@ -73,7 +73,7 @@ final class Notifier: NSObject {
     func sendTest() async throws {
         // La prueba es explícita y no modifica la preferencia de envíos automáticos.
         try await requestAuthorization()
-        try await send(title: "work-buddy", body: "Notificación de prueba", url: nil)
+        try await send(title: "work-buddy", body: L10n.text(.notificationsTestBody), url: nil)
     }
 
     func send(_ notifications: [PullRequestNotification]) async {

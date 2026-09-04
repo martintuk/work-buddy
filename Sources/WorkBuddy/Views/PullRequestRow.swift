@@ -74,11 +74,11 @@ struct PullRequestRow: View {
     @ViewBuilder
     private var badges: some View {
         if pullRequest.isDraft {
-            Badge(text: "draft", color: .secondary)
+            Badge(text: L10n.text(.prDraft), color: .secondary)
         }
         // Informativo, no excluyente: statusCheckRollup incluye checks opcionales.
         if pullRequest.checks.isRed {
-            Badge(text: "CI", color: .red)
+            Badge(text: L10n.text(.prCI), color: .red)
         }
         if pullRequest.approvals > 0 {
             Badge(text: "\(pullRequest.approvals)✓", color: .green)
@@ -92,7 +92,7 @@ struct PullRequestRow: View {
     private var behindBadge: some View {
         if let commits = behindBy, commits > 0 {
             Badge(text: "↓\(commits)", color: .orange)
-                .help("\(commits) commit\(commits == 1 ? "" : "s") atrás de \(pullRequest.baseRefName)")
+                .help(L10n.text(commits == 1 ? .prBehindOne : .prBehindMany, String(commits), pullRequest.baseRefName))
         }
     }
 
@@ -108,7 +108,7 @@ struct PullRequestRow: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .accessibilityLabel("Acciones")
+        .accessibilityLabel(L10n.text(.prActions))
         // Siempre presente para no mover el layout, atenuado hasta que pasás
         // el mouse por encima.
         .opacity(isHovering ? 1 : 0.25)

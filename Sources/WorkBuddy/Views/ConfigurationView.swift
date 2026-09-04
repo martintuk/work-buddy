@@ -13,23 +13,41 @@ struct ConfigurationView: View {
     @State private var selectedOrganizations: Set<String> = []
     @State private var availableOrganizations: [String] = []
     @State private var isLoadingOrganizations = false
-    @State private var organizationsError: String?
+    @State private var organizationsError: (any Error)?
     @State private var organizationsRequest = 0
     @State private var machineAccounts = ""
-    @State private var configurationErrors: [Field: String] = [:]
+    @State private var configurationErrors: [Field: any Error] = [:]
     @FocusState private var focusedField: Field?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 8) {
-                    Text("Mostrar secciones vacías")
+                    Text(L10n.text(.settingsLanguage))
                         .font(.system(size: 12, weight: .semibold))
                     Spacer()
-                    Toggle("Mostrar secciones vacías", isOn: $showEmptySections)
+                    Picker(L10n.text(.settingsLanguage), selection: Binding(
+                        get: { Localization.shared.language },
+                        set: { Localization.shared.setLanguage($0) }
+                    )) {
+                        ForEach(AppLanguage.allCases, id: \.self) { language in
+                            Text(language.nativeName).tag(language)
+                        }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                    .accessibilityLabel(L10n.text(.settingsLanguage))
+                }
+                .controlSize(.small)
+
+                HStack(spacing: 8) {
+                    Text(L10n.text(.settingsEmptySections))
+                        .font(.system(size: 12, weight: .semibold))
+                    Spacer()
+                    Toggle(L10n.text(.settingsEmptySections), isOn: $showEmptySections)
                         .labelsHidden()
                         .toggleStyle(.switch)
-                        .help("Mostrar u ocultar las secciones sin elementos")
+                        .help(L10n.text(.settingsEmptySectionsHelp))
                 }
                 .controlSize(.small)
 
@@ -38,15 +56,14 @@ struct ConfigurationView: View {
                 organizationsSelector
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Cuentas de automatización")
+                    Text(L10n.text(.settingsMachineAccounts))
                         .font(.system(size: 12, weight: .semibold))
-                    TextField("ci-bot, release-bot", text: $machineAccounts)
+                    TextField(L10n.text(.settingsMachineAccountsPlaceholder), text: $machineAccounts)
                         .textFieldStyle(.roundedBorder)
                         .focused($focusedField, equals: .machineAccounts)
                         .onSubmit { saveConfiguration(field: .machineAccounts) }
                     configurationError(for: .machineAccounts)
-                    Text("Logins que GitHub identifica como User aunque sean cuentas de máquina. "
-                        + "Separalos con comas o espacios.")
+                    Text(L10n.text(.settingsMachineAccountsHelp))
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }
@@ -76,12 +93,12 @@ struct ConfigurationView: View {
     private var organizationsSelector: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Tus organizaciones de GitHub")
+                Text(L10n.text(.settingsOrganizations))
                     .font(.system(size: 12, weight: .semibold))
                 Spacer()
                 RefreshButton(
                     isRefreshing: isLoadingOrganizations,
-                    label: "Actualizar lista de organizaciones"
+                    label: L10n.text(.settingsRefreshOrganizations)
                 ) {
                     organizationsRequest += 1
                 }
@@ -105,7 +122,7 @@ struct ConfigurationView: View {
                                 HStack {
                                     Text(organization)
                                     if !availableOrganizations.contains(organization) {
-                                        Text("Guardada · no disponible en la lista")
+                                        Text(L10n.text(.settingsSavedOrganization))
                                             .font(.system(size: 9))
                                             .foregroundStyle(.secondary)
                                     }
@@ -121,16 +138,16 @@ struct ConfigurationView: View {
                 .frame(height: min(CGFloat(listedOrganizations.count) * 28 + 10, 170))
                 .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
             } else if !isLoadingOrganizations && organizationsError == nil {
-                Text("GitHub no devolvió organizaciones para esta sesión de gh.")
+                Text(L10n.text(.settingsNoOrganizations))
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }
 
             if let organizationsError {
-                Label(organizationsError, systemImage: "exclamationmark.triangle.fill")
+                Label(organizationsError.localizedDescription, systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 10))
                     .foregroundStyle(.red)
-                Button("Reintentar") { organizationsRequest += 1 }
+                Button(L10n.text(.commonRetry)) { organizationsRequest += 1 }
                     .controlSize(.small)
                     .disabled(isLoadingOrganizations)
             }
@@ -152,15 +169,14 @@ struct ConfigurationView: View {
             return
         } catch {
             guard !Task.isCancelled else { return }
-            organizationsError = (error as? LocalizedError)?.errorDescription
-                ?? error.localizedDescription
+            organizationsError = error
         }
     }
 
     @ViewBuilder
     private func configurationError(for field: Field) -> some View {
         if let error = configurationErrors[field] {
-            Label(error, systemImage: "exclamationmark.triangle.fill")
+            Label(error.localizedDescription, systemImage: "exclamationmark.triangle.fill")
                 .font(.system(size: 10))
                 .foregroundStyle(.red)
         }
@@ -177,8 +193,7 @@ struct ConfigurationView: View {
             )
             configurationErrors[field] = nil
         } catch {
-            configurationErrors[field] = (error as? LocalizedError)?.errorDescription
-                ?? error.localizedDescription
+            configurationErrors[field] = error
         }
     }
 
