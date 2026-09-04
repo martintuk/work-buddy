@@ -61,6 +61,13 @@ extension [PullRequest] {
             .sorted { $0.updatedAt > $1.updatedAt }
     }
 
+    /// Sólo autoría personal con CI fallida. Incluye drafts y checks opcionales:
+    /// un PR puede requerir un fix aunque GitHub permita mergearlo.
+    var needingCIFix: [PullRequest] {
+        filter { $0.authoredByMe && !$0.author.isBot && $0.checks.isRed }
+            .sorted { $0.updatedAt > $1.updatedAt }
+    }
+
     /// PRs de personas que esperan que los revises vos.
     ///
     /// Los de automatización quedan afuera a propósito: si el badge contara los

@@ -93,6 +93,14 @@ struct QueryShapeTests {
         #expect(MergeQueue.query(configuration: .empty).contains("query($reviewAuthor: String!)"))
     }
 
+    @Test("Para Fixear busca autoría propia sin exigir review ni CI exitosa")
+    func fixQueueScope() throws {
+        #expect(FixQueue.baseSearchQuery == "is:open is:pr author:@me archived:false")
+        let configuration = try AppConfiguration(organizations: ["example-org"], machineAccountsText: "")
+        #expect(FixQueue.searchQuery(configuration: configuration).hasSuffix("org:example-org"))
+        #expect(FixQueue.searchQuery(configuration: .empty) == FixQueue.baseSearchQuery)
+    }
+
     @Test("La organización configurada limita todas las búsquedas")
     func alcancePorOrganizacion() throws {
         let configuration = try AppConfiguration(

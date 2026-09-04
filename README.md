@@ -11,18 +11,24 @@ separan la acción pendiente de los PRs aprobados y la automatización.
 | Sección | Qué junta |
 | --- | --- |
 | **Para mergear** | Tuyos y de automatización que GitHub ya considera mergeables |
+| **Para Fixear** | Sólo PRs de tu autoría con CI fallida o en error, incluidos drafts |
 | **Para revisar** | Pedido a vos o a tus equipos, sin aprobación tuya vigente ni aprobación agregada de GitHub |
 | **Ya aprobados** | `reviewDecision = APPROVED`, sin aprobación tuya vigente: tu review es opcional |
 | **Automatización** _(colapsada)_ | dependabot y cuentas de máquina |
 | **Ignorados** _(colapsada)_ | Los que archivaste a mano |
 
 El badge del icono cuenta lo accionable: lo que espera tu review más lo que podés
-mergear de un click. Los pedidos a equipos cuentan igual que los personales;
+mergear de un click y tus PRs con CI por corregir, sin contar dos veces el mismo PR.
+Los pedidos a equipos cuentan igual que los personales;
 la antigüedad y haber comentado antes no cambian la categoría. Tu aprobación
 personal vigente excluye el PR de ambas categorías de review, aunque siga
 pedido al equipo. Si se descarta o pedís cambios después, puede volver a aparecer.
 La automatización no cuenta como review pendiente ni notifica; sí cuenta cuando
 está para mergear.
+
+“Para Fixear” respeta filtros, favoritos e ignorados. Un check opcional fallido
+puede hacer que el PR aparezca también en “Para mergear”. La automatización
+conserva su sección. CI pendiente, desconocida o exitosa no entra en “Para Fixear”.
 
 **Acciones por fila** (menú `⋯`): abrir, aprobar, rebasear ramas atrasadas,
 mergear e ignorar. Para Dependabot se muestra **Rebasear con Dependabot** y se
@@ -144,6 +150,7 @@ Sources/WorkBuddy/
 │   ├── PullRequestSearch.swift Búsqueda paginada que comparten las colas.
 │   ├── ReviewQueue.swift    Cola de review de personas.
 │   ├── DependabotQueue.swift Cola de dependabot (query aparte, ver supuesto 3).
+│   ├── FixQueue.swift       PRs propios, paginados; el dominio filtra la CI fallida.
 │   ├── MergeQueue.swift     Candidatos a merge (tres búsquedas, una request).
 │   ├── BehindCount.swift    Cuántos commits atrás está cada PR (batches de 20).
 │   └── GitHubWrite.swift    Escrituras: rebase, aprobar y mergear.

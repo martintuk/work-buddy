@@ -18,6 +18,7 @@ struct GitHubSectionView: View {
     /// Una identidad estable conserva el plegado cuando se actualiza la cola.
     private enum QueueSection: Hashable {
         case readyToMerge
+        case needingCIFix
         case review(ReviewBucket)
         case automation
         case ignored
@@ -26,6 +27,7 @@ struct GitHubSectionView: View {
         var persistenceID: String {
             switch self {
             case .readyToMerge: "readyToMerge"
+            case .needingCIFix: "needingCIFix"
             case .review(.needsReview): "needsReview"
             case .review(.approvedAlready): "approvedAlready"
             case .automation: "automation"
@@ -36,6 +38,7 @@ struct GitHubSectionView: View {
         var symbol: String {
             switch self {
             case .readyToMerge: "arrow.triangle.merge"
+            case .needingCIFix: "wrench.and.screwdriver"
             case .review(.needsReview): "eye"
             case .review(.approvedAlready): "checkmark.circle"
             case .automation: "gearshape.2"
@@ -46,6 +49,7 @@ struct GitHubSectionView: View {
         var tint: Color {
             switch self {
             case .readyToMerge: .green
+            case .needingCIFix: .red
             case .review(.needsReview): .blue
             case .review(.approvedAlready): .teal
             case .automation: .cyan
@@ -175,7 +179,7 @@ struct GitHubSectionView: View {
     // MARK: - Contenido
 
     private var hasVisiblePullRequests: Bool {
-        !store.humanSections.isEmpty || !store.readyToMerge.isEmpty
+        !store.humanSections.isEmpty || !store.readyToMerge.isEmpty || !store.needingCIFix.isEmpty
             || !store.automation.isEmpty || !store.ignored.isEmpty
     }
 
@@ -230,6 +234,7 @@ struct GitHubSectionView: View {
                 }
                 // Primero, porque es lo que se resuelve con un click.
                 queueSection(.readyToMerge, title: "Para mergear", items: merge)
+                queueSection(.needingCIFix, title: "Para Fixear", items: store.needingCIFix)
                 ForEach(ReviewBucket.allCases, id: \.self) { bucket in
                     queueSection(
                         .review(bucket),

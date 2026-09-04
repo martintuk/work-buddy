@@ -10,16 +10,18 @@ enum DumpQueue {
             let start = Date()
             let configuration = AppConfiguration.load()
 
-            // Las tres queries son independientes. La app las escalona (primero
+            // Las consultas de las cuatro colas son independientes. La app las escalona (primero
             // personas, después dependabot) para que el panel aparezca antes;
             // acá van en paralelo porque sólo interesa el resultado.
             async let reviewQueue = ReviewQueue.fetch(configuration: configuration)
             async let dependabotQueue = DependabotQueue.fetch(configuration: configuration)
             async let mergeQueue = MergeQueue.fetch(configuration: configuration)
+            async let fixQueue = FixQueue.fetch(configuration: configuration)
 
             let humans = try await reviewQueue
             let dependabot = try await dependabotQueue
             let mergeCandidates = try await mergeQueue
+            let fixCandidates = try await fixQueue
             let pullRequests = humans + dependabot
             let elapsed = Date().timeIntervalSince(start)
 
@@ -27,20 +29,22 @@ enum DumpQueue {
             // refleja lo que se ve en la app.
             let ignoredIDs = IgnoreList().ids
             let visible = pullRequests.excluding(ignoredIDs)
-            let ignored = pullRequests.only(ignoredIDs)
             let readyToMerge = mergeCandidates.excluding(ignoredIDs).readyToMerge
+            let needingCIFix = fixCandidates.excluding(ignoredIDs).needingCIFix
 
             var seen: Set<String> = []
-            let allKnown = (pullRequests + mergeCandidates)
+            let allKnown = (pullRequests + mergeCandidates + fixCandidates)
                 .filter { seen.insert($0.id).inserted }
+            let ignored = allKnown.only(ignoredIDs)
             let behind = await BehindCount.fetch(for: allKnown)
 
             let people = visible.filter { !$0.author.isBot }
             let bots = visible.filter(\.author.isBot)
 
-            // Mismo cálculo que el badge: las dos fuentes, deduplicadas por id.
+            // Mismo cálculo que el badge: las tres fuentes, deduplicadas por id.
             let awaiting = visible.awaitingYourReview
-            let badge = Set(awaiting.map(\.id)).union(readyToMerge.map(\.id)).count
+            let badge = Set(awaiting.map(\.id)).union(readyToMerge.map(\.id))
+                .union(needingCIFix.map(\.id)).count
 
             print("\(pullRequests.count) PRs con review pedido — \(format(elapsed))")
             print("  personas: \(humans.count)  |  dependabot: \(dependabot.count)")
@@ -48,12 +52,18 @@ enum DumpQueue {
                 + "  |  automatización: \(bots.count)"
                 + "  |  ignorados: \(ignored.count)")
             print("BADGE: \(badge)  (\(awaiting.count) para revisar + "
-                + "\(readyToMerge.count) para mergear)\n")
+                + "\(readyToMerge.count) para mergear + \(needingCIFix.count) para fixear)\n")
 
             print("── LISTOS PARA MERGEAR (\(readyToMerge.count)) ──")
             for pullRequest in readyToMerge {
                 print("  \(describe(pullRequest, behind: behind))  "
                     + "[\(pullRequest.mergeStateStatus?.rawValue ?? "?")]")
+            }
+            print("")
+
+            print("── PARA FIXEAR (\(needingCIFix.count)) ──")
+            for pullRequest in needingCIFix {
+                print("  \(describe(pullRequest, behind: behind))")
             }
             print("")
 

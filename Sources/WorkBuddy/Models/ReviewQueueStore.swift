@@ -29,6 +29,8 @@ final class ReviewQueueStore {
     /// Candidatos a merge. Vienen de otra query porque pedirle a GitHub que
     /// calcule la mergeabilidad de toda la cola de review es caro.
     private(set) var mergeCandidates: [PullRequest] = []
+    /// PRs propios; se consultan aparte aunque no esperen review ni puedan mergearse.
+    private(set) var fixCandidates: [PullRequest] = []
     private(set) var lastUpdated: Date?
 
     /// Resultado de la última acción que escribió en GitHub.
@@ -100,14 +102,20 @@ final class ReviewQueueStore {
         )
     }
 
+    var needingCIFix: [PullRequest] {
+        repositoryFilter.prioritizingFavorites(
+            in: repositoryFilter.apply(to: fixCandidates).excluding(ignoreList.ids).needingCIFix
+        )
+    }
+
     /// Lo que va en el badge: todo lo que espera una acción tuya.
     ///
-    /// Suma dos fuentes —lo que tenés que revisar y lo que podés mergear de un
-    /// click— y las deduplica por id, porque salen de queries distintas y nada
-    /// garantiza que no se solapen.
+    /// Suma review, merge y CI por corregir. Deduplica por id porque un check
+    /// opcional fallido puede aparecer tanto para fixear como para mergear.
     var actionableCount: Int {
         Set(awaitingYourReview.map(\.id))
             .union(readyToMerge.map(\.id))
+            .union(needingCIFix.map(\.id))
             .count
     }
 
@@ -116,9 +124,11 @@ final class ReviewQueueStore {
     var actionableSummary: String {
         let review = awaitingYourReview.count
         let merge = readyToMerge.count
+        let fix = needingCIFix.count
         let parts = [
             review > 0 ? "\(review) para revisar" : nil,
-            merge > 0 ? "\(merge) para mergear" : nil
+            merge > 0 ? "\(merge) para mergear" : nil,
+            fix > 0 ? "\(fix) para fixear" : nil
         ].compactMap(\.self)
         return parts.isEmpty ? "Nada pendiente" : parts.joined(separator: " · ")
     }
@@ -127,7 +137,7 @@ final class ReviewQueueStore {
     /// aparecen porque la query ya no los trae.
     var ignored: [PullRequest] {
         repositoryFilter.prioritizingFavorites(
-            in: repositoryFilter.apply(to: reviewQueue).only(ignoreList.ids)
+            in: repositoryFilter.apply(to: allKnown).only(ignoreList.ids)
                 .sorted { $0.updatedAt > $1.updatedAt }
         )
     }
@@ -225,7 +235,7 @@ final class ReviewQueueStore {
     /// solapan (un PR aprobado por vos está en las dos).
     private var allKnown: [PullRequest] {
         var seen: Set<String> = []
-        return (reviewQueue + mergeCandidates).filter { seen.insert($0.id).inserted }
+        return (reviewQueue + mergeCandidates + fixCandidates).filter { seen.insert($0.id).inserted }
     }
 
     func isActing(on pullRequest: PullRequest) -> Bool {
@@ -254,6 +264,7 @@ final class ReviewQueueStore {
         pullRequests = []
         dependabotPullRequests = []
         mergeCandidates = []
+        fixCandidates = []
         behindCounts = [:]
         lastUpdated = nil
         state = .idle
@@ -324,9 +335,10 @@ final class ReviewQueueStore {
             do {
                 try await GH.preflight()
 
-                // Las dos queries son independientes: van en paralelo.
+                // Las consultas de review, merge y CI propia son independientes.
                 async let reviewQueue = ReviewQueue.fetch(configuration: requestedConfiguration)
                 async let mergeQueue = MergeQueue.fetch(configuration: requestedConfiguration)
+                async let fixQueue = FixQueue.fetch(configuration: requestedConfiguration)
 
                 let fetched = try await reviewQueue
                 guard requestedRevision == configurationRevision else { return }
@@ -339,6 +351,14 @@ final class ReviewQueueStore {
                 guard requestedRevision == configurationRevision else { return }
                 if let fetchedMergeCandidates {
                     mergeCandidates = fetchedMergeCandidates
+                }
+
+                // Una falla de esta consulta conserva el último resultado conocido,
+                // igual que la cola de merge, sin descartar las otras secciones.
+                let fetchedFixCandidates = try? await fixQueue
+                guard requestedRevision == configurationRevision else { return }
+                if let fetchedFixCandidates {
+                    fixCandidates = fetchedFixCandidates
                 }
 
                 var notifications = notificationTracker.process(awaitingYourReview, in: .review)

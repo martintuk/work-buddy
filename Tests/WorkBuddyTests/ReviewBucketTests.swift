@@ -372,6 +372,55 @@ struct ReadyToMergeTests {
     }
 }
 
+@Suite("Para Fixear")
+struct FixQueueTests {
+    @Test("Sólo CI fallida o en error necesita un fix",
+          arguments: [CheckState.success, .failure, .error, .pending, .expected, .unknown])
+    func estadosDeCI(checks: CheckState) {
+        let pr = makePullRequest(checks: checks, authoredByMe: true)
+        #expect([pr].needingCIFix.map(\.id) == (checks == .failure || checks == .error ? [pr.id] : []))
+    }
+
+    @Test("Excluye otros autores, equipos y automatización")
+    func soloAutoriaPersonal() {
+        let mine = makePullRequest(checks: .failure, authoredByMe: true)
+        let other = makePullRequest(requestedFromMe: true, checks: .failure)
+        let team = makePullRequest(requestedFromMe: false, checks: .error)
+        let bot = makePullRequest(checks: .failure, authorLogin: "dependabot", authorTypename: "Bot")
+        let machine = makePullRequest(checks: .failure, authorLogin: "ci-bot",
+                                      machineAccounts: ["ci-bot"], authoredByMe: true)
+        #expect([mine, other, team, bot, machine].needingCIFix.map(\.id) == [mine.id])
+    }
+
+    @Test("No requiere pedidos de review, approvals ni que el PR esté listo")
+    func draftPropioConFalla() {
+        let pr = makePullRequest(requestedFromMe: false, reviewDecision: nil,
+                                 checks: .failure, authoredByMe: true, isDraft: true)
+        #expect([pr].needingCIFix.map(\.id) == [pr.id])
+    }
+
+    @Test("La CI opcional fallida también aparece aunque permita mergear")
+    func mergeableConFalla() {
+        let pr = makePullRequest(reviewDecision: .approved, checks: .failure,
+                                 authoredByMe: true, mergeable: .mergeable, mergeStateStatus: .unstable)
+        #expect([pr].needingCIFix.map(\.id) == [pr.id])
+        #expect([pr].readyToMerge.map(\.id) == [pr.id])
+    }
+
+    @Test("Respeta ignorados, filtros y orden por actividad")
+    func filtrosYOrden() {
+        let old = makePullRequest(number: 1, checks: .error,
+                                  updatedAt: .now.addingTimeInterval(-3600), authoredByMe: true)
+        let recent = makePullRequest(number: 2, checks: .failure, authoredByMe: true)
+        let queue = [old, recent]
+        #expect(queue.needingCIFix.map(\.id) == [recent.id, old.id])
+        #expect(queue.excluding([recent.id]).needingCIFix.map(\.id) == [old.id])
+        var filter = RepositoryFilter()
+        filter.toggleMute(old.repository)
+        #expect(filter.apply(to: queue).needingCIFix.isEmpty)
+    }
+}
+
 // MARK: - Helper
 
 private func makePullRequest(
