@@ -34,7 +34,6 @@ struct PullRequestRow: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(isHovering ? Color.primary.opacity(0.07) : .clear)
         )
-        .opacity(isIgnored ? 0.55 : 1)
         .onHover { isHovering = $0 }
     }
 
