@@ -8,7 +8,7 @@ enum RecentlyCreatedQueue {
     static let arguments = [
         "jira", "workitem", "search",
         "--jql", jql,
-        "--fields", "key,summary,issuetype",
+        "--fields", "key,summary,issuetype,status",
         "--limit", String(limit),
         "--json"
     ]

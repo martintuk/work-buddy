@@ -80,7 +80,7 @@ struct JiraSectionView: View {
 
                 if isRecentlyCreatedExpanded {
                     ForEach(store.recentlyCreatedItems) { workItem in
-                        workItemRow(workItem)
+                        workItemRow(workItem, showStatus: true)
                     }
                 }
             }
@@ -88,7 +88,7 @@ struct JiraSectionView: View {
         }
     }
 
-    private func workItemRow(_ workItem: JiraWorkItem) -> some View {
+    private func workItemRow(_ workItem: JiraWorkItem, showStatus: Bool = false) -> some View {
         Button {
             guard let url = store.url(for: workItem) else { return }
             NSWorkspace.shared.open(url)
@@ -98,7 +98,9 @@ struct JiraSectionView: View {
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                Text("\(workItem.key) · \(workItem.issueType)")
+                Text([workItem.key, workItem.issueType, showStatus ? workItem.status : nil]
+                    .compactMap { $0 }
+                    .joined(separator: " · "))
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }
