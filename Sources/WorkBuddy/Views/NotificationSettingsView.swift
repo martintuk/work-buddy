@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 struct NotificationSettingsView: View {
@@ -13,19 +12,22 @@ struct NotificationSettingsView: View {
                 .font(.system(size: 12, weight: .semibold))
 
             HStack(spacing: 8) {
-                Button(notifier.isAuthorized ? "Habilitadas" : "Habilitar") {
-                    if notifier.authorizationStatus == .denied {
-                        openSettings()
-                    } else {
-                        perform { try await notifier.requestAuthorization() }
+                Toggle("Habilitar", isOn: Binding(
+                    get: { notifier.isEnabled },
+                    set: { enabled in
+                        perform { try await notifier.setEnabled(enabled) }
                     }
-                }
-                .disabled(isWorking || !notifier.isAvailable || notifier.isAuthorized)
+                ))
+                .toggleStyle(.switch)
+                .fixedSize()
+                .disabled(isWorking || !notifier.isAvailable)
+                .help("Activar o desactivar los envíos de notificaciones de work-buddy")
+                .accessibilityLabel("Habilitar notificaciones de work-buddy")
 
                 Button("Probar") {
                     perform { try await notifier.sendTest() }
                 }
-                .disabled(isWorking || !notifier.isAuthorized)
+                .disabled(isWorking || !notifier.isAvailable)
                 .help("Enviar una notificación de prueba")
 
                 Spacer()
@@ -34,12 +36,6 @@ struct NotificationSettingsView: View {
                     ProgressView().controlSize(.mini)
                 }
 
-                Button(action: openSettings) {
-                    Image(systemName: "gearshape")
-                }
-                .buttonStyle(.borderless)
-                .help("Abrir ajustes de notificaciones de macOS")
-                .accessibilityLabel("Abrir ajustes de notificaciones de macOS")
             }
             .controlSize(.small)
 
@@ -48,10 +44,6 @@ struct NotificationSettingsView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(.red)
             }
-        }
-        .task { await notifier.refreshAuthorization() }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            Task { await notifier.refreshAuthorization() }
         }
     }
 
@@ -68,12 +60,4 @@ struct NotificationSettingsView: View {
         }
     }
 
-    private func openSettings() {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications"),
-              NSWorkspace.shared.open(url) else {
-            errorMessage = "No se pudieron abrir los ajustes de notificaciones de macOS."
-            return
-        }
-        errorMessage = nil
-    }
 }

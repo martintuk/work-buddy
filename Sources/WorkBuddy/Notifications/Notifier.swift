@@ -15,6 +15,7 @@ final class Notifier: NSObject {
 
     private static let seenKey = "notifier.seenPullRequestIDs"
     private static let seededKey = "notifier.hasSeededBaseline"
+    private static let enabledKey = "notifier.isEnabled"
 
     private let defaults = UserDefaults.standard
 
@@ -24,6 +25,7 @@ final class Notifier: NSObject {
     private let center: UNUserNotificationCenter?
 
     private(set) var authorizationStatus: UNAuthorizationStatus?
+    private(set) var isEnabled = UserDefaults.standard.bool(forKey: enabledKey)
 
     var isAvailable: Bool { center != nil }
     var isAuthorized: Bool {
@@ -59,10 +61,17 @@ final class Notifier: NSObject {
         guard isAuthorized else { throw NotificationError.permissionRequired }
     }
 
+    func setEnabled(_ enabled: Bool) async throws {
+        if enabled {
+            try await requestAuthorization()
+        }
+        isEnabled = enabled
+        defaults.set(enabled, forKey: Self.enabledKey)
+    }
+
     func sendTest() async throws {
-        await refreshAuthorization()
-        guard isAvailable else { throw NotificationError.unavailable }
-        guard isAuthorized else { throw NotificationError.permissionRequired }
+        // La prueba es explícita y no modifica la preferencia de envíos automáticos.
+        try await requestAuthorization()
         try await send(title: "work-buddy", body: "Notificación de prueba", url: nil)
     }
 
@@ -93,8 +102,9 @@ final class Notifier: NSObject {
         // vuelven a pedir, queremos que avise de nuevo.
         persist(currentIDs)
 
+        guard isEnabled, !new.isEmpty else { return }
         await refreshAuthorization()
-        guard isAuthorized, !new.isEmpty else { return }
+        guard isEnabled, isAuthorized else { return }
         if new.count > Self.maxIndividual {
             try? await send(
                 title: "\(new.count) PRs nuevos para revisar",
@@ -103,6 +113,7 @@ final class Notifier: NSObject {
             )
         } else {
             for pullRequest in new {
+                guard isEnabled else { return }
                 try? await send(
                     title: "Nuevo PR para revisar",
                     body: "\(pullRequest.author.login) — \(pullRequest.shortRepository) "
