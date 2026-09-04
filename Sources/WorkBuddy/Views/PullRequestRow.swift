@@ -148,6 +148,8 @@ struct PullRequestRow: View {
             .help(localFolder.path)
         }
 
+        Divider()
+
         // Sólo ofrecemos lo que puede funcionar. Un botón que sólo puede
         // fallar entrena a ignorar los errores.
         if pullRequest.canRequestDependabotRebase(behindBy: behindBy) {
@@ -166,7 +168,11 @@ struct PullRequestRow: View {
             button(.merge)
         }
 
-        Divider()
+        if pullRequest.canApprove || pullRequest.canMerge
+            || pullRequest.canRebase(behindBy: behindBy)
+            || pullRequest.canRequestDependabotRebase(behindBy: behindBy) {
+            Divider()
+        }
         button(isIgnored ? .restore : .ignore)
     }
 
