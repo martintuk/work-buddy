@@ -219,7 +219,8 @@ struct GitHubSectionView: View {
         let merge = store.readyToMerge
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                if !hasVisiblePullRequests {
+                // Reservamos el estado general vacío para cuando se oculten las categorías vacías.
+                if !hasVisiblePullRequests && store.hasRepositoryFilteredResults {
                     centered {
                         ContentUnavailableView {
                             Label(store.hasRepositoryFilteredResults ? "Sin PRs con este filtro" : "Nada pendiente",
