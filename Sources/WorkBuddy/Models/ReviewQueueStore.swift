@@ -310,8 +310,6 @@ final class ReviewQueueStore {
                 mergeCandidates = (try? await mergeQueue) ?? mergeCandidates
                 guard requestedRevision == configurationRevision else { return }
 
-                lastUpdated = .now
-                state = .loaded
                 // Sólo lo de personas notifica: `fetched` no incluye dependabot,
                 // que llega en la segunda fase. Un PR ignorado tampoco notifica;
                 // si más adelante lo restaurás, vuelve a contar como nuevo y
@@ -329,6 +327,11 @@ final class ReviewQueueStore {
                     (try? await DependabotQueue.fetch(configuration: requestedConfiguration))
                     ?? dependabotPullRequests
                 guard requestedRevision == configurationRevision else { return }
+                // Recién con todas las colas consultadas podemos mostrar un
+                // estado vacío. Medir ramas después no agrega ni quita PRs.
+                lastUpdated = .now
+                state = .loaded
+                onChange?()
                 behindCounts = await BehindCount.fetch(for: allKnown)
             } catch {
                 guard requestedRevision == configurationRevision else { return }

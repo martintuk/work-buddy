@@ -137,13 +137,18 @@ struct GitHubSectionView: View {
 
     // MARK: - Contenido
 
+    private var hasVisiblePullRequests: Bool {
+        !store.humanSections.isEmpty || !store.readyToMerge.isEmpty
+            || !store.automation.isEmpty || !store.ignored.isEmpty
+    }
+
     @ViewBuilder
     private var content: some View {
         switch store.state {
         case .idle:
             loading
-        // Si ya hay data, la mostramos mientras refresca en vez de parpadear.
-        case .loading where store.pullRequests.isEmpty:
+        // Mostramos lo que ya llegó, pero no un estado vacío con colas pendientes.
+        case .loading where !hasVisiblePullRequests:
             loading
         case .failed(let message):
             centered {
@@ -170,7 +175,7 @@ struct GitHubSectionView: View {
         let merge = store.readyToMerge
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                if sections.isEmpty, merge.isEmpty, store.automation.isEmpty, store.ignored.isEmpty {
+                if !hasVisiblePullRequests {
                     centered {
                         ContentUnavailableView {
                             Label(store.hasRepositoryFilteredResults ? "Sin PRs con este filtro" : "Nada pendiente",
