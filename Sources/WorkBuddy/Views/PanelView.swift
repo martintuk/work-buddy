@@ -6,6 +6,7 @@ struct PanelView: View {
     static let preferredSize = NSSize(width: 420, height: 560)
 
     let store: ReviewQueueStore
+    let jiraStore: JiraStore
 
     @State private var selectedCategory: Category = .github
     @State private var showingConfiguration = false
@@ -62,9 +63,7 @@ struct PanelView: View {
             Text("Work Buddy")
                 .font(.system(size: 13, weight: .semibold))
             Spacer()
-            RefreshButton(isRefreshing: isRefreshing, label: "Actualizar") {
-                store.refresh(force: true)
-            }
+            RefreshButton(isRefreshing: isRefreshing, label: "Actualizar") { refresh() }
 
             Button {
                 showingConfiguration.toggle()
@@ -80,8 +79,20 @@ struct PanelView: View {
     }
 
     private var isRefreshing: Bool {
-        if case .loading = store.state { return true }
-        return false
+        switch selectedCategory {
+        case .github:
+            if case .loading = store.state { return true }
+            return false
+        case .jira:
+            return jiraStore.isChecking
+        }
+    }
+
+    private func refresh() {
+        switch selectedCategory {
+        case .github: store.refresh(force: true)
+        case .jira: jiraStore.refresh()
+        }
     }
 
     @ViewBuilder
@@ -90,18 +101,13 @@ struct PanelView: View {
         case .github:
             GitHubSectionView(store: store) { showingRepositories = true }
         case .jira:
-            ContentUnavailableView {
-                Label("Jira", systemImage: "checklist")
-            } description: {
-                Text("Próximamente")
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            JiraSectionView(store: jiraStore)
         }
     }
 
     private var footer: some View {
         HStack {
-            if let lastUpdated = store.lastUpdated {
+            if selectedCategory == .github, let lastUpdated = store.lastUpdated {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Text(LastUpdatedText.format(lastUpdated, relativeTo: context.date))
                 }

@@ -14,6 +14,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private let statusItem: NSStatusItem
     private let popover: NSPopover
     private let store = ReviewQueueStore()
+    private let jiraStore = JiraStore()
 
     private var resignObserver: NSObjectProtocol?
     private var lastAutoClose: Date = .distantPast
@@ -59,7 +60,9 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         popover.contentSize = PanelView.preferredSize
         popover.behavior = .transient // se cierra solo al clickear afuera
         popover.animates = false // sin esto el panel "resbala" al abrirse
-        popover.contentViewController = NSHostingController(rootView: PanelView(store: store))
+        popover.contentViewController = NSHostingController(
+            rootView: PanelView(store: store, jiraStore: jiraStore)
+        )
     }
 
     /// El badge cuenta todo lo que espera una acción tuya: lo que tenés que

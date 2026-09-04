@@ -37,6 +37,10 @@ repo, no la app.
 
 Refresca cada 5 minutos y notifica lo nuevo que te bloquea.
 
+La sección **Jira** reutiliza la sesión del CLI oficial de Atlassian. Si no hay
+una sesión activa, muestra `acli jira auth login` para copiar y ejecutar en
+Terminal; work-buddy no solicita ni almacena credenciales.
+
 Dentro de la categoría **GitHub**, el botón **Repositorios** abre una lista con búsqueda
 y scroll que ocupa todo el panel. Se obtiene de los repositorios distintos de
 los resultados de review, automatización y merge, antes de aplicar el filtro.
@@ -52,6 +56,7 @@ en la lista aunque no tengan resultados actuales, para poder restaurarlos.
 
 - macOS 14+
 - Command Line Tools de Xcode (`xcode-select --install`). **No** hace falta Xcode completo.
+- Atlassian CLI (`acli`) para la sección Jira.
 
 ## Configuración
 
@@ -154,6 +159,7 @@ Sources/WorkBuddy/
 │   ├── MergeQueue.swift     Candidatos a merge (tres búsquedas, una request).
 │   ├── BehindCount.swift    Cuántos commits atrás está cada PR (batches de 20).
 │   └── GitHubWrite.swift    Escrituras: rebase, aprobar y mergear.
+├── Jira/ACLI.swift          Estado de autenticación del CLI de Atlassian.
 ├── Domain/PullRequestQueuePolicy.swift Reglas de clasificación y agrupación.
 ├── Models/
 │   ├── AppConfiguration.swift Configuración persistente del entorno.
