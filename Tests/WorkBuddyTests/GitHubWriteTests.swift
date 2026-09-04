@@ -142,15 +142,15 @@ struct ActionAvailabilityTests {
         #expect(!sinMetodo.canMerge)
     }
 
-    @Test("Todas las acciones de PR piden confirmación")
+    @Test("Sólo las acciones que escriben en GitHub piden confirmación")
     func accionesConConfirmacion() {
         #expect(PullRequestAction.dependabotRebase.needsConfirmation)
         #expect(PullRequestAction.merge.needsConfirmation)
         #expect(PullRequestAction.approve.needsConfirmation)
         #expect(PullRequestAction.rebase.needsConfirmation)
-        #expect(PullRequestAction.ignore.needsConfirmation)
-        #expect(PullRequestAction.restore.needsConfirmation)
-        #expect(PullRequestAction.open.needsConfirmation)
+        #expect(!PullRequestAction.ignore.needsConfirmation)
+        #expect(!PullRequestAction.restore.needsConfirmation)
+        #expect(!PullRequestAction.open.needsConfirmation)
     }
 
     @Test("Ambos rebases, aprobar y mergear escriben en GitHub")
