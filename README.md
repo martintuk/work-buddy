@@ -31,9 +31,9 @@ puede hacer que el PR aparezca también en “Para mergear”. La automatizació
 conserva su sección. CI pendiente, desconocida o exitosa no entra en “Para Fixear”.
 
 **Acciones por fila** (menú `⋯`): abrir, aprobar, rebasear ramas atrasadas,
-mergear e ignorar. Para Dependabot se muestra **Rebasear con Dependabot** y se
-envía su comando específico, con confirmación; el método de merge lo decide el
-repo, no la app.
+mergear, ignorar y dejar de ignorar. Todas piden confirmación, incluso abrir el PR
+desde el cuerpo de la fila. Para Dependabot se muestra **Rebasear con Dependabot**
+y se envía su comando específico; el método de merge lo decide el repo, no la app.
 
 Refresca cada 5 minutos y notifica lo nuevo que te bloquea.
 

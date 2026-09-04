@@ -8,7 +8,7 @@ struct GitHubSectionView: View {
     @AppStorage("github.collapsedSections") private var collapsedSectionIDs = ""
     @State private var pendingAction: PendingAction?
 
-    /// Escritura pública esperando confirmación.
+    /// Acción sobre un PR esperando confirmación.
     struct PendingAction: Identifiable {
         let pullRequest: PullRequest
         let action: PullRequestAction
@@ -106,15 +106,17 @@ struct GitHubSectionView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(confirmationTitle(for: pending))
                     .font(.system(size: 10, weight: .semibold))
-                Text(confirmationDetail(for: pending))
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                if let detail = confirmationDetail(for: pending) {
+                    Text(detail)
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
             Spacer(minLength: 4)
             Button("Cancelar") { pendingAction = nil }
                 .controlSize(.small)
-            Button(pending.action.title) {
+            Button("Confirmar") {
                 store.perform(pending.action, on: pending.pullRequest)
                 pendingAction = nil
             }
@@ -135,11 +137,12 @@ struct GitHubSectionView: View {
             "¿Mergear \(pending.pullRequest.shortRepository) "
                 + "#\(pending.pullRequest.number)?"
         default:
-            pending.action.title
+            "¿\(pending.action.title) \(pending.pullRequest.shortRepository) "
+                + "#\(pending.pullRequest.number)?"
         }
     }
 
-    private func confirmationDetail(for pending: PendingAction) -> String {
+    private func confirmationDetail(for pending: PendingAction) -> String? {
         switch pending.action {
         case .dependabotRebase:
             "@dependabot rebase · puede reemplazar el PR"
@@ -148,7 +151,7 @@ struct GitHubSectionView: View {
             // pasar, no para que elijas.
             pending.pullRequest.defaultMergeMethod?.title ?? "método desconocido"
         default:
-            ""
+            nil
         }
     }
 
@@ -258,8 +261,7 @@ struct GitHubSectionView: View {
                 isActing: store.isActing(on: pullRequest),
                 behindBy: store.behindCount(for: pullRequest)
             ) { action in
-                // Mergear y pedir un rebase afectan un repo compartido: pasan
-                // por confirmación. El resto se aplica directo.
+                // Tanto las acciones locales como las de GitHub se confirman.
                 if action.needsConfirmation {
                     pendingAction = PendingAction(
                         pullRequest: pullRequest,

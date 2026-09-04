@@ -41,8 +41,7 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
         }
     }
 
-    /// Las que escriben en GitHub. Las locales se aplican al instante; éstas
-    /// pueden fallar y tardan.
+    /// Las que escriben en GitHub pueden fallar y tardar después de confirmar.
     var writesToGitHub: Bool {
         switch self {
         case .approve, .rebase, .dependabotRebase, .merge: true
@@ -50,6 +49,6 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
         }
     }
 
-    /// Acciones públicas que pueden alterar o reemplazar el PR.
-    var needsConfirmation: Bool { self == .dependabotRebase || self == .merge }
+    /// Todas las acciones requieren confirmación, incluidas las locales.
+    var needsConfirmation: Bool { true }
 }
