@@ -4,102 +4,193 @@ import Testing
 @testable import WorkBuddy
 
 struct LocalBranchCheckoutTests {
-    @Test("Checks out the exact PR in the configured folder, with no force or worktree flags")
-    func checkoutInPlace() async throws {
+    private let switchArguments = ["switch", "--no-overwrite-ignore", "--", "feature/test"]
+    private let fetchArguments = ["fetch", "--no-recurse-submodules"]
+
+    @Test("An existing branch opens with one local command and no remote")
+    func localBranch() async throws {
         let folder = try await makeRepository()
         defer { try? FileManager.default.removeItem(at: folder) }
-        _ = try await LocalBranchCheckout.git(["branch", "feature/test"], in: folder)
-        let request = request(folder)
-        try await LocalBranchCheckout.run(request) { arguments, directory in
-            #expect(arguments == ["pr", "checkout", "https://github.com/org/repo/pull/42"])
-            #expect(directory == folder)
-            _ = try await LocalBranchCheckout.git(["switch", "feature/test"], in: directory)
-        }
-        #expect(try await LocalBranchCheckout.git(["branch", "--show-current"], in: folder) == "feature/test")
+        _ = try await git(["branch", "feature/test"], folder)
+        let commands = Commands()
+        try await LocalBranchCheckout.run(request(folder), command: commands.run)
+        #expect(await commands.arguments == [switchArguments])
+        #expect(try await git(["branch", "--show-current"], folder) == "feature/test")
     }
 
-    @Test("Local changes are preserved and checkout is never called", arguments: ["untracked", "tracked", "staged"])
-    func dirtyRepository(kind: String) async throws {
+    @Test("Non-conflicting edits follow the branch, including when already on it", arguments: [false, true])
+    func preservedChanges(alreadyOnBranch: Bool) async throws {
         let folder = try await makeRepository()
         defer { try? FileManager.default.removeItem(at: folder) }
-        let file = folder.appendingPathComponent(kind == "untracked" ? "new file.txt" : "tracked.txt")
+        _ = try await git(["branch", "feature/test"], folder)
+        if alreadyOnBranch { _ = try await git(switchArguments, folder) }
+        let file = folder.appendingPathComponent("tracked.txt")
         try Data("local work".utf8).write(to: file)
-        if kind == "staged" { _ = try await LocalBranchCheckout.git(["add", "."], in: folder) }
-        do {
-            try await LocalBranchCheckout.run(request(folder)) { _, _ in Issue.record("Checkout must not run") }
-            Issue.record("Expected local changes error")
-        } catch LocalBranchCheckout.Failure.localChanges { }
+        let commands = Commands()
+        try await LocalBranchCheckout.run(request(folder), command: commands.run)
+        #expect(await commands.arguments == [switchArguments])
         #expect(try String(contentsOf: file, encoding: .utf8) == "local work")
-        #expect(try await LocalBranchCheckout.git(["branch", "--show-current"], in: folder) == "main")
+        #expect(try await git(["branch", "--show-current"], folder) == "feature/test")
     }
 
-    @Test("In-progress Git operations block checkout even with a clean index", arguments: [
-        "MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply", "sequencer", "BISECT_START"
-    ])
-    func inProgress(marker: String) async throws {
+    @Test("Conflicting edits fail immediately without fetch or losing work", arguments: [false, true])
+    func conflictingChanges(staged: Bool) async throws {
         let folder = try await makeRepository()
         defer { try? FileManager.default.removeItem(at: folder) }
-        let head = try await LocalBranchCheckout.git(["rev-parse", "HEAD"], in: folder)
-        try Data(head.utf8).write(to: folder.appendingPathComponent(".git/\(marker)"))
-        do {
-            try await LocalBranchCheckout.run(request(folder)) { _, _ in Issue.record("Checkout must not run") }
-            Issue.record("Expected in-progress error")
-        } catch LocalBranchCheckout.Failure.operationInProgress { }
+        _ = try await git(["switch", "-c", "feature/test"], folder)
+        let file = folder.appendingPathComponent("tracked.txt")
+        try Data("branch content".utf8).write(to: file)
+        try await commit(folder)
+        _ = try await git(["switch", "main"], folder)
+        try Data("local work".utf8).write(to: file)
+        if staged { _ = try await git(["add", "."], folder) }
+        let commands = Commands()
+        await #expect(throws: LocalBranchCheckout.Failure.self) {
+            try await LocalBranchCheckout.run(request(folder), command: commands.run)
+        }
+        #expect(await commands.arguments == [switchArguments])
+        #expect(try String(contentsOf: file, encoding: .utf8) == "local work")
+        #expect(try await git(["branch", "--show-current"], folder) == "main")
     }
 
-    @Test("Incorrect associations cannot fetch PRs into an unrelated repository")
-    func wrongRepository() async throws {
+    @Test("Unknown branches fetch once; known remote branches need no fetch", arguments: [false, true])
+    func remoteBranch(known: Bool) async throws {
+        let source = try await makeRepository()
+        defer { try? FileManager.default.removeItem(at: source) }
+        let clone = source.appendingPathComponent("clone with spaces", isDirectory: true)
+        if known { _ = try await git(["branch", "feature/test"], source) }
+        _ = try await git(["clone", source.path, clone.path], source)
+        if !known { _ = try await git(["branch", "feature/test"], source) }
+        let commands = Commands()
+        try await LocalBranchCheckout.run(request(clone), command: commands.run)
+        #expect(await commands.arguments == (known ? [switchArguments] : [switchArguments, fetchArguments, switchArguments]))
+        #expect(try await git(["branch", "--show-current"], clone) == "feature/test")
+        #expect(try await git(["rev-parse", "--abbrev-ref", "@{upstream}"], clone) == "origin/feature/test")
+    }
+
+    @Test("A branch still missing after fetch fails without looping")
+    func missingAfterFetch() async throws {
+        let source = try await makeRepository()
+        defer { try? FileManager.default.removeItem(at: source) }
+        let clone = source.appendingPathComponent("clone", isDirectory: true)
+        _ = try await git(["clone", source.path, clone.path], source)
+        let commands = Commands()
+        await #expect(throws: LocalBranchCheckout.Failure.self) {
+            try await LocalBranchCheckout.run(request(clone), command: commands.run)
+        }
+        #expect(await commands.arguments == [switchArguments, fetchArguments, switchArguments])
+        #expect(try await git(["branch", "--show-current"], clone) == "main")
+    }
+
+    @Test("A failed fetch propagates without retrying switch")
+    func fetchFailure() async throws {
         let folder = try await makeRepository()
         defer { try? FileManager.default.removeItem(at: folder) }
-        _ = try await LocalBranchCheckout.git(["remote", "set-url", "origin", "git@github.com:other/repo.git"], in: folder)
-        do {
-            try await LocalBranchCheckout.run(request(folder)) { _, _ in Issue.record("Checkout must not run") }
-            Issue.record("Expected wrong repository error")
-        } catch LocalBranchCheckout.Failure.wrongRepository { }
+        _ = try await git(["remote", "add", "origin", folder.appendingPathComponent("missing-remote").path], folder)
+        let commands = Commands()
+        await #expect(throws: LocalBranchCheckout.Failure.self) {
+            try await LocalBranchCheckout.run(request(folder), command: commands.run)
+        }
+        #expect(await commands.arguments == [switchArguments, fetchArguments])
     }
 
-    @Test("Common SSH and HTTPS remotes match without accepting other hosts or repos")
-    func remoteIdentity() {
-        let request = request(URL(fileURLWithPath: "/tmp/repo"))
-        for remote in ["git@github.com:org/repo.git", "https://github.com/org/repo", "ssh://git@github.com/ORG/REPO.git"] {
-            #expect(LocalBranchCheckout.matchesRepository(remote, request: request))
-        }
-        for remote in ["https://evil.example/org/repo", "git@github.com:other/repo.git", "/tmp/org/repo", "https://github.com/org/repo-extra"] {
-            #expect(!LocalBranchCheckout.matchesRepository(remote, request: request))
-        }
-    }
-
-    @Test("Git failures propagate without resetting or cleaning the project")
-    func checkoutFailure() async throws {
+    @Test("An in-progress merge is reported without fetching")
+    func mergeInProgress() async throws {
         let folder = try await makeRepository()
         defer { try? FileManager.default.removeItem(at: folder) }
-        do {
-            try await LocalBranchCheckout.run(request(folder)) { _, _ in
-                throw LocalBranchCheckout.Failure.git("Branch unavailable")
-            }
-            Issue.record("Expected checkout error")
-        } catch LocalBranchCheckout.Failure.git(let detail) {
-            #expect(detail == "Branch unavailable")
+        _ = try await git(["branch", "feature/test"], folder)
+        let head = try await git(["rev-parse", "HEAD"], folder)
+        try Data(head.utf8).write(to: folder.appendingPathComponent(".git/MERGE_HEAD"))
+        let commands = Commands()
+        await #expect(throws: LocalBranchCheckout.Failure.self) {
+            try await LocalBranchCheckout.run(request(folder), command: commands.run)
         }
-        #expect(try await LocalBranchCheckout.git(["branch", "--show-current"], in: folder) == "main")
+        #expect(await commands.arguments == [switchArguments])
+        #expect(try await git(["branch", "--show-current"], folder) == "main")
     }
 
-    private func request(_ folder: URL) -> LocalBranchCheckout.Request {
+    @Test("A non-repository directory fails without extra checks or fetch")
+    func invalidFolder() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let commands = Commands()
+        await #expect(throws: LocalBranchCheckout.Failure.self) {
+            try await LocalBranchCheckout.run(request(folder), command: commands.run)
+        }
+        #expect(await commands.arguments == [switchArguments])
+    }
+
+    @Test("A branch name matching a file cannot restore that file")
+    func fileNotBranch() async throws {
+        let folder = try await makeRepository()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let file = folder.appendingPathComponent("tracked.txt")
+        try Data("local work".utf8).write(to: file)
+        await #expect(throws: LocalBranchCheckout.Failure.self) {
+            try await LocalBranchCheckout.run(request(folder, branch: "tracked.txt"))
+        }
+        #expect(try String(contentsOf: file, encoding: .utf8) == "local work")
+    }
+
+    @Test("Ignored files are not overwritten by branch switching")
+    func ignoredFile() async throws {
+        let folder = try await makeRepository()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        _ = try await git(["switch", "-c", "feature/test"], folder)
+        let file = folder.appendingPathComponent("local.txt")
+        try Data("branch content".utf8).write(to: file)
+        try await commit(folder)
+        _ = try await git(["switch", "main"], folder)
+        try Data("local.txt\n".utf8).write(to: folder.appendingPathComponent(".git/info/exclude"))
+        try Data("local work".utf8).write(to: file)
+        let commands = Commands()
+        await #expect(throws: LocalBranchCheckout.Failure.self) {
+            try await LocalBranchCheckout.run(request(folder), command: commands.run)
+        }
+        #expect(await commands.arguments == [switchArguments])
+        #expect(try String(contentsOf: file, encoding: .utf8) == "local work")
+    }
+
+    @Test("Only the missing-branch diagnostic triggers fetch")
+    func errorClassification() {
+        #expect(LocalBranchCheckout.Failure(exitCode: 128, stderr: "fatal: invalid reference: feature/test").isUnknownBranch("feature/test"))
+        for message in ["fatal: invalid reference: other", "fatal: cannot switch branch while merging", "fatal: 'feature/test' matched multiple remote tracking branches", "fatal: Unable to create index.lock", "fatal: not a git repository"] {
+            #expect(!LocalBranchCheckout.Failure(exitCode: 128, stderr: message).isUnknownBranch("feature/test"))
+        }
+    }
+
+    private func request(_ folder: URL, branch: String = "feature/test") -> LocalBranchCheckout.Request {
         .init(pullRequestID: "PR_42", url: URL(string: "https://github.com/org/repo/pull/42")!,
-              repository: "org/repo", branch: "feature/test", folder: folder)
+              repository: "org/repo", branch: branch, folder: folder)
+    }
+
+    private func git(_ arguments: [String], _ folder: URL) async throws -> String {
+        try await LocalBranchCheckout.git(arguments, in: folder)
+    }
+
+    private func commit(_ folder: URL) async throws {
+        _ = try await git(["add", "."], folder)
+        _ = try await git(["-c", "commit.gpgSign=false", "commit", "-m", "Fixture content"], folder)
     }
 
     private func makeRepository() async throws -> URL {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("work buddy tests \(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        _ = try await LocalBranchCheckout.git(["init", "-b", "main"], in: folder)
-        _ = try await LocalBranchCheckout.git(["config", "user.name", "Work Buddy Tests"], in: folder)
-        _ = try await LocalBranchCheckout.git(["config", "user.email", "test@example.invalid"], in: folder)
-        _ = try await LocalBranchCheckout.git(["config", "core.hooksPath", "/dev/null"], in: folder)
+        _ = try await git(["init", "-b", "main"], folder)
+        _ = try await git(["config", "user.name", "Work Buddy Tests"], folder)
+        _ = try await git(["config", "user.email", "test@example.invalid"], folder)
+        _ = try await git(["config", "core.hooksPath", "/dev/null"], folder)
         try Data("initial".utf8).write(to: folder.appendingPathComponent("tracked.txt"))
-        _ = try await LocalBranchCheckout.git(["add", "."], in: folder)
-        _ = try await LocalBranchCheckout.git(["-c", "commit.gpgSign=false", "commit", "-m", "Initial fixture"], in: folder)
-        _ = try await LocalBranchCheckout.git(["remote", "add", "origin", "git@github.com:org/repo.git"], in: folder)
+        try await commit(folder)
         return folder
+    }
+}
+
+private actor Commands {
+    private(set) var arguments: [[String]] = []
+    func run(_ arguments: [String], _ directory: URL) async throws -> String {
+        self.arguments.append(arguments)
+        return try await LocalBranchCheckout.git(arguments, in: directory)
     }
 }

@@ -26,7 +26,7 @@ struct ProjectOpenerTests {
         let attempts = Attempts()
         let opener = ProjectOpener(checkout: { _ in
             await attempts.increment()
-            throw LocalBranchCheckout.Failure.localChanges
+            throw LocalBranchCheckout.Failure(exitCode: 1, stderr: "Local changes would be overwritten")
         })
         var opened: [URL] = []
         await opener.open(request) { opened.append($0) }
@@ -43,7 +43,9 @@ struct ProjectOpenerTests {
 
     @Test("Dismissing the warning cancels the fallback")
     func dismiss() async {
-        let opener = ProjectOpener(checkout: { _ in throw LocalBranchCheckout.Failure.localChanges })
+        let opener = ProjectOpener(checkout: { _ in
+            throw LocalBranchCheckout.Failure(exitCode: 1, stderr: "Local changes would be overwritten")
+        })
         await opener.open(request) { _ in Issue.record("Must not launch") }
         opener.dismissNotice()
         await opener.openWithoutBranch { _ in Issue.record("Must not launch after cancellation") }
@@ -53,7 +55,7 @@ struct ProjectOpenerTests {
     @Test("Editor launch failures use the inline error state", arguments: [false, true])
     func launchError(fallback: Bool) async {
         let opener = ProjectOpener(checkout: { _ in
-            if fallback { throw LocalBranchCheckout.Failure.localChanges }
+            if fallback { throw LocalBranchCheckout.Failure(exitCode: 1, stderr: "Local changes would be overwritten") }
         })
         await opener.open(request) { _ in throw EditorStore.EditorError.missingApplication }
         if fallback {
