@@ -46,6 +46,10 @@ extension L10n {
 
         // MARK: - Agent CLI
         case agentTerminal
+        case agentCustomTerminal
+        case agentTerminalCommand
+        case agentTerminalCommandHelp
+        case agentTerminalCommandMissing
         case agentTitle
         case agentChoose
         case agentCustom

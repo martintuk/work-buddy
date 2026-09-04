@@ -2,7 +2,7 @@ import AppKit
 import Observation
 
 enum AgentTerminal: String, CaseIterable, Identifiable, Sendable {
-    case terminal, ghostty, iterm
+    case terminal, ghostty, iterm, custom
 
     var id: Self { self }
     var name: String {
@@ -10,13 +10,15 @@ enum AgentTerminal: String, CaseIterable, Identifiable, Sendable {
         case .terminal: "Terminal"
         case .ghostty: "Ghostty"
         case .iterm: "iTerm2"
+        case .custom: L10n.text(.agentCustomTerminal)
         }
     }
-    var bundleIdentifier: String {
+    var bundleIdentifier: String? {
         switch self {
         case .terminal: "com.apple.Terminal"
         case .ghostty: "com.mitchellh.ghostty"
         case .iterm: "com.googlecode.iterm2"
+        case .custom: nil
         }
     }
 }
@@ -51,22 +53,28 @@ final class AgentCLIStore {
     var terminal: AgentTerminal { didSet { defaults.set(terminal.rawValue, forKey: "agent.terminal") } }
     var agent: AgentCLI { didSet { defaults.set(agent.rawValue, forKey: "agent.cli") } }
     var customCommand: String { didSet { defaults.set(customCommand, forKey: "agent.customCommand") } }
+    var customTerminalCommand: String { didSet { defaults.set(customTerminalCommand, forKey: "agent.customTerminalCommand") } }
     private(set) var installedTerminals: [AgentTerminal] = []
     private(set) var openingID: String?
     private(set) var error: Error?
     var isOpening: Bool { openingID != nil }
-    var isConfigured: Bool { !agent.command(custom: customCommand).isEmpty }
+    var isConfigured: Bool {
+        !agent.command(custom: customCommand).isEmpty
+            && (terminal != .custom || !customTerminalCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         terminal = AgentTerminal(rawValue: defaults.string(forKey: "agent.terminal") ?? "") ?? .terminal
         agent = AgentCLI(rawValue: defaults.string(forKey: "agent.cli") ?? "") ?? .none
         customCommand = defaults.string(forKey: "agent.customCommand") ?? ""
+        customTerminalCommand = defaults.string(forKey: "agent.customTerminalCommand") ?? ""
     }
 
     func refreshTerminals() {
         installedTerminals = AgentTerminal.allCases.filter {
-            NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0.bundleIdentifier) != nil
+            guard let identifier = $0.bundleIdentifier else { return false }
+            return NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier) != nil
         }
     }
 
@@ -79,7 +87,21 @@ final class AgentCLIStore {
         defer { openingID = nil }
         do {
             try AgentTerminalLauncher.validate(folder: folder, command: agent.command(custom: customCommand))
-            guard let application = NSWorkspace.shared.urlForApplication(withBundleIdentifier: terminal.bundleIdentifier) else {
+            if terminal == .custom {
+                let launch = try CustomTerminalLaunch(
+                    template: customTerminalCommand, folder: folder, command: agent.command(custom: customCommand)
+                )
+                try launch.start()
+                // Algunos ejecutables de terminal permanecen abiertos toda la sesión: no bloquear el panel.
+                Task { [weak self] in
+                    do {
+                        _ = try await Task.detached(priority: .utility) { try launch.finish() }.value
+                    } catch { self?.error = error }
+                }
+                return
+            }
+            guard let identifier = terminal.bundleIdentifier,
+                  let application = NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier) else {
                 throw AgentLaunchError.missingTerminal
             }
             if terminal == .ghostty {
@@ -88,7 +110,7 @@ final class AgentCLIStore {
                     throw AgentLaunchError.ghosttyVersion
                 }
             }
-            let script = AgentTerminalLauncher.script(terminal: terminal, folder: folder,
+            let script = try AgentTerminalLauncher.script(terminal: terminal, folder: folder,
                                                       command: agent.command(custom: customCommand))
             _ = try await Task.detached(priority: .userInitiated) {
                 try AgentTerminalLauncher.execute(script)
@@ -98,12 +120,13 @@ final class AgentCLIStore {
 }
 
 enum AgentLaunchError: LocalizedError {
-    case missingTerminal, missingCommand, ghosttyVersion, automationDenied, script(String)
+    case missingTerminal, missingCommand, missingTerminalCommand, ghosttyVersion, automationDenied, script(String)
 
     var errorDescription: String? {
         switch self {
         case .missingTerminal: L10n.text(.agentMissingTerminal)
         case .missingCommand: L10n.text(.agentChoose)
+        case .missingTerminalCommand: L10n.text(.agentTerminalCommandMissing)
         case .ghosttyVersion: L10n.text(.agentGhosttyVersion)
         case .automationDenied: L10n.text(.agentAutomationDenied)
         case .script(let message): L10n.text(.agentLaunchFailed, message)
@@ -142,7 +165,8 @@ enum AgentTerminalLauncher {
             .replacingOccurrences(of: "\n", with: "\\n") + "\""
     }
 
-    static func script(terminal: AgentTerminal, folder: URL, command: String) -> String {
+    static func script(terminal: AgentTerminal, folder: URL, command: String) throws -> String {
+        guard let identifier = terminal.bundleIdentifier else { throw AgentLaunchError.missingTerminal }
         let input = shellCommand(folder: folder, command: command)
         let body: String
         switch terminal {
@@ -165,8 +189,10 @@ enum AgentTerminalLauncher {
             set agentWindow to new window with configuration cfg
             activate window agentWindow
             """
+        case .custom:
+            throw AgentLaunchError.missingTerminal
         }
-        return "tell application id \(appleScriptQuote(terminal.bundleIdentifier))\n\(body)\nend tell"
+        return "tell application id \(appleScriptQuote(identifier))\n\(body)\nend tell"
     }
 
     @discardableResult
@@ -191,5 +217,46 @@ enum AgentTerminalLauncher {
             throw AgentLaunchError.script(message.trimmingCharacters(in: .whitespacesAndNewlines))
         }
         return message
+    }
+}
+
+/// El template se ejecuta en zsh. Los valores viajan como variables de entorno, nunca como código interpolado.
+final class CustomTerminalLaunch: Sendable {
+    private let process: Process
+    private let output: Pipe
+
+    init(template: String, folder: URL, command: String) throws {
+        guard !template.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw AgentLaunchError.missingTerminalCommand
+        }
+        process = Process()
+        output = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = ["-lc", template]
+        process.currentDirectoryURL = folder
+        var environment = ProcessInfo.processInfo.environment
+        environment["WORK_BUDDY_FOLDER"] = folder.path
+        environment["WORK_BUDDY_COMMAND"] = AgentTerminalLauncher.shellCommand(folder: folder, command: command)
+        process.environment = environment
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = output
+        process.standardError = output
+    }
+
+    func start() throws { try process.run() }
+
+    func finish() throws -> String {
+        // Drenar toda la salida sin retener logs ilimitados de una terminal que siga ejecutándose.
+        var captured = Data()
+        while let chunk = try output.fileHandleForReading.read(upToCount: 4096), !chunk.isEmpty {
+            captured.append(chunk.prefix(max(0, 8192 - captured.count)))
+        }
+        process.waitUntilExit()
+        let text = String(decoding: captured, as: UTF8.self)
+        guard process.terminationStatus == 0 else {
+            let details = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            throw AgentLaunchError.script(details.isEmpty ? String(process.terminationStatus) : details)
+        }
+        return text
     }
 }

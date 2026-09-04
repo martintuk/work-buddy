@@ -39,13 +39,39 @@ struct AgentCLITests {
     @MainActor
     func scriptingDictionaries() throws {
         for terminal in AgentTerminal.allCases {
-            guard NSWorkspace.shared.urlForApplication(withBundleIdentifier: terminal.bundleIdentifier) != nil else { continue }
-            let source = AgentTerminalLauncher.script(terminal: terminal, folder: URL(fileURLWithPath: "/tmp/Project ' one"), command: "printf 'hello world'")
+            guard let identifier = terminal.bundleIdentifier,
+                  NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier) != nil else { continue }
+            let source = try AgentTerminalLauncher.script(terminal: terminal, folder: URL(fileURLWithPath: "/tmp/Project ' one"), command: "printf 'hello world'")
             let script = try #require(NSAppleScript(source: source))
             var details: NSDictionary?
             let compiled = script.compileAndReturnError(&details)
             #expect(compiled, "\(terminal.name): \(String(describing: details))")
         }
+    }
+
+    @Test("Custom terminal passes quoted project paths and agent arguments through the launch command")
+    func customTerminal() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let folder = root.appendingPathComponent("project ' \" $HOME `whoami`")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let launch = try CustomTerminalLaunch(
+            template: "printf '%s\\n' \"$WORK_BUDDY_FOLDER\"; /bin/zsh -c \"$WORK_BUDDY_COMMAND\"",
+            folder: folder, command: "printf '%s\\n' \"$PWD\" 'argument with spaces'"
+        )
+        try launch.start()
+        #expect(try launch.finish() == folder.path + "\n" + folder.path + "\nargument with spaces\n")
+    }
+
+    @Test("Custom terminal failures are reported and empty launch commands are rejected")
+    func customTerminalFailure() throws {
+        let folder = FileManager.default.temporaryDirectory
+        #expect(throws: AgentLaunchError.self) {
+            try CustomTerminalLaunch(template: "  ", folder: folder, command: "codex")
+        }
+        let launch = try CustomTerminalLaunch(template: "printf 'launcher failed' >&2; exit 7", folder: folder, command: "codex")
+        try launch.start()
+        #expect(throws: AgentLaunchError.self) { try launch.finish() }
     }
 
     private func runShell(_ executable: String, _ command: String) throws -> (status: Int32, output: String) {

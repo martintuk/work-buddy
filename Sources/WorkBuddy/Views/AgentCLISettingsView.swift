@@ -9,12 +9,18 @@ struct AgentCLISettingsView: View {
                 Text(L10n.text(.agentTerminal)).font(.system(size: 12, weight: .semibold))
                 Spacer()
                 Picker(L10n.text(.agentTerminal), selection: $store.terminal) {
-                    ForEach(AgentTerminal.allCases.filter { store.installedTerminals.contains($0) || $0 == store.terminal }) { terminal in
+                    ForEach(AgentTerminal.allCases.filter { $0 == .custom || store.installedTerminals.contains($0) || $0 == store.terminal }) { terminal in
                         Text(terminal.name).tag(terminal)
                     }
                 }
                 .labelsHidden()
                 .fixedSize()
+            }
+            if store.terminal == .custom {
+                TextField(L10n.text(.agentTerminalCommand), text: $store.customTerminalCommand)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel(L10n.text(.agentTerminalCommand))
+                    .help(L10n.text(.agentTerminalCommandHelp))
             }
             HStack {
                 Text(L10n.text(.agentTitle)).font(.system(size: 12, weight: .semibold))

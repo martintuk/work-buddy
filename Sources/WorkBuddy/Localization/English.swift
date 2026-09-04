@@ -46,6 +46,10 @@ extension L10n {
 
         // MARK: - Agent CLI
         case .agentTerminal: "Terminal"
+        case .agentCustomTerminal: "Custom…"
+        case .agentTerminalCommand: "Terminal launch command"
+        case .agentTerminalCommandHelp: "Launch command in zsh. Pass the folder as \"$WORK_BUDDY_FOLDER\" and the agent command as \"$WORK_BUDDY_COMMAND\", keeping the double quotes. The agent command already enters the project folder."
+        case .agentTerminalCommandMissing: "Enter a terminal launch command in Settings."
         case .agentTitle: "AI agent CLI"
         case .agentChoose: "Choose agent…"
         case .agentCustom: "Custom…"
