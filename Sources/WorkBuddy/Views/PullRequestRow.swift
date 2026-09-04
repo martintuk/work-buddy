@@ -81,20 +81,13 @@ struct PullRequestRow: View {
         behindBadge
     }
 
-    /// Tres estados distintos, a propósito: atrasado, al día, y no medido. Si
-    /// "no medido" se viera igual que "al día", no habría forma de saber por qué
-    /// no aparece la acción de rebase.
+    /// Mostramos sólo atraso confirmado. Mientras se calcula o si no se pudo
+    /// medir, omitimos el badge sin tratar el valor desconocido como cero.
     @ViewBuilder
     private var behindBadge: some View {
-        switch behindBy {
-        case .some(let commits) where commits > 0:
+        if let commits = behindBy, commits > 0 {
             Badge(text: "↓\(commits)", color: .orange)
                 .help("\(commits) commit\(commits == 1 ? "" : "s") atrás de \(pullRequest.baseRefName)")
-        case .none:
-            Badge(text: "↓?", color: .secondary)
-                .help("No pude comparar contra \(pullRequest.baseRefName)")
-        default:
-            EmptyView() // al día: no hace falta decirlo
         }
     }
 
