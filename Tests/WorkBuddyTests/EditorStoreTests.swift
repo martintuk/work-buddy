@@ -52,12 +52,40 @@ struct EditorStoreTests {
         }
     }
 
-    private func makeApplication(at url: URL, identifier: String) throws -> URL {
+    @Test("Xcode installations share one choice, preserving an explicitly selected copy")
+    func duplicateInstallations() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let standard = try makeApplication(at: root.appendingPathComponent("Xcode.app"),
+                                           identifier: "com.apple.dt.Xcode", name: "Xcode")
+        let beta = try makeApplication(at: root.appendingPathComponent("Xcode-27-Beta.app"),
+                                       identifier: "com.apple.dt.Xcode", name: "Xcode")
+        let discovered = EditorApplication.discover(in: [root])
+        #expect(discovered.map(\.url) == [standard])
+        let betaApplication = try #require(EditorApplication(url: beta))
+        let selected = EditorApplication.unique(discovered + [betaApplication], preferring: beta)
+        #expect(selected.map(\.url) == [beta])
+    }
+
+    @Test("Refreshing installed editors does not select one")
+    @MainActor
+    func noAutomaticSelection() async throws {
+        let suite = "work-buddy.editor-tests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = EditorStore(defaults: defaults)
+        await store.refresh()
+        #expect(store.selectedURL == nil)
+        #expect(store.selectedName == nil)
+        #expect(EditorStore(defaults: defaults).selectedURL == nil)
+    }
+
+    private func makeApplication(at url: URL, identifier: String, name: String? = nil) throws -> URL {
         let contents = url.appendingPathComponent("Contents")
         try FileManager.default.createDirectory(at: contents.appendingPathComponent("MacOS"), withIntermediateDirectories: true)
         let plist = [
             "CFBundleIdentifier": identifier,
-            "CFBundleName": url.deletingPathExtension().lastPathComponent,
+            "CFBundleName": name ?? url.deletingPathExtension().lastPathComponent,
             "CFBundleExecutable": "editor",
             "CFBundlePackageType": "APPL"
         ]

@@ -65,7 +65,24 @@ struct EditorApplication: Identifiable, Equatable, Sendable {
                 }
             }
         }
-        return editors.values.sorted {
+        return unique(Array(editors.values))
+    }
+
+    /// Una entrada por aplicación aunque existan varias instalaciones/versiones.
+    /// Conserva la ruta elegida explícitamente; si no, prefiere el nombre estándar.
+    static func unique(_ applications: [Self], preferring selectedURL: URL? = nil) -> [Self] {
+        let groups = Dictionary(grouping: applications, by: \.bundleIdentifier)
+        return groups.values.compactMap { copies in
+            copies.sorted { lhs, rhs in
+                if (lhs.url == selectedURL) != (rhs.url == selectedURL) {
+                    return lhs.url == selectedURL
+                }
+                let lhsStandard = lhs.url.deletingPathExtension().lastPathComponent == lhs.name
+                let rhsStandard = rhs.url.deletingPathExtension().lastPathComponent == rhs.name
+                if lhsStandard != rhsStandard { return lhsStandard }
+                return lhs.id < rhs.id
+            }.first
+        }.sorted {
             if $0.name == $1.name { return $0.id < $1.id }
             return $0.name.localizedStandardCompare($1.name) == .orderedAscending
         }
@@ -94,9 +111,8 @@ final class EditorStore {
     }
 
     var choices: [EditorApplication] {
-        guard let selectedURL, let selected = EditorApplication(url: selectedURL),
-              !installed.contains(where: { $0.id == selected.id }) else { return installed }
-        return installed + [selected]
+        let selected = selectedURL.flatMap { EditorApplication(url: $0) }
+        return EditorApplication.unique(installed + [selected].compactMap { $0 }, preferring: selectedURL)
     }
 
     func refresh() async {
