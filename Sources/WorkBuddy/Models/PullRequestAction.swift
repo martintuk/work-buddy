@@ -51,8 +51,8 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
 
     var needsConfirmation: Bool {
         switch self {
-        case .open, .ignore: false
-        case .restore, .approve, .rebase, .dependabotRebase, .merge: true
+        case .open, .ignore, .restore: false
+        case .approve, .rebase, .dependabotRebase, .merge: true
         }
     }
 }
