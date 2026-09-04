@@ -8,21 +8,15 @@ struct NotificationSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Notificaciones")
-                .font(.system(size: 12, weight: .semibold))
-
             HStack(spacing: 8) {
-                Toggle("Habilitar", isOn: Binding(
-                    get: { notifier.isEnabled },
-                    set: { enabled in
-                        perform { try await notifier.setEnabled(enabled) }
-                    }
-                ))
-                .toggleStyle(.switch)
-                .fixedSize()
-                .disabled(isWorking || !notifier.isAvailable)
-                .help("Activar o desactivar los envíos de notificaciones de work-buddy")
-                .accessibilityLabel("Habilitar notificaciones de work-buddy")
+                Text("Notificaciones")
+                    .font(.system(size: 12, weight: .semibold))
+
+                Spacer()
+
+                if isWorking {
+                    ProgressView().controlSize(.mini)
+                }
 
                 Button("Probar") {
                     perform { try await notifier.sendTest() }
@@ -30,11 +24,18 @@ struct NotificationSettingsView: View {
                 .disabled(isWorking || !notifier.isAvailable)
                 .help("Enviar una notificación de prueba")
 
-                Spacer()
-
-                if isWorking {
-                    ProgressView().controlSize(.mini)
-                }
+                Toggle("Habilitar", isOn: Binding(
+                    get: { notifier.isEnabled },
+                    set: { enabled in
+                        perform { try await notifier.setEnabled(enabled) }
+                    }
+                ))
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .fixedSize()
+                .disabled(isWorking || !notifier.isAvailable)
+                .help("Activar o desactivar los envíos de notificaciones de work-buddy")
+                .accessibilityLabel("Habilitar notificaciones de work-buddy")
 
             }
             .controlSize(.small)

@@ -22,9 +22,16 @@ struct ConfigurationView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Toggle("Mostrar secciones vacías", isOn: $showEmptySections)
-                    .toggleStyle(.checkbox)
-                    .font(.system(size: 12))
+                HStack(spacing: 8) {
+                    Text("Mostrar secciones vacías")
+                        .font(.system(size: 12, weight: .semibold))
+                    Spacer()
+                    Toggle("Mostrar secciones vacías", isOn: $showEmptySections)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .help("Mostrar u ocultar las secciones sin elementos")
+                }
+                .controlSize(.small)
 
                 NotificationSettingsView(notifier: store.notifier)
 
