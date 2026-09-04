@@ -41,6 +41,7 @@ struct PanelView: View {
             header
 
             if showingConfiguration {
+                configurationHeader
                 Divider()
                 ConfigurationView(store: store)
             } else {
@@ -62,6 +63,28 @@ struct PanelView: View {
             footer
         }
         .frame(width: Self.preferredSize.width, height: Self.preferredSize.height)
+    }
+
+    private var configurationHeader: some View {
+        HStack {
+            Button {
+                showingConfiguration = false
+            } label: {
+                Label(L10n.text(.commonBack), systemImage: "chevron.left")
+            }
+            .buttonStyle(.borderless)
+            .help(L10n.text(.commonBack))
+            .accessibilityLabel(L10n.text(.commonBack))
+            Spacer()
+        }
+        .overlay {
+            Text(L10n.text(.settingsTitle))
+                .font(.system(size: 13, weight: .semibold))
+                .accessibilityAddTraits(.isHeader)
+        }
+        .frame(height: 24)
+        .padding(.horizontal, 14)
+        .padding(.bottom, 10)
     }
 
     private var header: some View {
