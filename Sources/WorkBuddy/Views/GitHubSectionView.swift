@@ -3,6 +3,7 @@ import SwiftUI
 /// Cola de PRs de la sección GitHub.
 struct GitHubSectionView: View {
     let store: ReviewQueueStore
+    let showRepositories: () -> Void
 
     @State private var collapsed: Set<QueueSection> = []
     @State private var pendingMerge: PendingMerge?
@@ -49,6 +50,26 @@ struct GitHubSectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            Button(action: showRepositories) {
+                HStack(spacing: 6) {
+                    Label("Repositorios", systemImage: store.repositoryFilter.isActive
+                        ? "line.3.horizontal.decrease.circle.fill"
+                        : "line.3.horizontal.decrease.circle")
+                    Spacer()
+                    Text(store.repositoryFilter.isActive ? "Filtro activo" : "Todos")
+                        .foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                }
+                .font(.system(size: 11))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .help("Filtrar repositorios de GitHub")
+            Divider()
+
             // La confirmación tapa el aviso: son el mismo lugar y nunca hacen
             // falta las dos a la vez.
             if let pendingMerge {
@@ -158,9 +179,16 @@ struct GitHubSectionView: View {
                 if sections.isEmpty, merge.isEmpty, store.automation.isEmpty, store.ignored.isEmpty {
                     centered {
                         ContentUnavailableView {
-                            Label("Nada pendiente", systemImage: "checkmark.circle")
+                            Label(store.hasRepositoryFilteredResults ? "Sin PRs con este filtro" : "Nada pendiente",
+                                  systemImage: store.hasRepositoryFilteredResults ? "line.3.horizontal.decrease.circle" : "checkmark.circle")
                         } description: {
-                            Text("No hay PRs esperando tu review.")
+                            Text(store.hasRepositoryFilteredResults
+                                ? "Hay resultados en repositorios ocultos. Podés cambiar el filtro o ver todos."
+                                : "No hay PRs esperando tu review.")
+                        } actions: {
+                            if store.repositoryFilter.isActive {
+                                Button("Ver todos") { store.clearRepositoryFilter() }
+                            }
                         }
                     }
                 }

@@ -28,6 +28,16 @@ ignorar. El método de merge lo decide el repo, no la app.
 
 Refresca cada 5 minutos y notifica lo nuevo que te bloquea.
 
+Dentro de la categoría **GitHub**, el botón **Repositorios** abre una lista con búsqueda
+y scroll que ocupa todo el panel. Se obtiene de los repositorios distintos de
+los resultados de review, automatización y merge, antes de aplicar el filtro.
+**Solo** muestra un único repo (otro click lo desactiva); **Mute** oculta un repo.
+Solo tiene prioridad sobre los muteos guardados; al salir se vuelven a aplicar.
+Mutear el repo en Solo sale de Solo y lo deja muteado. **Ver todos** limpia ambos.
+El filtro se guarda automáticamente entre reinicios y alcanza las secciones,
+el badge y las nuevas notificaciones. Los repos con preferencias guardadas siguen
+en la lista aunque no tengan resultados actuales, para poder restaurarlos.
+
 ## Requisitos
 
 - macOS 14+

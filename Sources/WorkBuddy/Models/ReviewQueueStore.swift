@@ -21,6 +21,7 @@ final class ReviewQueueStore {
 
     private(set) var state: State = .idle
     private(set) var configuration = AppConfiguration.load()
+    private(set) var repositoryFilter = RepositoryFilter.load()
     private(set) var pullRequests: [PullRequest] = []
     /// PRs de dependabot. Lista aparte porque vienen de otra query y porque
     /// **nunca** notifican ni cuentan para el badge: son 50 contra 7 de
@@ -70,7 +71,17 @@ final class ReviewQueueStore {
 
     /// Todo lo visible sale de acá: los ignorados se filtran una sola vez, así
     /// no hay forma de que el badge cuente algo que el panel no muestra.
-    private var visible: [PullRequest] { reviewQueue.excluding(ignoreList.ids) }
+    private var visible: [PullRequest] {
+        repositoryFilter.apply(to: reviewQueue).excluding(ignoreList.ids)
+    }
+
+    var repositories: [RepositoryFilter.Repository] {
+        repositoryFilter.repositories(in: allKnown)
+    }
+
+    var hasRepositoryFilteredResults: Bool {
+        allKnown.contains { !repositoryFilter.includes($0.repository) }
+    }
 
     var humanSections: [(bucket: ReviewBucket, items: [PullRequest])] {
         visible.humanSections
@@ -81,7 +92,7 @@ final class ReviewQueueStore {
     var awaitingYourReview: [PullRequest] { visible.awaitingYourReview }
 
     var readyToMerge: [PullRequest] {
-        mergeCandidates.excluding(ignoreList.ids).readyToMerge
+        repositoryFilter.apply(to: mergeCandidates).excluding(ignoreList.ids).readyToMerge
     }
 
     /// Lo que va en el badge: todo lo que espera una acción tuya.
@@ -110,10 +121,31 @@ final class ReviewQueueStore {
     /// Ignorados que siguen abiertos y en tu cola. Los que se cerraron no
     /// aparecen porque la query ya no los trae.
     var ignored: [PullRequest] {
-        reviewQueue.only(ignoreList.ids).sorted { $0.updatedAt > $1.updatedAt }
+        repositoryFilter.apply(to: reviewQueue).only(ignoreList.ids)
+            .sorted { $0.updatedAt > $1.updatedAt }
     }
 
     // MARK: - Acciones
+
+    func toggleRepositorySolo(_ repository: String) {
+        repositoryFilter.toggleSolo(repository)
+        repositoryFilterDidChange()
+    }
+
+    func toggleRepositoryMute(_ repository: String) {
+        repositoryFilter.toggleMute(repository)
+        repositoryFilterDidChange()
+    }
+
+    func clearRepositoryFilter() {
+        repositoryFilter = RepositoryFilter()
+        repositoryFilterDidChange()
+    }
+
+    private func repositoryFilterDidChange() {
+        repositoryFilter.persist()
+        onChange?()
+    }
 
     func perform(_ action: PullRequestAction, on pullRequest: PullRequest) {
         switch action {
@@ -271,7 +303,7 @@ final class ReviewQueueStore {
                 // que llega en la segunda fase. Un PR ignorado tampoco notifica;
                 // si más adelante lo restaurás, vuelve a contar como nuevo y
                 // avisa una vez.
-                await notifier.process(fetched.excluding(ignoreList.ids))
+                await notifier.process(repositoryFilter.apply(to: fetched).excluding(ignoreList.ids))
                 guard requestedRevision == configurationRevision else { return }
 
                 // Segunda fase: lo caro, después de que el panel se dibujó.

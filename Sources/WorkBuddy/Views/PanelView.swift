@@ -9,6 +9,7 @@ struct PanelView: View {
 
     @State private var selectedCategory: Category = .github
     @State private var showingConfiguration = false
+    @State private var showingRepositories = false
 
     private enum Category: String, CaseIterable, Identifiable {
         case github = "GitHub"
@@ -18,6 +19,17 @@ struct PanelView: View {
     }
 
     var body: some View {
+        Group {
+            if showingRepositories {
+                RepositoryFilterView(store: store) { showingRepositories = false }
+            } else {
+                panel
+            }
+        }
+        .frame(width: Self.preferredSize.width, height: Self.preferredSize.height)
+    }
+
+    private var panel: some View {
         VStack(spacing: 0) {
             header
 
@@ -79,7 +91,7 @@ struct PanelView: View {
     private var categoryContent: some View {
         switch selectedCategory {
         case .github:
-            GitHubSectionView(store: store)
+            GitHubSectionView(store: store) { showingRepositories = true }
         case .jira:
             ContentUnavailableView {
                 Label("Jira", systemImage: "checklist")
