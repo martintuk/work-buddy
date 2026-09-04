@@ -5,6 +5,7 @@ struct GitHubSectionView: View {
     let store: ReviewQueueStore
     let showRepositories: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("appearance.showEmptySections") private var showEmptySections = true
     @AppStorage("github.collapsedSections") private var collapsedSectionIDs = ""
     @State private var pendingAction: PendingAction?
@@ -279,7 +280,12 @@ struct GitHubSectionView: View {
     /// Aviso de la última escritura. Es la única señal de que funcionó: aprobar
     /// saca el PR de tu cola y mergear lo cierra, así que la fila desaparece.
     private func outcomeBanner(_ outcome: ReviewQueueStore.Outcome) -> some View {
-        HStack(spacing: 6) {
+        let successColor = colorScheme == .dark
+            ? Color(red: 0.56, green: 0.69, blue: 0.60)
+            : Color(red: 0.30, green: 0.46, blue: 0.36)
+        let tint = outcome.isError ? Color.red : successColor
+
+        return HStack(spacing: 6) {
             Image(systemName: outcome.isError
                 ? "exclamationmark.triangle.fill"
                 : "checkmark.circle.fill")
@@ -294,10 +300,10 @@ struct GitHubSectionView: View {
             .buttonStyle(.borderless)
         }
         .font(.system(size: 10))
-        .foregroundStyle(outcome.isError ? Color.red : Color.green)
+        .foregroundStyle(tint)
         .padding(.horizontal, 14)
         .padding(.vertical, 7)
-        .background((outcome.isError ? Color.red : Color.green).opacity(0.08))
+        .background(tint.opacity(0.08))
     }
 
     // MARK: - Contenido
