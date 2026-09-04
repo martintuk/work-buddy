@@ -6,6 +6,7 @@ struct JiraSectionView: View {
 
     let store: JiraStore
 
+    @AppStorage("appearance.showEmptySections") private var showEmptySections = true
     @State private var copiedLoginCommand = false
     @AppStorage("jira.shrExpanded") private var isSHRExpanded = true
     @AppStorage("jira.recentlyCreatedExpanded") private var isRecentlyCreatedExpanded = true
@@ -44,43 +45,53 @@ struct JiraSectionView: View {
     private var queue: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 4) {
-                QueueSectionHeader(
-                    title: "Esperan mi SHR",
-                    subtitle: nil,
-                    symbol: "person.2",
-                    tint: .orange,
-                    count: store.shrItems.count,
-                    isExpanded: isSHRExpanded,
-                    accessibilityItemName: "tickets"
-                ) {
-                    withAnimation(.easeInOut(duration: 0.18)) {
-                        isSHRExpanded.toggle()
+                if !showEmptySections && store.shrItems.isEmpty && store.recentlyCreatedItems.isEmpty {
+                    ContentUnavailableView {
+                        Label("Nada pendiente", systemImage: "checkmark.circle")
                     }
                 }
 
-                if isSHRExpanded {
-                    ForEach(store.shrItems) { workItem in
-                        workItemRow(workItem)
+                if showEmptySections || !store.shrItems.isEmpty {
+                    QueueSectionHeader(
+                        title: "Esperan mi SHR",
+                        subtitle: nil,
+                        symbol: "person.2",
+                        tint: .orange,
+                        count: store.shrItems.count,
+                        isExpanded: isSHRExpanded,
+                        accessibilityItemName: "tickets"
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            isSHRExpanded.toggle()
+                        }
+                    }
+
+                    if isSHRExpanded {
+                        ForEach(store.shrItems) { workItem in
+                            workItemRow(workItem)
+                        }
                     }
                 }
 
-                QueueSectionHeader(
-                    title: "Creados recientemente",
-                    subtitle: nil,
-                    symbol: "clock",
-                    tint: .blue,
-                    count: store.recentlyCreatedItems.count,
-                    isExpanded: isRecentlyCreatedExpanded,
-                    accessibilityItemName: "tickets"
-                ) {
-                    withAnimation(.easeInOut(duration: 0.18)) {
-                        isRecentlyCreatedExpanded.toggle()
+                if showEmptySections || !store.recentlyCreatedItems.isEmpty {
+                    QueueSectionHeader(
+                        title: "Creados recientemente",
+                        subtitle: nil,
+                        symbol: "clock",
+                        tint: .blue,
+                        count: store.recentlyCreatedItems.count,
+                        isExpanded: isRecentlyCreatedExpanded,
+                        accessibilityItemName: "tickets"
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            isRecentlyCreatedExpanded.toggle()
+                        }
                     }
-                }
 
-                if isRecentlyCreatedExpanded {
-                    ForEach(store.recentlyCreatedItems) { workItem in
-                        workItemRow(workItem, showStatus: true)
+                    if isRecentlyCreatedExpanded {
+                        ForEach(store.recentlyCreatedItems) { workItem in
+                            workItemRow(workItem, showStatus: true)
+                        }
                     }
                 }
             }

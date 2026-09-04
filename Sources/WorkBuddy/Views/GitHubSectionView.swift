@@ -5,6 +5,7 @@ struct GitHubSectionView: View {
     let store: ReviewQueueStore
     let showRepositories: () -> Void
 
+    @AppStorage("appearance.showEmptySections") private var showEmptySections = true
     @AppStorage("github.collapsedSections") private var collapsedSectionIDs = ""
     @State private var pendingAction: PendingAction?
 
@@ -237,8 +238,7 @@ struct GitHubSectionView: View {
         let merge = store.readyToMerge
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                // Reservamos el estado general vacío para cuando se oculten las categorías vacías.
-                if !hasVisiblePullRequests && store.hasRepositoryFilteredResults {
+                if !hasVisiblePullRequests && (!showEmptySections || store.hasRepositoryFilteredResults) {
                     centered {
                         ContentUnavailableView {
                             Label(store.hasRepositoryFilteredResults ? "Sin PRs con este filtro" : "Nada pendiente",
@@ -301,42 +301,44 @@ struct GitHubSectionView: View {
         subtitle: String? = nil,
         items: [PullRequest]
     ) -> some View {
-        let collapsed = Set(collapsedSectionIDs.split(separator: ",").map(String.init))
-        let isExpanded = !collapsed.contains(section.persistenceID)
-        VStack(alignment: .leading, spacing: 4) {
-            QueueSectionHeader(
-                title: title,
-                subtitle: subtitle,
-                symbol: section.symbol,
-                tint: section.tint,
-                count: items.count,
-                isExpanded: isExpanded,
-                accessibilityItemName: "pull requests"
-            ) {
-                withAnimation(.easeInOut(duration: 0.18)) {
-                    var updated = collapsed
-                    if isExpanded {
-                        updated.insert(section.persistenceID)
-                    } else {
-                        updated.remove(section.persistenceID)
+        if showEmptySections || !items.isEmpty {
+            let collapsed = Set(collapsedSectionIDs.split(separator: ",").map(String.init))
+            let isExpanded = !collapsed.contains(section.persistenceID)
+            VStack(alignment: .leading, spacing: 4) {
+                QueueSectionHeader(
+                    title: title,
+                    subtitle: subtitle,
+                    symbol: section.symbol,
+                    tint: section.tint,
+                    count: items.count,
+                    isExpanded: isExpanded,
+                    accessibilityItemName: "pull requests"
+                ) {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        var updated = collapsed
+                        if isExpanded {
+                            updated.insert(section.persistenceID)
+                        } else {
+                            updated.remove(section.persistenceID)
+                        }
+                        collapsedSectionIDs = updated.sorted().joined(separator: ",")
                     }
-                    collapsedSectionIDs = updated.sorted().joined(separator: ",")
                 }
-            }
 
-            if isExpanded {
-                if let summary = section.summary {
-                    Text(summary)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
-                        .background(section.tint.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+                if isExpanded {
+                    if let summary = section.summary {
+                        Text(summary)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(section.tint.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+                    }
+                    rows(items)
                 }
-                rows(items)
             }
         }
     }

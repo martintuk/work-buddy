@@ -9,6 +9,7 @@ struct ConfigurationView: View {
         case machineAccounts
     }
 
+    @AppStorage("appearance.showEmptySections") private var showEmptySections = true
     @State private var selectedOrganizations: Set<String> = []
     @State private var availableOrganizations: [String] = []
     @State private var isLoadingOrganizations = false
@@ -21,6 +22,10 @@ struct ConfigurationView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                Toggle("Mostrar secciones vacías", isOn: $showEmptySections)
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 12))
+
                 NotificationSettingsView(notifier: store.notifier)
 
                 organizationsSelector
