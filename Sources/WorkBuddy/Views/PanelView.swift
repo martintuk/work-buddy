@@ -100,8 +100,6 @@ struct PanelView: View {
                 Text("v\(Self.version)")
             }
             Spacer()
-            Button("Salir") { NSApp.terminate(nil) }
-                .controlSize(.small)
         }
         .font(.system(size: 10))
         .foregroundStyle(.secondary)
