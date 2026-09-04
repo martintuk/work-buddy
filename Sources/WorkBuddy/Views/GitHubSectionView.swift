@@ -49,6 +49,7 @@ struct GitHubSectionView: View {
                     Label("Repositorios", systemImage: store.repositoryFilter.isActive
                         ? "line.3.horizontal.decrease.circle.fill"
                         : "line.3.horizontal.decrease.circle")
+                        .foregroundStyle(store.repositoryFilter.isActive ? Color.accentColor : Color.primary)
                     Spacer()
                     Text(store.repositoryFilter.isActive ? "Filtro activo" : "Todos")
                         .foregroundStyle(.secondary)
@@ -58,6 +59,7 @@ struct GitHubSectionView: View {
                 .font(.system(size: 11))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
+                .background(Color.accentColor.opacity(store.repositoryFilter.isActive ? 0.08 : 0))
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
