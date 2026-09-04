@@ -9,6 +9,7 @@ struct GitHubSectionView: View {
     @AppStorage("github.collapsedSections") private var collapsedSectionIDs = ""
     @State private var pendingAction: PendingAction?
     @State private var configurationHint: ConfigurationHint?
+    @State private var selectedPullRequestID: String?
 
     private enum ConfigurationHint {
         case editor
@@ -380,6 +381,8 @@ struct GitHubSectionView: View {
         ForEach(items) { pullRequest in
             PullRequestRow(
                 pullRequest: pullRequest,
+                isSelected: selectedPullRequestID == pullRequest.id,
+                select: { selectedPullRequestID = pullRequest.id },
                 isIgnored: store.isIgnored(pullRequest),
                 isActing: store.isActing(on: pullRequest),
                 behindBy: store.behindCount(for: pullRequest),

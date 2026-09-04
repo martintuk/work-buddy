@@ -8,6 +8,7 @@ struct JiraSectionView: View {
 
     @AppStorage("appearance.showEmptySections") private var showEmptySections = true
     @State private var copiedLoginCommand = false
+    @State private var selectedWorkItemID: String?
     @AppStorage("jira.shrExpanded") private var isSHRExpanded = true
     @AppStorage("jira.recentlyCreatedExpanded") private var isRecentlyCreatedExpanded = true
 
@@ -107,29 +108,30 @@ struct JiraSectionView: View {
     }
 
     private func workItemRow(_ workItem: JiraWorkItem, showStatus: Bool = false) -> some View {
-        Button {
-            guard let url = store.url(for: workItem) else { return }
-            NSWorkspace.shared.open(url)
-        } label: {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(workItem.title)
-                    .font(.system(size: 12, weight: .medium))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .padding(.trailing, 22)
-                Text([workItem.key, workItem.issueType, showStatus ? workItem.status : nil]
-                    .compactMap { $0 }
-                    .joined(separator: " · "))
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .contentShape(.rect)
+        VStack(alignment: .leading, spacing: 3) {
+            Text(workItem.title)
+                .font(.system(size: 12, weight: .medium))
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .padding(.trailing, 22)
+            Text([workItem.key, workItem.issueType, showStatus ? workItem.status : nil]
+                .compactMap { $0 }
+                .joined(separator: " · "))
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
         }
-        .buttonStyle(.plain)
-        .disabled(store.url(for: workItem) == nil)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .modifier(QueueItemInteraction(
+            isSelected: selectedWorkItemID == workItem.id,
+            openTitle: L10n.text(.jiraOpen, workItem.key),
+            select: { selectedWorkItemID = workItem.id },
+            open: {
+                guard let url = store.url(for: workItem) else { return }
+                NSWorkspace.shared.open(url)
+            }
+        ))
         .help(L10n.text(.jiraOpen, workItem.key))
         .overlay(alignment: .topTrailing) {
             if let site = store.siteURL {

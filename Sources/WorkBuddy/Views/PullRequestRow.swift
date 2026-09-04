@@ -1,10 +1,12 @@
 import AppKit
 import SwiftUI
 
-/// Una fila de la lista. Clickear el cuerpo abre el PR; el menú de la derecha
+/// Una fila de la lista. Un click selecciona y doble click abre el PR; el menú de la derecha
 /// y el menú contextual tienen el resto de las acciones.
 struct PullRequestRow: View {
     let pullRequest: PullRequest
+    let isSelected: Bool
+    let select: () -> Void
     let isIgnored: Bool
     let isActing: Bool
     /// Commits atrás de la base. `nil` = no se pudo medir, que no es `0`.
@@ -24,10 +26,17 @@ struct PullRequestRow: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            // El cuerpo y el menú son hermanos, no anidados: un Menu adentro de
-            // un Button no recibe los clicks.
-            Button { perform(.open) } label: { details }
-                .buttonStyle(.plain)
+            // Las acciones quedan fuera del área que reconoce los clicks de la fila.
+            details
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .modifier(QueueItemInteraction(
+                    isSelected: isSelected,
+                    isHovering: isHovering,
+                    openTitle: PullRequestAction.open.title,
+                    select: select,
+                    open: { perform(.open) }
+                ))
 
             HStack(spacing: 4) {
                 ItemNoteButton(
@@ -42,13 +51,9 @@ struct PullRequestRow: View {
                     actionMenu
                 }
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isHovering ? Color.primary.opacity(0.07) : .clear)
-        )
         .contentShape(.rect)
         .contextMenu {
             if !isActing {
