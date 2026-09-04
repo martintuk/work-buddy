@@ -14,7 +14,7 @@ struct PullRequestRow: View {
     @State private var isHovering = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 4) {
+        ZStack(alignment: .topTrailing) {
             // El cuerpo y el menú son hermanos, no anidados: un Menu adentro de
             // un Button no recibe los clicks.
             Button { perform(.open) } label: { details }
@@ -44,6 +44,7 @@ struct PullRequestRow: View {
                 .font(.system(size: 12, weight: .medium))
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
+                .padding(.trailing, 22)
             subtitle
         }
         .frame(maxWidth: .infinity, alignment: .leading)
