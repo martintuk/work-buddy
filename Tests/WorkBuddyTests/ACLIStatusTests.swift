@@ -32,9 +32,10 @@ struct ACLIStatusTests {
 
 @Suite("Cola de SHR")
 struct SHRQueueTests {
-    @Test("Busca sólo Stakeholder Review asignado a la cuenta activa")
+    @Test("Busca sólo Stakeholder Review donde la cuenta activa es Stakeholder")
     func query() {
-        #expect(SHRQueue.jql.contains("assignee = currentUser()"))
+        #expect(SHRQueue.jql.contains("\"Stakeholder\" = currentUser()"))
+        #expect(!SHRQueue.jql.contains("assignee = currentUser()"))
         #expect(SHRQueue.jql.contains("status = \"Stakeholder Review\""))
         #expect(SHRQueue.jql.contains("ORDER BY updated DESC"))
         #expect(SHRQueue.arguments.contains("--paginate"))

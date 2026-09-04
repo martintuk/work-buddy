@@ -1,9 +1,9 @@
 import Foundation
 
-/// Tickets asignados a la cuenta activa que esperan Stakeholder Review.
+/// Tickets donde la cuenta activa figura como Stakeholder y esperan su review.
 enum SHRQueue {
     static let jql = """
-    assignee = currentUser() AND status = "Stakeholder Review" ORDER BY updated DESC
+    "Stakeholder" = currentUser() AND status = "Stakeholder Review" ORDER BY updated DESC
     """
 
     static let arguments = [
