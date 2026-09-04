@@ -28,6 +28,7 @@ final class ReviewQueueStore {
     /// PRs propios; se consultan aparte aunque no esperen review ni puedan mergearse.
     private(set) var fixCandidates: [PullRequest] = []
     private(set) var replyCandidates: [PullRequest] = []
+    private(set) var waitingReplyCandidates: [PullRequest] = []
     private(set) var lastUpdated: Date?
 
     /// Resultado de la última acción que escribió en GitHub.
@@ -109,6 +110,12 @@ final class ReviewQueueStore {
     var needingReply: [PullRequest] {
         repositoryFilter.prioritizingFavorites(
             in: repositoryFilter.apply(to: replyCandidates).excluding(ignoreList.ids)
+        )
+    }
+
+    var waitingForReply: [PullRequest] {
+        repositoryFilter.prioritizingFavorites(
+            in: repositoryFilter.apply(to: waitingReplyCandidates).excluding(ignoreList.ids)
         )
     }
 
@@ -245,7 +252,7 @@ final class ReviewQueueStore {
     /// solapan (un PR aprobado por vos está en las dos).
     private var allKnown: [PullRequest] {
         var seen: Set<String> = []
-        return (reviewQueue + mergeCandidates + fixCandidates + replyCandidates).filter { seen.insert($0.id).inserted }
+        return (reviewQueue + mergeCandidates + fixCandidates + replyCandidates + waitingReplyCandidates).filter { seen.insert($0.id).inserted }
     }
 
     func isActing(on pullRequest: PullRequest) -> Bool {
@@ -277,6 +284,7 @@ final class ReviewQueueStore {
         mergeCandidates = []
         fixCandidates = []
         replyCandidates = []
+        waitingReplyCandidates = []
         behindCounts = [:]
         lastUpdated = nil
         state = .idle
@@ -353,6 +361,7 @@ final class ReviewQueueStore {
                 async let reviewQueue = ReviewQueue.fetch(configuration: requestedConfiguration)
                 async let mergeQueue = MergeQueue.fetch(configuration: requestedConfiguration)
                 async let fixQueue = FixQueue.fetch(configuration: requestedConfiguration)
+                async let conversationCandidates = ConversationCandidates.fetch(configuration: requestedConfiguration)
 
                 let fetched = try await reviewQueue
                 guard requestedRevision == configurationRevision else { return }
@@ -387,10 +396,18 @@ final class ReviewQueueStore {
                 // la última clasificación sin impedir que se actualice la CI.
                 onChange?()
                 if let fetchedFixCandidates {
-                    let replies = try? await ReplyQueue.fetch(for: fetchedFixCandidates)
-                    guard requestedRevision == configurationRevision else { return }
-                    if let replies { replyCandidates = replies }
+                    do {
+                        let others = try await conversationCandidates
+                        let viewer = try await Viewer.fetch()
+                        let replies = try await ReplyQueue.fetch(for: fetchedFixCandidates + others, me: viewer.login)
+                        guard requestedRevision == configurationRevision else { return }
+                        replyCandidates = replies.needingReply
+                        waitingReplyCandidates = replies.waitingForReply
+                    } catch {
+                        // Conservamos ambas categorías si no pudimos consultar todos los hilos.
+                    }
                 }
+                guard requestedRevision == configurationRevision else { return }
 
                 // Segunda fase: lo caro, después de que el panel se dibujó.
                 // Dependabot son 50 PRs (~9s) y comparar ramas ~4s por cada 20.

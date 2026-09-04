@@ -20,6 +20,7 @@ struct GitHubSectionView: View {
         case readyToMerge
         case needingCIFix
         case needingReply
+        case waitingForReply
         case review(ReviewBucket)
         case automation
         case ignored
@@ -30,6 +31,7 @@ struct GitHubSectionView: View {
             case .readyToMerge: "readyToMerge"
             case .needingCIFix: "needingCIFix"
             case .needingReply: "needingReply"
+            case .waitingForReply: "waitingForReply"
             case .review(.needsReview): "needsReview"
             case .review(.approvedAlready): "approvedAlready"
             case .automation: "automation"
@@ -42,6 +44,7 @@ struct GitHubSectionView: View {
             case .readyToMerge: "arrow.triangle.merge"
             case .needingCIFix: "wrench.and.screwdriver"
             case .needingReply: "bubble.left.and.bubble.right"
+            case .waitingForReply: "clock.bubble"
             case .review(.needsReview): "eye"
             case .review(.approvedAlready): "checkmark.circle"
             case .automation: "gearshape.2"
@@ -54,6 +57,7 @@ struct GitHubSectionView: View {
             case .readyToMerge: .green
             case .needingCIFix: .red
             case .needingReply: .orange
+            case .waitingForReply: .gray
             case .review(.needsReview): .blue
             case .review(.approvedAlready): .teal
             case .automation: .cyan
@@ -187,7 +191,7 @@ struct GitHubSectionView: View {
 
     private var hasVisiblePullRequests: Bool {
         !store.humanSections.isEmpty || !store.readyToMerge.isEmpty || !store.needingCIFix.isEmpty
-            || !store.needingReply.isEmpty || !store.automation.isEmpty || !store.ignored.isEmpty
+            || !store.needingReply.isEmpty || !store.waitingForReply.isEmpty || !store.automation.isEmpty || !store.ignored.isEmpty
     }
 
     @ViewBuilder
@@ -252,6 +256,7 @@ struct GitHubSectionView: View {
                         items: sections.first { $0.bucket == bucket }?.items ?? []
                     )
                 }
+                queueSection(.waitingForReply, title: "Esperando respuesta", items: store.waitingForReply)
                 queueSection(.automation, title: "Automatización", items: store.automation)
                 queueSection(.ignored, title: "Ignorados", items: store.ignored)
             }

@@ -16,13 +16,16 @@ enum DumpQueue {
             async let reviewQueue = ReviewQueue.fetch(configuration: configuration)
             async let dependabotQueue = DependabotQueue.fetch(configuration: configuration)
             async let mergeQueue = MergeQueue.fetch(configuration: configuration)
+            async let conversationCandidates = ConversationCandidates.fetch(configuration: configuration)
             async let fixQueue = FixQueue.fetch(configuration: configuration)
 
             let humans = try await reviewQueue
             let dependabot = try await dependabotQueue
             let mergeCandidates = try await mergeQueue
             let fixCandidates = try await fixQueue
-            let replyCandidates = try await ReplyQueue.fetch(for: fixCandidates)
+            let others = try await conversationCandidates
+            let viewer = try await Viewer.fetch()
+            let replies = try await ReplyQueue.fetch(for: fixCandidates + others, me: viewer.login)
             let pullRequests = humans + dependabot
             let elapsed = Date().timeIntervalSince(start)
 
@@ -32,10 +35,11 @@ enum DumpQueue {
             let visible = pullRequests.excluding(ignoredIDs)
             let readyToMerge = mergeCandidates.excluding(ignoredIDs).readyToMerge
             let needingCIFix = fixCandidates.excluding(ignoredIDs).needingCIFix
-            let needingReply = replyCandidates.excluding(ignoredIDs)
+            let needingReply = replies.needingReply.excluding(ignoredIDs)
+            let waitingForReply = replies.waitingForReply.excluding(ignoredIDs)
 
             var seen: Set<String> = []
-            let allKnown = (pullRequests + mergeCandidates + fixCandidates)
+            let allKnown = (pullRequests + mergeCandidates + fixCandidates + replies.needingReply + replies.waitingForReply)
                 .filter { seen.insert($0.id).inserted }
             let ignored = allKnown.only(ignoredIDs)
             let behind = await BehindCount.fetch(for: allKnown)
@@ -71,6 +75,12 @@ enum DumpQueue {
 
             print("── PARA RESPONDER (\(needingReply.count)) ──")
             for pullRequest in needingReply {
+                print("  \(describe(pullRequest, behind: behind))")
+            }
+            print("")
+
+            print("── ESPERANDO RESPUESTA (\(waitingForReply.count)) ──")
+            for pullRequest in waitingForReply {
                 print("  \(describe(pullRequest, behind: behind))")
             }
             print("")
