@@ -259,6 +259,7 @@ struct GitHubSectionView: View {
                 queueSection(.readyToMerge, title: "Para mergear", items: merge)
                 queueSection(.needingCIFix, title: "Para Fixear", items: store.needingCIFix)
                 queueSection(.needingReply, title: "Para responder", items: store.needingReply)
+                queueSection(.waitingForReply, title: "Esperando respuesta", items: store.waitingForReply)
                 ForEach(ReviewBucket.allCases, id: \.self) { bucket in
                     queueSection(
                         .review(bucket),
@@ -267,7 +268,6 @@ struct GitHubSectionView: View {
                         items: sections.first { $0.bucket == bucket }?.items ?? []
                     )
                 }
-                queueSection(.waitingForReply, title: "Esperando respuesta", items: store.waitingForReply)
                 queueSection(.automation, title: "Automatización", items: store.automation)
                 queueSection(.ignored, title: "Ignorados", items: store.ignored)
             }
