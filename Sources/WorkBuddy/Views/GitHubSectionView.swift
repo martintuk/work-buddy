@@ -6,12 +6,13 @@ struct GitHubSectionView: View {
     let showRepositories: () -> Void
 
     @AppStorage("github.collapsedSections") private var collapsedSectionIDs = ""
-    @State private var pendingMerge: PendingMerge?
+    @State private var pendingAction: PendingAction?
 
-    /// Merge esperando confirmación.
-    struct PendingMerge: Identifiable {
+    /// Escritura pública esperando confirmación.
+    struct PendingAction: Identifiable {
         let pullRequest: PullRequest
-        var id: String { pullRequest.id }
+        let action: PullRequestAction
+        var id: String { "\(pullRequest.id)-\(action.id)" }
     }
 
     /// Una identidad estable conserva el plegado cuando se actualiza la cola.
@@ -79,8 +80,8 @@ struct GitHubSectionView: View {
 
             // La confirmación tapa el aviso: son el mismo lugar y nunca hacen
             // falta las dos a la vez.
-            if let pendingMerge {
-                confirmBar(pendingMerge)
+            if let pendingAction {
+                confirmBar(pendingAction)
                 Divider()
             } else if let outcome = store.outcome {
                 outcomeBanner(outcome)
@@ -95,26 +96,23 @@ struct GitHubSectionView: View {
     /// Un `.confirmationDialog` dentro de un `NSPopover` tiene que negociar el
     /// foco con la ventana del panel, y el panel se cierra justamente cuando
     /// pierde el foco. Inline no hay nada que negociar.
-    private func confirmBar(_ pending: PendingMerge) -> some View {
+    private func confirmBar(_ pending: PendingAction) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: "arrow.triangle.merge")
+            Image(systemName: pending.action.systemImage)
             VStack(alignment: .leading, spacing: 1) {
-                Text("¿Mergear \(pending.pullRequest.shortRepository) "
-                    + "#\(pending.pullRequest.number)?")
+                Text(confirmationTitle(for: pending))
                     .font(.system(size: 10, weight: .semibold))
-                // El método sale del repo: lo mostramos para que sepas qué va a
-                // pasar, no para que elijas.
-                Text(pending.pullRequest.defaultMergeMethod?.title ?? "método desconocido")
+                Text(confirmationDetail(for: pending))
                     .font(.system(size: 9))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 4)
-            Button("Cancelar") { pendingMerge = nil }
+            Button("Cancelar") { pendingAction = nil }
                 .controlSize(.small)
-            Button("Mergear") {
-                store.perform(.merge, on: pending.pullRequest)
-                pendingMerge = nil
+            Button(pending.action.title) {
+                store.perform(pending.action, on: pending.pullRequest)
+                pendingAction = nil
             }
             .controlSize(.small)
             .buttonStyle(.borderedProminent)
@@ -122,6 +120,32 @@ struct GitHubSectionView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .background(Color.accentColor.opacity(0.10))
+    }
+
+    private func confirmationTitle(for pending: PendingAction) -> String {
+        switch pending.action {
+        case .dependabotRebase:
+            "¿Pedir rebase de \(pending.pullRequest.shortRepository) "
+                + "#\(pending.pullRequest.number)?"
+        case .merge:
+            "¿Mergear \(pending.pullRequest.shortRepository) "
+                + "#\(pending.pullRequest.number)?"
+        default:
+            pending.action.title
+        }
+    }
+
+    private func confirmationDetail(for pending: PendingAction) -> String {
+        switch pending.action {
+        case .dependabotRebase:
+            "@dependabot rebase · puede reemplazar el PR"
+        case .merge:
+            // El método sale del repo: lo mostramos para que sepas qué va a
+            // pasar, no para que elijas.
+            pending.pullRequest.defaultMergeMethod?.title ?? "método desconocido"
+        default:
+            ""
+        }
     }
 
     /// Aviso de la última escritura. Es la única señal de que funcionó: aprobar
@@ -229,10 +253,13 @@ struct GitHubSectionView: View {
                 isActing: store.isActing(on: pullRequest),
                 behindBy: store.behindCount(for: pullRequest)
             ) { action in
-                // Mergear es irreversible y afecta un repo compartido: pasa por
-                // confirmación. El resto se aplica directo.
+                // Mergear y pedir un rebase afectan un repo compartido: pasan
+                // por confirmación. El resto se aplica directo.
                 if action.needsConfirmation {
-                    pendingMerge = PendingMerge(pullRequest: pullRequest)
+                    pendingAction = PendingAction(
+                        pullRequest: pullRequest,
+                        action: action
+                    )
                 } else {
                     store.perform(action, on: pullRequest)
                 }

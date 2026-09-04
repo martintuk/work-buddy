@@ -60,6 +60,12 @@ struct Author: Sendable {
         self.login = login
         isBot = typename == "Bot" || machineAccounts.contains(login.lowercased())
     }
+
+    /// El comando `@dependabot rebase` sólo tiene sentido para el GitHub App de
+    /// Dependabot, no para cualquier cuenta marcada como automatización.
+    var isDependabot: Bool {
+        isBot && ["dependabot", "dependabot[bot]"].contains(login.lowercased())
+    }
 }
 
 struct PullRequest: Identifiable, Sendable {
@@ -126,7 +132,13 @@ struct PullRequest: Identifiable, Sendable {
     /// rebase nativo; sólo Dependabot queda excluido de esta acción.
     func canRebase(behindBy: Int?) -> Bool {
         guard let behindBy, behindBy > 0 else { return false }
-        return !["dependabot", "dependabot[bot]"].contains(author.login.lowercased())
+        return !author.isDependabot
+    }
+
+    /// Sólo ofrecemos el comando cuando la comparación confirmó atraso. `nil`
+    /// significa que no se pudo medir y no debe confundirse con cero.
+    func canRequestDependabotRebase(behindBy: Int?) -> Bool {
+        author.isDependabot && !isDraft && (behindBy ?? 0) > 0
     }
 
     /// Se puede mergear **y** sabemos con qué método. Las dos condiciones salen

@@ -11,6 +11,7 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
     case restore
     case approve
     case rebase
+    case dependabotRebase
     /// Sin método: lo define el repo vía `PullRequest.defaultMergeMethod`.
     case merge
 
@@ -23,6 +24,7 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
         case .restore: "Dejar de ignorar"
         case .approve: "Aprobar"
         case .rebase: "Rebasear"
+        case .dependabotRebase: "Pedir rebase"
         case .merge: "Mergear"
         }
     }
@@ -34,6 +36,7 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
         case .restore: "eye"
         case .approve: "checkmark.circle"
         case .rebase: "arrow.triangle.2.circlepath"
+        case .dependabotRebase: "bubble.left"
         case .merge: "arrow.triangle.merge"
         }
     }
@@ -42,11 +45,11 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
     /// pueden fallar y tardan.
     var writesToGitHub: Bool {
         switch self {
-        case .approve, .merge, .rebase: true
+        case .approve, .rebase, .dependabotRebase, .merge: true
         case .open, .ignore, .restore: false
         }
     }
 
-    /// Irreversible y pública: pide confirmación antes de correrse.
-    var needsConfirmation: Bool { self == .merge }
+    /// Acciones públicas que pueden alterar o reemplazar el PR.
+    var needsConfirmation: Bool { self == .dependabotRebase || self == .merge }
 }

@@ -24,8 +24,9 @@ pedido al equipo. Si se descarta o pedís cambios después, puede volver a apare
 La automatización no cuenta como review pendiente ni notifica; sí cuenta cuando
 está para mergear.
 
-**Acciones por fila** (menú `⋯`): abrir, aprobar, mergear (con confirmación) e
-ignorar. El método de merge lo decide el repo, no la app.
+**Acciones por fila** (menú `⋯`): abrir, aprobar, pedir rebase a Dependabot
+cuando está atrasado, mergear e ignorar. Rebase y merge piden confirmación; el
+método de merge lo decide el repo, no la app.
 
 Refresca cada 5 minutos y notifica lo nuevo que te bloquea.
 
@@ -139,7 +140,7 @@ Sources/WorkBuddy/
 │   ├── DependabotQueue.swift Cola de dependabot (query aparte, ver supuesto 3).
 │   ├── MergeQueue.swift     Candidatos a merge (tres búsquedas, una request).
 │   ├── BehindCount.swift    Cuántos commits atrás está cada PR (batches de 20).
-│   └── GitHubWrite.swift    Escrituras: aprobar y mergear.
+│   └── GitHubWrite.swift    Escrituras: rebase, aprobar y mergear.
 ├── Domain/PullRequestQueuePolicy.swift Reglas de clasificación y agrupación.
 ├── Models/
 │   ├── AppConfiguration.swift Configuración persistente del entorno.

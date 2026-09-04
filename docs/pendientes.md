@@ -13,24 +13,6 @@ olvidarse **por qué algo no se hizo** y volver a proponerlo.
 
 ## Propuesto, sin decidir
 
-### Acción de rebase para dependabot
-
-`gh pr comment N --repo R --body "@dependabot rebase"`.
-
-El bloqueo conceptual ya está resuelto: dependabot entra al panel y su atraso se
-mide, así que el dato para decidir existe.
-
-Lo que falta resolver antes de implementarla:
-
-- **En qué gatearla.** No en CI roja: está medido que no predice atraso
-  (supuesto #10). El candidato razonable es atraso alto (≥5 commits), que son 11
-  de 46 rojos.
-- **Avisar que dependabot puede cerrar el PR y abrir uno nuevo.** Si lo hace, el
-  node id cambia, así que un PR ignorado **volvería a aparecer** y una fila
-  "recién rebaseada" apuntaría a algo que ya no existe.
-- **Es una escritura, va por `GH.run` y no `runRetrying`.** Un comentario
-  duplicado dispara dos rebases.
-
 ### Chips de bloqueo en vez de badges sueltos
 
 Hoy `CI✗`, `draft`, `N✓` y `↓N` son badges independientes que hay que leer y

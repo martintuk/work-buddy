@@ -97,6 +97,9 @@ struct PullRequestRow: View {
 
             // Sólo ofrecemos lo que puede funcionar. Un botón que sólo puede
             // fallar entrena a ignorar los errores.
+            if pullRequest.canRequestDependabotRebase(behindBy: behindBy) {
+                button(.dependabotRebase)
+            }
             if pullRequest.canApprove {
                 button(.approve)
             }

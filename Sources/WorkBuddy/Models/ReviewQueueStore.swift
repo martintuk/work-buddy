@@ -168,6 +168,20 @@ final class ReviewQueueStore {
             ignoreList.ignore(pullRequest)
         case .restore:
             ignoreList.restore(pullRequest)
+        case .dependabotRebase:
+            guard pullRequest.canRequestDependabotRebase(
+                behindBy: behindCount(for: pullRequest)
+            ) else {
+                outcome = Outcome(
+                    text: "No se puede pedir rebase para \(pullRequest.shortRepository)",
+                    isError: true
+                )
+                break
+            }
+            write(.dependabotRebase(
+                repository: pullRequest.repository,
+                number: pullRequest.number
+            ), on: pullRequest)
         case .approve:
             write(.approve(
                 repository: pullRequest.repository,
@@ -262,10 +276,13 @@ final class ReviewQueueStore {
                 // el merge entró reintentaría sobre un PR ya cerrado.
                 _ = try await GH.run(operation.arguments)
 
-                if case .rebase = operation {
+                switch operation {
+                case .rebase, .dependabotRebase:
                     // La comparación anterior ya no describe la rama actual.
                     // No ofrecemos otro rebase hasta volver a medir el atraso.
                     behindCounts.removeValue(forKey: pullRequest.id)
+                default:
+                    break
                 }
 
                 outcome = Outcome(
@@ -273,9 +290,9 @@ final class ReviewQueueStore {
                         + "#\(pullRequest.number)",
                     isError: false
                 )
-                // Aprobar te saca de los review requests y mergear cierra el PR:
-                // en los dos casos la fila desaparece del panel, así que el aviso
-                // es la única señal de que la acción funcionó.
+                // Aprobar te saca de los review requests, mergear cierra el PR y
+                // Dependabot puede reemplazarlo al rebasear: la fila puede
+                // desaparecer, así que el aviso es la única señal inmediata.
                 refresh(force: true)
             } catch {
                 outcome = Outcome(

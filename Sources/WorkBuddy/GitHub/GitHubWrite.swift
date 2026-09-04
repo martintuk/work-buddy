@@ -38,6 +38,7 @@ enum MergeMethod: String, CaseIterable, Sendable {
 enum GitHubWrite: Sendable {
     case approve(repository: String, number: Int)
     case rebase(repository: String, number: Int)
+    case dependabotRebase(repository: String, number: Int)
     case merge(repository: String, number: Int, method: MergeMethod)
 
     var arguments: [String] {
@@ -52,6 +53,12 @@ enum GitHubWrite: Sendable {
         // crearía un commit de merge en vez de rebasear.
         case .rebase(let repository, let number):
             ["pr", "update-branch", String(number), "--repo", repository, "--rebase"]
+
+        // Dependabot interpreta este comentario como una orden. Es una
+        // escritura y no una operación local sobre la rama.
+        case .dependabotRebase(let repository, let number):
+            ["pr", "comment", String(number), "--repo", repository,
+             "--body", "@dependabot rebase"]
 
         // El método va siempre explícito: `gh pr merge` sin flag pregunta de
         // forma interactiva, y preguntar dentro de un subproceso cuelga.
@@ -71,6 +78,7 @@ enum GitHubWrite: Sendable {
         switch self {
         case .approve: "Aprobado"
         case .rebase: "Rebaseado"
+        case .dependabotRebase: "Rebase pedido"
         case .merge: "Mergeado"
         }
     }

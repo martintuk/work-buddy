@@ -14,6 +14,18 @@ struct GitHubWriteTests {
         #expect(arguments == ["pr", "update-branch", "42", "--repo", "org/repo", "--rebase"])
     }
 
+    @Test("Rebase publica el comando de Dependabot")
+    func rebaseComoComentario() {
+        let arguments = GitHubWrite.dependabotRebase(
+            repository: "org/repo",
+            number: 17
+        ).arguments
+        #expect(arguments == [
+            "pr", "comment", "17", "--repo", "org/repo",
+            "--body", "@dependabot rebase"
+        ])
+    }
+
     @Test("Aprobar no manda comentario")
     func aprobarSinComentario() {
         // `--body` convertiría la aprobación en un comentario. Sin él es una
@@ -130,8 +142,9 @@ struct ActionAvailabilityTests {
         #expect(!sinMetodo.canMerge)
     }
 
-    @Test("Sólo mergear pide confirmación")
-    func confirmacionSoloParaMerge() {
+    @Test("Rebase de Dependabot y merge piden confirmación")
+    func accionesConConfirmacion() {
+        #expect(PullRequestAction.dependabotRebase.needsConfirmation)
         #expect(PullRequestAction.merge.needsConfirmation)
         #expect(!PullRequestAction.approve.needsConfirmation)
         #expect(!PullRequestAction.rebase.needsConfirmation)
@@ -139,14 +152,37 @@ struct ActionAvailabilityTests {
         #expect(!PullRequestAction.open.needsConfirmation)
     }
 
-    @Test("Aprobar, mergear y rebasear escriben en GitHub")
+    @Test("Ambos rebases, aprobar y mergear escriben en GitHub")
     func cualesEscriben() {
+        #expect(PullRequestAction.rebase.writesToGitHub)
+        #expect(PullRequestAction.dependabotRebase.writesToGitHub)
         #expect(PullRequestAction.approve.writesToGitHub)
         #expect(PullRequestAction.merge.writesToGitHub)
-        #expect(PullRequestAction.rebase.writesToGitHub)
         #expect(!PullRequestAction.open.writesToGitHub)
         #expect(!PullRequestAction.ignore.writesToGitHub)
         #expect(!PullRequestAction.restore.writesToGitHub)
+    }
+
+    @Test("Rebase sólo se ofrece para Dependabot atrasado")
+    func rebaseSoloParaDependabotAtrasado() {
+        let dependabot = makePullRequest(
+            author: Author(login: "dependabot", typename: "Bot")
+        )
+        #expect(dependabot.canRequestDependabotRebase(behindBy: 1))
+        #expect(!dependabot.canRequestDependabotRebase(behindBy: 0))
+        #expect(!dependabot.canRequestDependabotRebase(behindBy: nil))
+
+        let otroBot = makePullRequest(author: Author(login: "renovate", typename: "Bot"))
+        #expect(!otroBot.canRequestDependabotRebase(behindBy: 5))
+
+        let persona = makePullRequest(author: Author(login: "alice", typename: "User"))
+        #expect(!persona.canRequestDependabotRebase(behindBy: 5))
+
+        let draft = makePullRequest(
+            author: Author(login: "dependabot", typename: "Bot"),
+            isDraft: true
+        )
+        #expect(!draft.canRequestDependabotRebase(behindBy: 5))
     }
 }
 
@@ -157,7 +193,8 @@ private func makePullRequest(
     authoredByMe: Bool = false,
     mergeable: MergeableState? = nil,
     mergeStateStatus: MergeStateStatus? = nil,
-    defaultMergeMethod: MergeMethod? = .squash
+    defaultMergeMethod: MergeMethod? = .squash,
+    isDraft: Bool = false
 ) -> PullRequest {
     PullRequest(
         id: "PR_\(UUID().uuidString)",
@@ -169,7 +206,7 @@ private func makePullRequest(
         headRefName: "una-rama",
         author: author ?? Author(login: authoredByMe ? "yo" : "otro", typename: "User"),
         updatedAt: .now,
-        isDraft: false,
+        isDraft: isDraft,
         checks: .success,
         reviewDecision: .reviewRequired,
         mergeable: mergeable,
