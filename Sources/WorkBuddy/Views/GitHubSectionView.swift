@@ -153,32 +153,31 @@ struct GitHubSectionView: View {
     private var list: some View {
         let sections = store.humanSections
         let merge = store.readyToMerge
-        if sections.isEmpty, merge.isEmpty, store.automation.isEmpty, store.ignored.isEmpty {
-            centered {
-                ContentUnavailableView {
-                    Label("Nada pendiente", systemImage: "checkmark.circle")
-                } description: {
-                    Text("No hay PRs esperando tu review.")
-                }
-            }
-        } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    // Primero, porque es lo que se resuelve con un click.
-                    queueSection(.readyToMerge, title: "Listos para mergear", items: merge)
-                    ForEach(sections, id: \.bucket) { section in
-                        queueSection(
-                            .review(section.bucket),
-                            title: section.bucket.title,
-                            subtitle: section.bucket.subtitle,
-                            items: section.items
-                        )
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if sections.isEmpty, merge.isEmpty, store.automation.isEmpty, store.ignored.isEmpty {
+                    centered {
+                        ContentUnavailableView {
+                            Label("Nada pendiente", systemImage: "checkmark.circle")
+                        } description: {
+                            Text("No hay PRs esperando tu review.")
+                        }
                     }
-                    queueSection(.automation, title: "Automatización", items: store.automation)
-                    queueSection(.ignored, title: "Ignorados", items: store.ignored)
                 }
-                .padding(10)
+                // Primero, porque es lo que se resuelve con un click.
+                queueSection(.readyToMerge, title: "Listos para mergear", items: merge)
+                ForEach(ReviewBucket.allCases, id: \.self) { bucket in
+                    queueSection(
+                        .review(bucket),
+                        title: bucket.title,
+                        subtitle: bucket.subtitle,
+                        items: sections.first { $0.bucket == bucket }?.items ?? []
+                    )
+                }
+                queueSection(.automation, title: "Automatización", items: store.automation)
+                queueSection(.ignored, title: "Ignorados", items: store.ignored)
             }
+            .padding(10)
         }
     }
 
@@ -208,25 +207,23 @@ struct GitHubSectionView: View {
         subtitle: String? = nil,
         items: [PullRequest]
     ) -> some View {
-        if !items.isEmpty {
-            let isExpanded = !collapsed.contains(section)
-            VStack(alignment: .leading, spacing: 4) {
-                QueueSectionHeader(
-                    title: title,
-                    subtitle: subtitle,
-                    symbol: section.symbol,
-                    tint: section.tint,
-                    count: items.count,
-                    isExpanded: isExpanded
-                ) {
-                    withAnimation(.easeInOut(duration: 0.18)) {
-                        if isExpanded { collapsed.insert(section) } else { collapsed.remove(section) }
-                    }
+        let isExpanded = !collapsed.contains(section)
+        VStack(alignment: .leading, spacing: 4) {
+            QueueSectionHeader(
+                title: title,
+                subtitle: subtitle,
+                symbol: section.symbol,
+                tint: section.tint,
+                count: items.count,
+                isExpanded: isExpanded
+            ) {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    if isExpanded { collapsed.insert(section) } else { collapsed.remove(section) }
                 }
+            }
 
-                if isExpanded {
-                    rows(items)
-                }
+            if isExpanded {
+                rows(items)
             }
         }
     }
