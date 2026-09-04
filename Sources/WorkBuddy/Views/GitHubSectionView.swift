@@ -4,7 +4,6 @@ import SwiftUI
 struct GitHubSectionView: View {
     let store: ReviewQueueStore
     let showRepositories: () -> Void
-    let showAgentConfiguration: () -> Void
 
     @AppStorage("appearance.showEmptySections") private var showEmptySections = true
     @AppStorage("github.collapsedSections") private var collapsedSectionIDs = ""
@@ -13,6 +12,7 @@ struct GitHubSectionView: View {
 
     private enum ConfigurationHint {
         case editor
+        case agent
         case folder(String)
     }
 
@@ -134,12 +134,17 @@ struct GitHubSectionView: View {
         .onChange(of: store.editor.selectedURL) { _, selectedURL in
             if selectedURL != nil, case .editor = configurationHint { configurationHint = nil }
         }
+        .onChange(of: store.agentCLI.isConfigured) { _, isConfigured in
+            if isConfigured, case .agent = configurationHint { configurationHint = nil }
+        }
     }
 
     private var configurationHintMessage: String? {
         switch configurationHint {
         case .editor where store.editor.selectedURL == nil:
             L10n.text(.editorSelectInSettings)
+        case .agent:
+            store.agentCLI.configurationMessage
         case .folder(let repository) where store.localRepositories.folder(for: repository) == nil:
             L10n.text(.editorAssociateFolderInRepositories, repository)
         default:
@@ -407,13 +412,14 @@ struct GitHubSectionView: View {
                     pendingAction = nil
                     configurationHint = nil
                     store.projectOpener.dismissNotice()
+                    store.agentCLI.dismissError()
                     store.dismissOutcome()
                     guard let folder = store.localRepositories.folder(for: pullRequest.repository) else {
-                        showRepositories()
+                        configurationHint = .folder(pullRequest.repository)
                         return
                     }
                     guard store.agentCLI.isConfigured else {
-                        showAgentConfiguration()
+                        configurationHint = .agent
                         return
                     }
                     Task { await store.agentCLI.open(folder, id: pullRequest.id) }

@@ -65,10 +65,16 @@ final class AgentCLIStore {
         default: L10n.text(.agentOpenWith, agent.name)
         }
     }
-    var isConfigured: Bool {
-        !agent.command(custom: customCommand).isEmpty
-            && (terminal != .custom || !customTerminalCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    var configurationMessage: String? {
+        if agent.command(custom: customCommand).isEmpty {
+            return L10n.text(.agentSelectInSettings)
+        }
+        if terminal == .custom, customTerminalCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return L10n.text(.agentTerminalCommandMissing)
+        }
+        return nil
     }
+    var isConfigured: Bool { configurationMessage == nil }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults

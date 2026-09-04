@@ -98,8 +98,7 @@ struct PanelView: View {
     private var categoryContent: some View {
         switch selectedCategory {
         case .github:
-            GitHubSectionView(store: store, showRepositories: { showingRepositories = true },
-                              showAgentConfiguration: { showingConfiguration = true })
+            GitHubSectionView(store: store) { showingRepositories = true }
         case .jira:
             JiraSectionView(store: jiraStore)
         }

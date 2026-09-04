@@ -52,6 +52,7 @@ extension L10n {
         case agentTerminalCommandMissing
         case agentTitle
         case agentChoose
+        case agentSelectInSettings
         case agentCustom
         case agentCommand
         case agentOpen
