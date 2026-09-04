@@ -245,7 +245,7 @@ final class ReviewQueueStore {
         }
         // Ignorar y restaurar mueven el contador del badge.
         onChange?()
-        if !action.writesToGitHub {
+        if action == .open {
             refresh(force: true)
         }
     }
