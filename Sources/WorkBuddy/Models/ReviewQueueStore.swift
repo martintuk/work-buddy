@@ -84,15 +84,21 @@ final class ReviewQueueStore {
     }
 
     var humanSections: [(bucket: ReviewBucket, items: [PullRequest])] {
-        visible.humanSections
+        visible.humanSections.map { section in
+            (section.bucket, repositoryFilter.prioritizingFavorites(in: section.items))
+        }
     }
 
-    var automation: [PullRequest] { visible.automation }
+    var automation: [PullRequest] {
+        repositoryFilter.prioritizingFavorites(in: visible.automation)
+    }
 
     var awaitingYourReview: [PullRequest] { visible.awaitingYourReview }
 
     var readyToMerge: [PullRequest] {
-        repositoryFilter.apply(to: mergeCandidates).excluding(ignoreList.ids).readyToMerge
+        repositoryFilter.prioritizingFavorites(
+            in: repositoryFilter.apply(to: mergeCandidates).excluding(ignoreList.ids).readyToMerge
+        )
     }
 
     /// Lo que va en el badge: todo lo que espera una acción tuya.
@@ -121,11 +127,18 @@ final class ReviewQueueStore {
     /// Ignorados que siguen abiertos y en tu cola. Los que se cerraron no
     /// aparecen porque la query ya no los trae.
     var ignored: [PullRequest] {
-        repositoryFilter.apply(to: reviewQueue).only(ignoreList.ids)
-            .sorted { $0.updatedAt > $1.updatedAt }
+        repositoryFilter.prioritizingFavorites(
+            in: repositoryFilter.apply(to: reviewQueue).only(ignoreList.ids)
+                .sorted { $0.updatedAt > $1.updatedAt }
+        )
     }
 
     // MARK: - Acciones
+
+    func toggleRepositoryFavorite(_ repository: String) {
+        repositoryFilter.toggleFavorite(repository)
+        repositoryFilterDidChange()
+    }
 
     func toggleRepositorySolo(_ repository: String) {
         repositoryFilter.toggleSolo(repository)
@@ -138,7 +151,7 @@ final class ReviewQueueStore {
     }
 
     func clearRepositoryFilter() {
-        repositoryFilter = RepositoryFilter()
+        repositoryFilter.clearSelection()
         repositoryFilterDidChange()
     }
 

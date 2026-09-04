@@ -60,9 +60,16 @@ struct RepositoryFilterView: View {
     }
 
     private func row(_ repository: RepositoryFilter.Repository) -> some View {
+        let favorite = store.repositoryFilter.favorites.contains(repository.id)
         let solo = store.repositoryFilter.solo.contains(repository.id)
         let muted = store.repositoryFilter.muted.contains(repository.id)
         return HStack(spacing: 6) {
+            filterButton(favorite ? "star.fill" : "star", active: favorite, tint: .yellow,
+                         help: favorite ? "Quitar de favoritos" : "Marcar como favorito") {
+                store.toggleRepositoryFavorite(repository.id)
+            }
+            .accessibilityLabel("Favorito: \(repository.id)")
+
             Text(repository.id)
                 .font(.system(size: 11, weight: .medium))
                 .lineLimit(1)
