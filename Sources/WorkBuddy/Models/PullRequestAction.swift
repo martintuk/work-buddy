@@ -33,7 +33,7 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
         case .ignore: "eye.slash"
         case .restore: "eye"
         case .approve: "checkmark.circle"
-        case .rebase: "arrow.triangle.branch"
+        case .rebase: "arrow.triangle.2.circlepath"
         case .merge: "arrow.triangle.merge"
         }
     }
