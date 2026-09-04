@@ -2,19 +2,10 @@ import AppKit
 import Observation
 import UserNotifications
 
-/// Avisa cuando aparece un PR nuevo que espera tu review.
-///
-/// Sólo notifica PRs de personas en la cola "Para revisar": los de bots son el
-/// 89% del volumen y notificarlos convertiría esto en ruido.
+/// Gestiona el permiso de macOS y entrega notificaciones individuales.
 @MainActor
 @Observable
 final class Notifier: NSObject {
-    /// Pasado este número mandamos un solo resumen. Si entran diez PRs juntos,
-    /// diez banners seguidos son peores que ninguno.
-    private static let maxIndividual = 3
-
-    private static let seenKey = "notifier.seenPullRequestIDs"
-    private static let seededKey = "notifier.hasSeededBaseline"
     private static let enabledKey = "notifier.isEnabled"
 
     private let defaults = UserDefaults.standard
@@ -85,57 +76,20 @@ final class Notifier: NSObject {
         try await send(title: "work-buddy", body: "Notificación de prueba", url: nil)
     }
 
-    /// Cambiar el alcance no debe notificar de golpe todo el backlog del nuevo
-    /// entorno. La próxima carga vuelve a sembrar una línea de base silenciosa.
-    func resetBaseline() {
-        defaults.removeObject(forKey: Self.seenKey)
-        defaults.removeObject(forKey: Self.seededKey)
-    }
-
-    /// Compara la cola nueva con la anterior y notifica sólo las diferencias.
-    func process(_ pullRequests: [PullRequest]) async {
-        let relevant = pullRequests.awaitingYourReview
-        let currentIDs = Set(relevant.map(\.id))
-
-        // Primera corrida: guardamos el backlog como línea de base sin notificar.
-        // Si no, instalar la app te dispararía una notificación por PR pendiente.
-        guard defaults.bool(forKey: Self.seededKey) else {
-            persist(currentIDs)
-            defaults.set(true, forKey: Self.seededKey)
-            return
-        }
-
-        let seen = Set(defaults.stringArray(forKey: Self.seenKey) ?? [])
-        let new = relevant.filter { !seen.contains($0.id) }
-
-        // Guardamos el set actual, no la unión: si revisás un PR y después te lo
-        // vuelven a pedir, queremos que avise de nuevo.
-        persist(currentIDs)
-
-        guard isEnabled, !new.isEmpty else { return }
+    func send(_ notifications: [PullRequestNotification]) async {
+        guard isEnabled, !notifications.isEmpty else { return }
         await refreshAuthorization()
-        guard isEnabled, isAuthorized else { return }
-        if new.count > Self.maxIndividual {
+        guard isAuthorized else { return }
+        for notification in notifications {
+            guard isEnabled, !Task.isCancelled else { return }
+            let pullRequest = notification.pullRequest
             try? await send(
-                title: "\(new.count) PRs nuevos para revisar",
-                body: new.map(\.author.login).uniqued().joined(separator: ", "),
-                url: nil
+                title: notification.queue.title,
+                body: "\(pullRequest.author.login) — \(pullRequest.shortRepository) "
+                    + "#\(pullRequest.number)\n\(pullRequest.title)",
+                url: pullRequest.url
             )
-        } else {
-            for pullRequest in new {
-                guard isEnabled else { return }
-                try? await send(
-                    title: "Nuevo PR para revisar",
-                    body: "\(pullRequest.author.login) — \(pullRequest.shortRepository) "
-                        + "#\(pullRequest.number)\n\(pullRequest.title)",
-                    url: pullRequest.url
-                )
-            }
         }
-    }
-
-    private func persist(_ ids: Set<String>) {
-        defaults.set(Array(ids), forKey: Self.seenKey)
     }
 
     private func send(title: String, body: String, url: URL?) async throws {
@@ -180,13 +134,5 @@ extension Notifier: UNUserNotificationCenterDelegate {
         let stored = response.notification.request.content.userInfo["url"] as? String
         guard let stored, let url = URL(string: stored) else { return }
         await MainActor.run { _ = NSWorkspace.shared.open(url) }
-    }
-}
-
-private extension Sequence where Element: Hashable {
-    /// Preserva el orden, a diferencia de `Set`.
-    func uniqued() -> [Element] {
-        var seen: Set<Element> = []
-        return filter { seen.insert($0).inserted }
     }
 }

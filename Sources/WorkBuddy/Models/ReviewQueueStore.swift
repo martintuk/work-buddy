@@ -23,10 +23,8 @@ final class ReviewQueueStore {
     private(set) var configuration = AppConfiguration.load()
     private(set) var repositoryFilter = RepositoryFilter.load()
     private(set) var pullRequests: [PullRequest] = []
-    /// PRs de dependabot. Lista aparte porque vienen de otra query y porque
-    /// **nunca** notifican ni cuentan para el badge: son 50 contra 7 de
-    /// personas, así que mezclarlos haría que el número dejara de significar
-    /// algo. Aparecen sólo en la sección colapsada de automatización.
+    /// PRs de dependabot en la cola de review, mostrados en automatización.
+    /// Los que están para mergear llegan por `mergeCandidates`.
     private(set) var dependabotPullRequests: [PullRequest] = []
     /// Candidatos a merge. Vienen de otra query porque pedirle a GitHub que
     /// calcule la mergeabilidad de toda la cola de review es caro.
@@ -53,6 +51,7 @@ final class ReviewQueueStore {
     var onChange: (() -> Void)?
 
     let notifier = Notifier()
+    private let notificationTracker = PullRequestNotificationTracker()
     private let ignoreList = IgnoreList()
     private var inFlight: Task<Void, Never>?
     private var autoRefresh: Task<Void, Never>?
@@ -258,7 +257,7 @@ final class ReviewQueueStore {
         behindCounts = [:]
         lastUpdated = nil
         state = .idle
-        notifier.resetBaseline()
+        notificationTracker.resetBaseline()
         onChange?()
         refresh(force: true)
     }
@@ -336,14 +335,18 @@ final class ReviewQueueStore {
                 // Los candidatos a merge son secundarios: si esa query falla,
                 // mostramos la cola de review igual en vez de dejar el panel en
                 // estado de error.
-                mergeCandidates = (try? await mergeQueue) ?? mergeCandidates
+                let fetchedMergeCandidates = try? await mergeQueue
                 guard requestedRevision == configurationRevision else { return }
+                if let fetchedMergeCandidates {
+                    mergeCandidates = fetchedMergeCandidates
+                }
 
-                // Sólo lo de personas notifica: `fetched` no incluye dependabot,
-                // que llega en la segunda fase. Un PR ignorado tampoco notifica;
-                // si más adelante lo restaurás, vuelve a contar como nuevo y
-                // avisa una vez.
-                await notifier.process(repositoryFilter.apply(to: fetched).excluding(ignoreList.ids))
+                var notifications = notificationTracker.process(awaitingYourReview, in: .review)
+                // No sembrar ni reemplazar la base de merge si su consulta falló.
+                if fetchedMergeCandidates != nil {
+                    notifications += notificationTracker.process(readyToMerge, in: .merge)
+                }
+                await notifier.send(notifications)
                 guard requestedRevision == configurationRevision else { return }
 
                 // Segunda fase: lo caro, después de que el panel se dibujó.

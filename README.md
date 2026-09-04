@@ -126,6 +126,11 @@ En Configuración, **Habilitar** guarda la preferencia de envíos automáticos y
 está denegado, se debe permitir una vez en Configuración del Sistema →
 Notificaciones → work-buddy; la app no puede concederse ese permiso.
 
+Cada PR que entra en **Para revisar** o **Para mergear** genera su propia
+notificación, sin agrupar. Se usan las mismas listas del panel, incluidos los
+bots listos para mergear. La primera carga de cada sección es silenciosa;
+si un PR sale y vuelve a entrar, vuelve a avisar.
+
 ## Estructura
 
 ```
