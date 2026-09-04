@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 /// Una fila de la lista. Clickear el cuerpo abre el PR; el menú de la derecha
-/// tiene el resto de las acciones.
+/// y el menú contextual tienen el resto de las acciones.
 struct PullRequestRow: View {
     let pullRequest: PullRequest
     let isIgnored: Bool
@@ -34,6 +34,12 @@ struct PullRequestRow: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(isHovering ? Color.primary.opacity(0.07) : .clear)
         )
+        .contentShape(.rect)
+        .contextMenu {
+            if !isActing {
+                actionMenuItems
+            }
+        }
         .onHover { isHovering = $0 }
     }
 
@@ -92,28 +98,7 @@ struct PullRequestRow: View {
 
     private var actionMenu: some View {
         Menu {
-            button(.open)
-
-            // Sólo ofrecemos lo que puede funcionar. Un botón que sólo puede
-            // fallar entrena a ignorar los errores.
-            if pullRequest.canRequestDependabotRebase(behindBy: behindBy) {
-                button(.dependabotRebase)
-            }
-            if pullRequest.canApprove {
-                button(.approve)
-            }
-            if pullRequest.canRebase(behindBy: behindBy) {
-                button(.rebase)
-            }
-            // `canMerge` es false cuando no tenemos datos de merge, que es el caso
-            // de la cola de review: la acción aparece sólo en "Para
-            // mergear". El método no se elige acá: lo define el repo.
-            if pullRequest.canMerge {
-                button(.merge)
-            }
-
-            Divider()
-            button(isIgnored ? .restore : .ignore)
+            actionMenuItems
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 11, weight: .semibold))
@@ -127,6 +112,32 @@ struct PullRequestRow: View {
         // Siempre presente para no mover el layout, atenuado hasta que pasás
         // el mouse por encima.
         .opacity(isHovering ? 1 : 0.25)
+    }
+
+    @ViewBuilder
+    private var actionMenuItems: some View {
+        button(.open)
+
+        // Sólo ofrecemos lo que puede funcionar. Un botón que sólo puede
+        // fallar entrena a ignorar los errores.
+        if pullRequest.canRequestDependabotRebase(behindBy: behindBy) {
+            button(.dependabotRebase)
+        }
+        if pullRequest.canApprove {
+            button(.approve)
+        }
+        if pullRequest.canRebase(behindBy: behindBy) {
+            button(.rebase)
+        }
+        // `canMerge` es false cuando no tenemos datos de merge, que es el caso
+        // de la cola de review: la acción aparece sólo en "Para
+        // mergear". El método no se elige acá: lo define el repo.
+        if pullRequest.canMerge {
+            button(.merge)
+        }
+
+        Divider()
+        button(isIgnored ? .restore : .ignore)
     }
 }
 
