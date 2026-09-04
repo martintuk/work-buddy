@@ -44,7 +44,8 @@ La sección **Jira** reutiliza la sesión del CLI oficial de Atlassian. Si no ha
 una sesión activa, muestra `acli jira auth login` para copiar y ejecutar en
 Terminal; work-buddy no solicita ni almacena credenciales. **Esperan mi SHR**
 muestra los tickets cuyo campo `Stakeholder` contiene la cuenta activa y cuyo
-estado es `Stakeholder Review`.
+estado es `Stakeholder Review`. **Creados recientemente** muestra los últimos
+10 tickets creados por la cuenta activa.
 
 Dentro de la categoría **GitHub**, el botón **Repositorios** abre una lista con búsqueda
 y scroll que ocupa todo el panel. Se obtiene de los repositorios distintos de

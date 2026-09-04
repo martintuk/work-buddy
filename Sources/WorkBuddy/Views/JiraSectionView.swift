@@ -8,6 +8,7 @@ struct JiraSectionView: View {
 
     @State private var copiedLoginCommand = false
     @AppStorage("jira.shrExpanded") private var isSHRExpanded = true
+    @AppStorage("jira.recentlyCreatedExpanded") private var isRecentlyCreatedExpanded = true
 
     var body: some View {
         Group {
@@ -60,6 +61,26 @@ struct JiraSectionView: View {
 
                 if isSHRExpanded {
                     ForEach(store.shrItems) { workItem in
+                        workItemRow(workItem)
+                    }
+                }
+
+                QueueSectionHeader(
+                    title: "Creados recientemente",
+                    subtitle: nil,
+                    symbol: "clock",
+                    tint: .blue,
+                    count: store.recentlyCreatedItems.count,
+                    isExpanded: isRecentlyCreatedExpanded,
+                    accessibilityItemName: "tickets"
+                ) {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        isRecentlyCreatedExpanded.toggle()
+                    }
+                }
+
+                if isRecentlyCreatedExpanded {
+                    ForEach(store.recentlyCreatedItems) { workItem in
                         workItemRow(workItem)
                     }
                 }

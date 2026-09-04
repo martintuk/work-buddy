@@ -52,3 +52,15 @@ struct SHRQueueTests {
         #expect(item.issueType == "Story")
     }
 }
+
+@Suite("Creados recientemente")
+struct RecentlyCreatedQueueTests {
+    @Test("Busca los últimos diez tickets creados por la cuenta activa")
+    func query() {
+        #expect(RecentlyCreatedQueue.jql == "creator = currentUser() ORDER BY created DESC")
+        #expect(RecentlyCreatedQueue.limit == 10)
+        #expect(RecentlyCreatedQueue.arguments.contains("--limit"))
+        #expect(RecentlyCreatedQueue.arguments.contains("10"))
+        #expect(RecentlyCreatedQueue.arguments.contains("--json"))
+    }
+}

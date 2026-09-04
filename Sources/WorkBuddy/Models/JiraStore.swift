@@ -14,6 +14,7 @@ final class JiraStore {
 
     private(set) var state: State = .idle
     private(set) var shrItems: [JiraWorkItem] = []
+    private(set) var recentlyCreatedItems: [JiraWorkItem] = []
     private(set) var siteURL: URL?
     private(set) var lastUpdated: Date?
     private var inFlight: Task<Void, Never>?
@@ -30,11 +31,14 @@ final class JiraStore {
                 switch try await ACLI.authenticationStatus() {
                 case .authenticated(let site):
                     siteURL = site
-                    shrItems = try await SHRQueue.fetch()
+                    async let shr = SHRQueue.fetch()
+                    async let recentlyCreated = RecentlyCreatedQueue.fetch()
+                    (shrItems, recentlyCreatedItems) = try await (shr, recentlyCreated)
                     lastUpdated = .now
                     state = .loaded
                 case .signedOut:
                     shrItems = []
+                    recentlyCreatedItems = []
                     siteURL = nil
                     lastUpdated = nil
                     state = .signedOut
