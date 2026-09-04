@@ -13,10 +13,12 @@ struct PullRequestRow: View {
     let editor: EditorStore
     let requestEditorConfiguration: () -> Void
     let requestFolderConfiguration: () -> Void
+    let isOpeningProject: Bool
+    let canOpenProject: Bool
+    let openProject: () -> Void
     let perform: (PullRequestAction) -> Void
 
     @State private var isHovering = false
-    @State private var editorError: String?
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -30,7 +32,7 @@ struct PullRequestRow: View {
                     itemID: .github(nodeID: pullRequest.id, host: pullRequest.url.host() ?? "github.com"),
                     isRowHovering: isHovering
                 )
-                if isActing {
+                if isActing || isOpeningProject {
                     ProgressView()
                         .controlSize(.small)
                         .frame(width: 18, height: 18)
@@ -52,13 +54,6 @@ struct PullRequestRow: View {
             }
         }
         .onHover { isHovering = $0 }
-        .alert(L10n.text(.editorOpen), isPresented: Binding(
-            get: { editorError != nil }, set: { if !$0 { editorError = nil } }
-        )) {
-            Button(L10n.text(.commonBack), role: .cancel) { editorError = nil }
-        } message: {
-            Text(editorError ?? "")
-        }
     }
 
     private var details: some View {
@@ -141,13 +136,14 @@ struct PullRequestRow: View {
             } else if editor.selectedURL == nil {
                 requestEditorConfiguration()
             } else {
-                openLocalFolder()
+                openProject()
             }
         } label: {
             Label(editor.selectedName.map { L10n.text(.editorOpenIn, $0) }
                 ?? L10n.text(.editorOpen), systemImage: "chevron.left.forwardslash.chevron.right")
         }
         .help(localFolder?.path ?? L10n.text(.repositoriesNoFolder))
+        .disabled(!canOpenProject)
 
         Divider()
 
@@ -177,13 +173,6 @@ struct PullRequestRow: View {
         button(isIgnored ? .restore : .ignore)
     }
 
-    private func openLocalFolder() {
-        guard let localFolder else { return }
-        Task {
-            do { try await editor.open(localFolder) }
-            catch { editorError = error.localizedDescription }
-        }
-    }
 }
 
 private extension PullRequestRow {

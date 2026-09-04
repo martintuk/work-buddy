@@ -38,6 +38,11 @@ extension L10n {
         case editorInvalidApplication
         case editorMissingApplication
         case editorMissingFolder
+        case editorBranchUnavailable
+        case editorOpenProject
+        case editorBranchLocalChanges
+        case editorBranchOperationInProgress
+        case editorBranchWrongRepository
 
         // MARK: - Notifications
         case notificationsTitle

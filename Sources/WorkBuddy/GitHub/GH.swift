@@ -101,14 +101,14 @@ enum GH {
     ///
     /// Los argumentos van directo al proceso, sin pasar por un shell: no hay que
     /// escapar nada ni hay riesgo de inyección al interpolar valores.
-    static func run(_ arguments: [String]) async throws -> Data {
+    static func run(_ arguments: [String], in directory: URL? = nil) async throws -> Data {
         guard let executableURL else { throw Failure.notInstalled }
         return try await withCheckedThrowingContinuation { continuation in
             // Process y Pipe no son Sendable, así que viven enteros dentro de
             // runBlocking, fuera del contexto de concurrencia.
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    continuation.resume(returning: try runBlocking(executableURL, arguments))
+                    continuation.resume(returning: try runBlocking(executableURL, arguments, directory: directory))
                 } catch {
                     continuation.resume(throwing: error)
                 }
@@ -116,10 +116,17 @@ enum GH {
         }
     }
 
-    private static func runBlocking(_ executableURL: URL, _ arguments: [String]) throws -> Data {
+    private static func runBlocking(_ executableURL: URL, _ arguments: [String], directory: URL?) throws -> Data {
         let process = Process()
         process.executableURL = executableURL
         process.arguments = arguments
+        process.currentDirectoryURL = directory
+        if directory != nil {
+            var environment = ProcessInfo.processInfo.environment
+            environment["GH_PROMPT_DISABLED"] = "1"
+            environment["GIT_TERMINAL_PROMPT"] = "0"
+            process.environment = environment
+        }
 
         let output = Pipe()
         process.standardOutput = output

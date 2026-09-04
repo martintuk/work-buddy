@@ -38,6 +38,11 @@ extension L10n {
         case .editorInvalidApplication: "Choose a valid application (.app)."
         case .editorMissingApplication: "The selected editor is no longer available. Choose another in Settings."
         case .editorMissingFolder: "The associated Git folder is no longer available. Choose it again in Repositories."
+        case .editorBranchUnavailable: "Could not load branch %@. You can open the project without switching branches."
+        case .editorOpenProject: "Open project"
+        case .editorBranchLocalChanges: "There are uncommitted local changes."
+        case .editorBranchOperationInProgress: "A Git operation is in progress."
+        case .editorBranchWrongRepository: "The associated folder has no remote matching the PR repository."
 
         // MARK: - Notifications
         case .notificationsTitle: "Notifications"

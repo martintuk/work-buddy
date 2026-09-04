@@ -109,7 +109,13 @@ struct GitHubSectionView: View {
 
             // La confirmación tapa el aviso: son el mismo lugar y nunca hacen
             // falta las dos a la vez.
-            if let pendingAction {
+            if let warning = store.projectOpener.warning {
+                branchWarning(warning)
+                Divider()
+            } else if let error = store.projectOpener.error {
+                projectError(error)
+                Divider()
+            } else if let pendingAction {
                 confirmBar(pendingAction)
                 Divider()
             } else if let message = configurationHintMessage {
@@ -135,6 +141,48 @@ struct GitHubSectionView: View {
         default:
             nil
         }
+    }
+
+    private func branchWarning(_ warning: ProjectOpener.Warning) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text(warning.text)
+                .fixedSize(horizontal: false, vertical: true)
+                .help(warning.reason.localizedDescription)
+            Spacer(minLength: 0)
+            Button(L10n.text(.editorOpenProject)) {
+                Task { await store.projectOpener.openWithoutBranch { try await store.editor.open($0) } }
+            }
+            .controlSize(.small)
+            .buttonStyle(.borderedProminent)
+            dismissProjectNoticeButton
+        }
+        .font(.system(size: 10))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Color.orange.opacity(0.16))
+    }
+
+    private func projectError(_ error: Error) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text(error.localizedDescription).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            dismissProjectNoticeButton
+        }
+        .font(.system(size: 10))
+        .foregroundStyle(.red)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Color.red.opacity(0.08))
+    }
+
+    private var dismissProjectNoticeButton: some View {
+        Button { store.projectOpener.dismissNotice() } label: { Image(systemName: "xmark") }
+            .buttonStyle(.borderless)
+            .help(L10n.text(.commonCancel))
+            .accessibilityLabel(L10n.text(.commonCancel))
     }
 
     private func configurationNotice(_ message: String) -> some View {
@@ -324,16 +372,32 @@ struct GitHubSectionView: View {
                 editor: store.editor,
                 requestEditorConfiguration: {
                     pendingAction = nil
+                    store.projectOpener.dismissNotice()
                     store.dismissOutcome()
                     configurationHint = .editor
                 },
                 requestFolderConfiguration: {
                     pendingAction = nil
+                    store.projectOpener.dismissNotice()
                     store.dismissOutcome()
                     configurationHint = .folder(pullRequest.repository)
+                },
+                isOpeningProject: store.projectOpener.openingID == pullRequest.id,
+                canOpenProject: !store.projectOpener.isOpening,
+                openProject: {
+                    guard let folder = store.localRepositories.folder(for: pullRequest.repository) else { return }
+                    pendingAction = nil
+                    configurationHint = nil
+                    store.dismissOutcome()
+                    Task {
+                        await store.projectOpener.open(.init(pullRequest: pullRequest, folder: folder)) {
+                            try await store.editor.open($0)
+                        }
+                    }
                 }
             ) { action in
                 configurationHint = nil
+                store.projectOpener.dismissNotice()
                 if action.needsConfirmation {
                     pendingAction = PendingAction(
                         pullRequest: pullRequest,
