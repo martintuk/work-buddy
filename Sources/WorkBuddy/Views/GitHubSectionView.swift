@@ -25,6 +25,17 @@ struct GitHubSectionView: View {
         case automation
         case ignored
 
+        var summary: String? {
+            switch self {
+            case .needingReply:
+                "Tus PRs o menciones a vos en PRs ajenos.\nHilos sin resolver que esperan tu respuesta."
+            case .waitingForReply:
+                "PRs ajenos donde comentaste último.\nHilos sin resolver que esperan una respuesta."
+            default:
+                nil
+            }
+        }
+
         /// Claves de preferencias independientes de los títulos visibles.
         var persistenceID: String {
             switch self {
@@ -316,6 +327,17 @@ struct GitHubSectionView: View {
             }
 
             if isExpanded {
+                if let summary = section.summary {
+                    Text(summary)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(section.tint.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+                }
                 rows(items)
             }
         }
