@@ -26,6 +26,8 @@ struct PanelView: View {
     var body: some View {
         panel
         .frame(width: Self.preferredSize.width, height: Self.preferredSize.height)
+        // La misma base opaca que los encabezados fijos, también en márgenes y pie.
+        .background(Color(nsColor: .windowBackgroundColor))
         .environment(\.locale, Locale(identifier: Localization.shared.language.rawValue))
         .onChange(of: Localization.shared.language) { _, _ in onLanguageChange() }
     }
