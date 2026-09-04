@@ -5,7 +5,7 @@ struct GitHubSectionView: View {
     let store: ReviewQueueStore
     let showRepositories: () -> Void
 
-    @State private var collapsed: Set<QueueSection> = []
+    @AppStorage("github.collapsedSections") private var collapsedSectionIDs = ""
     @State private var pendingMerge: PendingMerge?
 
     /// Merge esperando confirmación.
@@ -20,6 +20,17 @@ struct GitHubSectionView: View {
         case review(ReviewBucket)
         case automation
         case ignored
+
+        /// Claves de preferencias independientes de los títulos visibles.
+        var persistenceID: String {
+            switch self {
+            case .readyToMerge: "readyToMerge"
+            case .review(.needsReview): "needsReview"
+            case .review(.approvedAlready): "approvedAlready"
+            case .automation: "automation"
+            case .ignored: "ignored"
+            }
+        }
 
         var symbol: String {
             switch self {
@@ -236,7 +247,8 @@ struct GitHubSectionView: View {
         subtitle: String? = nil,
         items: [PullRequest]
     ) -> some View {
-        let isExpanded = !collapsed.contains(section)
+        let collapsed = Set(collapsedSectionIDs.split(separator: ",").map(String.init))
+        let isExpanded = !collapsed.contains(section.persistenceID)
         VStack(alignment: .leading, spacing: 4) {
             QueueSectionHeader(
                 title: title,
@@ -247,7 +259,13 @@ struct GitHubSectionView: View {
                 isExpanded: isExpanded
             ) {
                 withAnimation(.easeInOut(duration: 0.18)) {
-                    if isExpanded { collapsed.insert(section) } else { collapsed.remove(section) }
+                    var updated = collapsed
+                    if isExpanded {
+                        updated.insert(section.persistenceID)
+                    } else {
+                        updated.remove(section.persistenceID)
+                    }
+                    collapsedSectionIDs = updated.sorted().joined(separator: ",")
                 }
             }
 
