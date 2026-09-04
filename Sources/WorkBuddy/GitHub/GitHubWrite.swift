@@ -37,6 +37,7 @@ enum MergeMethod: String, CaseIterable, Sendable {
 /// arbitraria de `gh`. Un PR por llamada, sin batching.
 enum GitHubWrite: Sendable {
     case approve(repository: String, number: Int)
+    case rebase(repository: String, number: Int)
     case merge(repository: String, number: Int, method: MergeMethod)
 
     var arguments: [String] {
@@ -46,6 +47,11 @@ enum GitHubWrite: Sendable {
         // required reviewers.
         case .approve(let repository, let number):
             ["pr", "review", String(number), "--repo", repository, "--approve"]
+
+        // Actualiza la rama y mantiene el PR abierto. Sin --rebase, GitHub
+        // crearía un commit de merge en vez de rebasear.
+        case .rebase(let repository, let number):
+            ["pr", "update-branch", String(number), "--repo", repository, "--rebase"]
 
         // El método va siempre explícito: `gh pr merge` sin flag pregunta de
         // forma interactiva, y preguntar dentro de un subproceso cuelga.
@@ -64,6 +70,7 @@ enum GitHubWrite: Sendable {
     var pastTense: String {
         switch self {
         case .approve: "Aprobado"
+        case .rebase: "Rebaseado"
         case .merge: "Mergeado"
         }
     }

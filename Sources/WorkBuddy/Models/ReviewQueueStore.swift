@@ -173,6 +173,12 @@ final class ReviewQueueStore {
                 repository: pullRequest.repository,
                 number: pullRequest.number
             ), on: pullRequest)
+        case .rebase:
+            guard pullRequest.canRebase(behindBy: behindCount(for: pullRequest)) else { return }
+            write(.rebase(
+                repository: pullRequest.repository,
+                number: pullRequest.number
+            ), on: pullRequest)
         case .merge:
             // El método lo define el repo. Si no lo sabemos no mergeamos: la
             // acción ni se ofrece, así que llegar acá sin método sería un bug.
@@ -255,6 +261,12 @@ final class ReviewQueueStore {
                 // camino no es segura de repetir a ciegas. Un 502 después de que
                 // el merge entró reintentaría sobre un PR ya cerrado.
                 _ = try await GH.run(operation.arguments)
+
+                if case .rebase = operation {
+                    // La comparación anterior ya no describe la rama actual.
+                    // No ofrecemos otro rebase hasta volver a medir el atraso.
+                    behindCounts.removeValue(forKey: pullRequest.id)
+                }
 
                 outcome = Outcome(
                     text: "\(operation.pastTense): \(pullRequest.shortRepository) "

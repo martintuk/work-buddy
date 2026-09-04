@@ -10,6 +10,7 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
     case ignore
     case restore
     case approve
+    case rebase
     /// Sin método: lo define el repo vía `PullRequest.defaultMergeMethod`.
     case merge
 
@@ -21,6 +22,7 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
         case .ignore: "Ignorar"
         case .restore: "Dejar de ignorar"
         case .approve: "Aprobar"
+        case .rebase: "Rebasear"
         case .merge: "Mergear"
         }
     }
@@ -31,6 +33,7 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
         case .ignore: "eye.slash"
         case .restore: "eye"
         case .approve: "checkmark.circle"
+        case .rebase: "arrow.triangle.branch"
         case .merge: "arrow.triangle.merge"
         }
     }
@@ -39,7 +42,7 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
     /// pueden fallar y tardan.
     var writesToGitHub: Bool {
         switch self {
-        case .approve, .merge: true
+        case .approve, .merge, .rebase: true
         case .open, .ignore, .restore: false
         }
     }

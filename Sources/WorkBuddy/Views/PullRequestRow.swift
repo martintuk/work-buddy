@@ -107,6 +107,9 @@ struct PullRequestRow: View {
             if pullRequest.canApprove {
                 button(.approve)
             }
+            if pullRequest.canRebase(behindBy: behindBy) {
+                button(.rebase)
+            }
             // `canMerge` es false cuando no tenemos datos de merge, que es el caso
             // de la cola de review: la acción aparece sólo en "Para
             // mergear". El método no se elige acá: lo define el repo.

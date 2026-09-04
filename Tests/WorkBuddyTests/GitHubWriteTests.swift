@@ -8,6 +8,12 @@ import Testing
 /// proceso, uno que sobra hace algo distinto de lo que dice la etiqueta.
 @Suite("Escrituras contra GitHub")
 struct GitHubWriteTests {
+    @Test("Rebase actualiza la rama sin mergear ni comentar el PR")
+    func rebaseNativo() {
+        let arguments = GitHubWrite.rebase(repository: "org/repo", number: 42).arguments
+        #expect(arguments == ["pr", "update-branch", "42", "--repo", "org/repo", "--rebase"])
+    }
+
     @Test("Aprobar no manda comentario")
     func aprobarSinComentario() {
         // `--body` convertiría la aprobación en un comentario. Sin él es una
@@ -66,6 +72,24 @@ struct GitHubWriteTests {
 
 @Suite("Disponibilidad de acciones")
 struct ActionAvailabilityTests {
+    @Test("Rebase requiere atraso medido y excluye sólo a Dependabot")
+    func disponibilidadDeRebase() {
+        for author in [
+            Author(login: "persona", typename: "User"),
+            Author(login: "renovate", typename: "Bot"),
+        ] {
+            let pr = makePullRequest(author: author)
+            #expect(pr.canRebase(behindBy: 1))
+            #expect(!pr.canRebase(behindBy: 0))
+            #expect(!pr.canRebase(behindBy: nil))
+            #expect(!pr.canRebase(behindBy: -1))
+        }
+        for login in ["dependabot", "dependabot[bot]", "Dependabot"] {
+            let pr = makePullRequest(author: Author(login: login, typename: "Bot"))
+            #expect(!pr.canRebase(behindBy: 3))
+        }
+    }
+
     @Test("No se ofrece aprobar tus propios PRs")
     func noAprobarLoTuyo() {
         // GitHub lo rechaza, y un botón que sólo puede fallar entrena a ignorar
@@ -110,14 +134,16 @@ struct ActionAvailabilityTests {
     func confirmacionSoloParaMerge() {
         #expect(PullRequestAction.merge.needsConfirmation)
         #expect(!PullRequestAction.approve.needsConfirmation)
+        #expect(!PullRequestAction.rebase.needsConfirmation)
         #expect(!PullRequestAction.ignore.needsConfirmation)
         #expect(!PullRequestAction.open.needsConfirmation)
     }
 
-    @Test("Aprobar y mergear son las únicas que escriben")
+    @Test("Aprobar, mergear y rebasear escriben en GitHub")
     func cualesEscriben() {
         #expect(PullRequestAction.approve.writesToGitHub)
         #expect(PullRequestAction.merge.writesToGitHub)
+        #expect(PullRequestAction.rebase.writesToGitHub)
         #expect(!PullRequestAction.open.writesToGitHub)
         #expect(!PullRequestAction.ignore.writesToGitHub)
         #expect(!PullRequestAction.restore.writesToGitHub)
@@ -127,6 +153,7 @@ struct ActionAvailabilityTests {
 // MARK: - Helper
 
 private func makePullRequest(
+    author: Author? = nil,
     authoredByMe: Bool = false,
     mergeable: MergeableState? = nil,
     mergeStateStatus: MergeStateStatus? = nil,
@@ -140,7 +167,7 @@ private func makePullRequest(
         repository: "org/repo",
         baseRefName: "main",
         headRefName: "una-rama",
-        author: Author(login: authoredByMe ? "yo" : "otro", typename: "User"),
+        author: author ?? Author(login: authoredByMe ? "yo" : "otro", typename: "User"),
         updatedAt: .now,
         isDraft: false,
         checks: .success,

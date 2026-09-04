@@ -122,6 +122,13 @@ struct PullRequest: Identifiable, Sendable {
     /// entrenaría a ignorar errores.
     var canApprove: Bool { !authoredByMe }
 
+    /// El atraso tiene que estar medido. Otros bots también pueden usar el
+    /// rebase nativo; sólo Dependabot queda excluido de esta acción.
+    func canRebase(behindBy: Int?) -> Bool {
+        guard let behindBy, behindBy > 0 else { return false }
+        return !["dependabot", "dependabot[bot]"].contains(author.login.lowercased())
+    }
+
     /// Se puede mergear **y** sabemos con qué método. Las dos condiciones salen
     /// de GitHub; si falta cualquiera, no ofrecemos la acción.
     var canMerge: Bool { isReadyToMerge && defaultMergeMethod != nil }
