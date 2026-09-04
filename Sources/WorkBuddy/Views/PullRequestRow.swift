@@ -14,28 +14,48 @@ struct PullRequestRow: View {
     let perform: (PullRequestAction) -> Void
 
     @State private var isHovering = false
-    @State private var showingEditorPicker = false
+    @State private var showingEditorHint = false
     @State private var editorError: String?
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            // El cuerpo y el menú son hermanos, no anidados: un Menu adentro de
-            // un Button no recibe los clicks.
-            Button { perform(.open) } label: { details }
-                .buttonStyle(.plain)
+        VStack(alignment: .leading, spacing: 6) {
+            ZStack(alignment: .topTrailing) {
+                // El cuerpo y el menú son hermanos, no anidados: un Menu adentro de
+                // un Button no recibe los clicks.
+                Button { perform(.open) } label: { details }
+                    .buttonStyle(.plain)
 
-            HStack(spacing: 4) {
-                ItemNoteButton(
-                    itemID: .github(nodeID: pullRequest.id, host: pullRequest.url.host() ?? "github.com"),
-                    isRowHovering: isHovering
-                )
-                if isActing {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(width: 18, height: 18)
-                } else {
-                    actionMenu
+                HStack(spacing: 4) {
+                    ItemNoteButton(
+                        itemID: .github(nodeID: pullRequest.id, host: pullRequest.url.host() ?? "github.com"),
+                        isRowHovering: isHovering
+                    )
+                    if isActing {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 18, height: 18)
+                    } else {
+                        actionMenu
+                    }
                 }
+            }
+
+            if showingEditorHint && editor.selectedURL == nil {
+                HStack(spacing: 8) {
+                    Text(L10n.text(.editorSelectInSettings))
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    Button { showingEditorHint = false } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .buttonStyle(.borderless)
+                    .help(L10n.text(.commonCancel))
+                    .accessibilityLabel(L10n.text(.commonCancel))
+                }
+                .controlSize(.small)
+                .onExitCommand { showingEditorHint = false }
             }
         }
         .padding(.horizontal, 10)
@@ -51,22 +71,6 @@ struct PullRequestRow: View {
             }
         }
         .onHover { isHovering = $0 }
-        // La presentación pertenece a la fila: el menú desaparece al elegir una acción.
-        .sheet(isPresented: $showingEditorPicker) {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(L10n.text(.editorChoose)).font(.headline)
-                EditorPicker(store: editor) {
-                    showingEditorPicker = false
-                    openLocalFolder()
-                }
-                HStack {
-                    Spacer()
-                    Button(L10n.text(.commonCancel), role: .cancel) { showingEditorPicker = false }
-                }
-            }
-            .padding(20)
-            .frame(width: 300)
-        }
         .alert(L10n.text(.editorOpen), isPresented: Binding(
             get: { editorError != nil }, set: { if !$0 { editorError = nil } }
         )) {
@@ -153,7 +157,7 @@ struct PullRequestRow: View {
         if let localFolder {
             Button {
                 if editor.selectedURL == nil {
-                    showingEditorPicker = true
+                    showingEditorHint = true
                 } else {
                     openLocalFolder()
                 }

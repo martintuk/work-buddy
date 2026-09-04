@@ -29,6 +29,7 @@ extension L10n {
         // MARK: - Editor
         case settingsEditor
         case editorChoose
+        case editorSelectInSettings
         case editorSelect
         case editorOther
         case editorOpen

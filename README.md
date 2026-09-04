@@ -67,8 +67,9 @@ que el remoto corresponda al repo; las acciones locales deberán validarlo antes
 de operar.
 
 Con una carpeta asociada, el menú `⋯` del PR ofrece **Abrir en editor**.
-La primera vez permite elegir una app; después muestra **Abrir en RubyMine**,
-por ejemplo. La preferencia global se puede cambiar en **Configuración → Editor**.
+Si todavía no elegiste uno, indica que lo configures en **Configuración → Editor**.
+La elección se hace únicamente ahí y se guarda como preferencia global; después
+el menú muestra **Abrir en RubyMine**, por ejemplo.
 Detecta los IDEs de JetBrains (incluidas instalaciones de Toolbox), VS Code,
 Cursor, Xcode y otros editores instalados, con **Elegir otra app…** para ubicaciones
 personalizadas. Abre la carpeta en su rama actual, sin cambiar el checkout.

@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// El mismo selector se usa en configuración y al abrir un repo por primera vez.
+/// La elección del editor se realiza únicamente desde Configuración.
 struct EditorPicker: View {
     let store: EditorStore
-    var onSelect: () -> Void = {}
     @State private var error: String?
 
     var body: some View {
@@ -11,7 +10,6 @@ struct EditorPicker: View {
             ForEach(store.choices) { editor in
                 Button {
                     store.select(editor)
-                    onSelect()
                 } label: {
                     if editor.url == store.selectedURL {
                         Label(editor.name, systemImage: "checkmark")
@@ -24,7 +22,7 @@ struct EditorPicker: View {
             if !store.choices.isEmpty { Divider() }
             Button(L10n.text(.editorOther)) {
                 do {
-                    if try store.chooseOther() { onSelect() }
+                    try store.chooseOther()
                 } catch {
                     self.error = error.localizedDescription
                 }

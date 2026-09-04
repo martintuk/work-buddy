@@ -29,6 +29,7 @@ extension L10n {
         // MARK: - Editor
         case .settingsEditor: "Editor"
         case .editorChoose: "Elegir editor…"
+        case .editorSelectInSettings: "Elegí un IDE en Configuración → Editor."
         case .editorSelect: "Elegir"
         case .editorOther: "Elegir otra app…"
         case .editorOpen: "Abrir en editor…"
