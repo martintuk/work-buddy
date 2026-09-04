@@ -63,7 +63,7 @@ struct PanelView: View {
             Text("Work Buddy")
                 .font(.system(size: 13, weight: .semibold))
             Spacer()
-            RefreshButton(isRefreshing: isRefreshing, label: "Actualizar") { refresh() }
+            RefreshButton(isRefreshing: isRefreshing, label: "Actualizar GitHub y Jira") { refresh() }
 
             Button {
                 showingConfiguration.toggle()
@@ -79,20 +79,13 @@ struct PanelView: View {
     }
 
     private var isRefreshing: Bool {
-        switch selectedCategory {
-        case .github:
-            if case .loading = store.state { return true }
-            return false
-        case .jira:
-            return jiraStore.isChecking
-        }
+        if case .loading = store.state { return true }
+        return jiraStore.isChecking
     }
 
     private func refresh() {
-        switch selectedCategory {
-        case .github: store.refresh(force: true)
-        case .jira: jiraStore.refresh()
-        }
+        store.refresh(force: true)
+        jiraStore.refresh()
     }
 
     @ViewBuilder
