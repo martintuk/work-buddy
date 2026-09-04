@@ -77,6 +77,9 @@ struct RepositoryFilterView: View {
         panel.title = L10n.text(.repositoriesAssociateFolder, repository)
         panel.prompt = L10n.text(.repositoriesChooseFolder)
         panel.directoryURL = store.localRepositories.folder(for: repository)
+        // El popover flota por encima de las ventanas modales normales.
+        let parentLevel = NSApp.keyWindow?.level ?? .normal
+        panel.level = NSWindow.Level(rawValue: max(parentLevel.rawValue + 1, NSWindow.Level.modalPanel.rawValue))
         NSApp.activate(ignoringOtherApps: true)
         guard panel.runModal() == .OK, let folder = panel.url else { return }
         do {
