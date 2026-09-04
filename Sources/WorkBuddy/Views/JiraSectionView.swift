@@ -44,7 +44,7 @@ struct JiraSectionView: View {
 
     private var queue: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 4) {
+            LazyVStack(alignment: .leading, spacing: 4, pinnedViews: [.sectionHeaders]) {
                 if !showEmptySections && store.shrItems.isEmpty && store.recentlyCreatedItems.isEmpty {
                     ContentUnavailableView {
                         Label(L10n.text(.commonNothingPending), systemImage: "checkmark.circle")
@@ -52,45 +52,49 @@ struct JiraSectionView: View {
                 }
 
                 if showEmptySections || !store.shrItems.isEmpty {
-                    QueueSectionHeader(
-                        title: L10n.text(.jiraAwaitingSHR),
-                        subtitle: nil,
-                        symbol: "person.2",
-                        tint: .orange,
-                        count: store.shrItems.count,
-                        isExpanded: isSHRExpanded,
-                        accessibilityItemName: L10n.text(.jiraTickets)
-                    ) {
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            isSHRExpanded.toggle()
+                    Section {
+                        if isSHRExpanded {
+                            ForEach(store.shrItems) { workItem in
+                                workItemRow(workItem)
+                            }
                         }
-                    }
-
-                    if isSHRExpanded {
-                        ForEach(store.shrItems) { workItem in
-                            workItemRow(workItem)
+                    } header: {
+                        QueueSectionHeader(
+                            title: L10n.text(.jiraAwaitingSHR),
+                            subtitle: nil,
+                            symbol: "person.2",
+                            tint: .orange,
+                            count: store.shrItems.count,
+                            isExpanded: isSHRExpanded,
+                            accessibilityItemName: L10n.text(.jiraTickets)
+                        ) {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                isSHRExpanded.toggle()
+                            }
                         }
                     }
                 }
 
                 if showEmptySections || !store.recentlyCreatedItems.isEmpty {
-                    QueueSectionHeader(
-                        title: L10n.text(.jiraRecentlyCreated),
-                        subtitle: nil,
-                        symbol: "clock",
-                        tint: .blue,
-                        count: store.recentlyCreatedItems.count,
-                        isExpanded: isRecentlyCreatedExpanded,
-                        accessibilityItemName: L10n.text(.jiraTickets)
-                    ) {
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            isRecentlyCreatedExpanded.toggle()
+                    Section {
+                        if isRecentlyCreatedExpanded {
+                            ForEach(store.recentlyCreatedItems) { workItem in
+                                workItemRow(workItem, showStatus: true)
+                            }
                         }
-                    }
-
-                    if isRecentlyCreatedExpanded {
-                        ForEach(store.recentlyCreatedItems) { workItem in
-                            workItemRow(workItem, showStatus: true)
+                    } header: {
+                        QueueSectionHeader(
+                            title: L10n.text(.jiraRecentlyCreated),
+                            subtitle: nil,
+                            symbol: "clock",
+                            tint: .blue,
+                            count: store.recentlyCreatedItems.count,
+                            isExpanded: isRecentlyCreatedExpanded,
+                            accessibilityItemName: L10n.text(.jiraTickets)
+                        ) {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                isRecentlyCreatedExpanded.toggle()
+                            }
                         }
                     }
                 }

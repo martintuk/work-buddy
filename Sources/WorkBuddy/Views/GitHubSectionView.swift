@@ -338,7 +338,7 @@ struct GitHubSectionView: View {
         let sections = store.reviewSections
         let merge = store.readyToMerge
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+            LazyVStack(alignment: .leading, spacing: 4, pinnedViews: [.sectionHeaders]) {
                 if !hasVisiblePullRequests && (!showEmptySections || store.hasRepositoryFilteredResults) {
                     centered {
                         ContentUnavailableView {
@@ -451,7 +451,22 @@ struct GitHubSectionView: View {
         if showEmptySections || !items.isEmpty {
             let collapsed = Set(collapsedSectionIDs.split(separator: ",").map(String.init))
             let isExpanded = !collapsed.contains(section.persistenceID)
-            VStack(alignment: .leading, spacing: 4) {
+            Section {
+                if isExpanded {
+                    if let summary = section.summary {
+                        Text(summary)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(section.tint.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+                    }
+                    rows(items)
+                }
+            } header: {
                 QueueSectionHeader(
                     title: title,
                     subtitle: subtitle,
@@ -470,21 +485,6 @@ struct GitHubSectionView: View {
                         }
                         collapsedSectionIDs = updated.sorted().joined(separator: ",")
                     }
-                }
-
-                if isExpanded {
-                    if let summary = section.summary {
-                        Text(summary)
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 7)
-                            .background(section.tint.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
-                    }
-                    rows(items)
                 }
             }
         }
@@ -555,6 +555,8 @@ struct QueueSectionHeader: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        // El fondo opaco evita que las filas se vean detrás del encabezado fijo.
+        .background(Color(nsColor: .windowBackgroundColor))
         .onHover { isHovering = $0 }
         .accessibilityLabel("\(title), \(count) \(accessibilityItemName)")
         .accessibilityValue(isExpanded ? L10n.text(.sectionExpanded) : L10n.text(.sectionCollapsed))
