@@ -21,24 +21,21 @@ struct PanelView: View {
         VStack(spacing: 0) {
             header
 
-            Picker("Categoría", selection: $selectedCategory) {
-                ForEach(Category.allCases) { category in
-                    Text(category.rawValue).tag(category)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(.horizontal, 14)
-            .padding(.bottom, 10)
-            .onChange(of: selectedCategory) {
-                showingConfiguration = false
-            }
-
-            Divider()
-
             if showingConfiguration {
+                Divider()
                 ConfigurationView(store: store)
             } else {
+                Picker("Categoría", selection: $selectedCategory) {
+                    ForEach(Category.allCases) { category in
+                        Text(category.rawValue).tag(category)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .padding(.horizontal, 14)
+                .padding(.bottom, 10)
+
+                Divider()
                 categoryContent
             }
 
