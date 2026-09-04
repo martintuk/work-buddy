@@ -296,7 +296,8 @@ struct GitHubSectionView: View {
                 symbol: section.symbol,
                 tint: section.tint,
                 count: items.count,
-                isExpanded: isExpanded
+                isExpanded: isExpanded,
+                accessibilityItemName: "pull requests"
             ) {
                 withAnimation(.easeInOut(duration: 0.18)) {
                     var updated = collapsed
@@ -322,13 +323,14 @@ struct GitHubSectionView: View {
 }
 
 /// Todas las categorías comparten tamaño, contraste y área de interacción.
-private struct QueueSectionHeader: View {
+struct QueueSectionHeader: View {
     let title: String
     let subtitle: String?
     let symbol: String
     let tint: Color
     let count: Int
     let isExpanded: Bool
+    let accessibilityItemName: String
     let toggle: () -> Void
 
     @State private var isHovering = false
@@ -380,7 +382,7 @@ private struct QueueSectionHeader: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
-        .accessibilityLabel("\(title), \(count) pull requests")
+        .accessibilityLabel("\(title), \(count) \(accessibilityItemName)")
         .accessibilityValue(isExpanded ? "Expandido" : "Contraído")
         .accessibilityHint(isExpanded ? "Ocultar la sección" : "Mostrar la sección")
         .help(isExpanded ? "Ocultar \(title)" : "Mostrar \(title)")

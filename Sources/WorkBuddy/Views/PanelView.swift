@@ -111,6 +111,10 @@ struct PanelView: View {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Text(LastUpdatedText.format(lastUpdated, relativeTo: context.date))
                 }
+            } else if selectedCategory == .jira, let lastUpdated = jiraStore.lastUpdated {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text(LastUpdatedText.format(lastUpdated, relativeTo: context.date))
+                }
             } else {
                 Text("v\(Self.version)")
             }

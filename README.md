@@ -42,7 +42,9 @@ Refresca cada 5 minutos y notifica lo nuevo que te bloquea.
 
 La sección **Jira** reutiliza la sesión del CLI oficial de Atlassian. Si no hay
 una sesión activa, muestra `acli jira auth login` para copiar y ejecutar en
-Terminal; work-buddy no solicita ni almacena credenciales.
+Terminal; work-buddy no solicita ni almacena credenciales. **Esperan mi SHR**
+muestra los tickets asignados a la cuenta activa cuyo estado es
+`Stakeholder Review`.
 
 Dentro de la categoría **GitHub**, el botón **Repositorios** abre una lista con búsqueda
 y scroll que ocupa todo el panel. Se obtiene de los repositorios distintos de

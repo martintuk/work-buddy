@@ -7,6 +7,7 @@ struct JiraSectionView: View {
     let store: JiraStore
 
     @State private var copiedLoginCommand = false
+    @AppStorage("jira.shrExpanded") private var isSHRExpanded = true
 
     var body: some View {
         Group {
@@ -16,10 +17,8 @@ struct JiraSectionView: View {
                     .controlSize(.small)
             case .signedOut:
                 signedOut
-            case .authenticated:
-                ContentUnavailableView {
-                    Label("Jira conectado", systemImage: "checkmark.circle")
-                }
+            case .loaded:
+                queue
             case .unavailable:
                 ContentUnavailableView {
                     Label("ACLI no está instalado", systemImage: "terminal")
@@ -40,6 +39,57 @@ struct JiraSectionView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { store.refresh() }
+    }
+
+    private var queue: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 4) {
+                QueueSectionHeader(
+                    title: "Esperan mi SHR",
+                    subtitle: nil,
+                    symbol: "person.2",
+                    tint: .orange,
+                    count: store.shrItems.count,
+                    isExpanded: isSHRExpanded,
+                    accessibilityItemName: "tickets"
+                ) {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        isSHRExpanded.toggle()
+                    }
+                }
+
+                if isSHRExpanded {
+                    ForEach(store.shrItems) { workItem in
+                        workItemRow(workItem)
+                    }
+                }
+            }
+            .padding(10)
+        }
+    }
+
+    private func workItemRow(_ workItem: JiraWorkItem) -> some View {
+        Button {
+            guard let url = store.url(for: workItem) else { return }
+            NSWorkspace.shared.open(url)
+        } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(workItem.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                Text("\(workItem.key) · \(workItem.issueType)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .disabled(store.url(for: workItem) == nil)
+        .help("Abrir \(workItem.key) en Jira")
     }
 
     private var signedOut: some View {

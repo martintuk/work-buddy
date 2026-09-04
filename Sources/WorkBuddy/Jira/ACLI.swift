@@ -6,20 +6,26 @@ import Foundation
 /// en Terminal, así work-buddy nunca recibe credenciales de Jira.
 enum ACLI {
     enum AuthenticationStatus: Equatable, Sendable {
-        case authenticated
+        case authenticated(site: URL?)
         case signedOut
     }
 
     enum Failure: LocalizedError {
         case notInstalled
+        case notAuthenticated
         case commandFailed(exitCode: Int32, output: String)
+        case badJSON(String)
 
         var errorDescription: String? {
             switch self {
             case .notInstalled:
                 "No encontré el CLI `acli`."
+            case .notAuthenticated:
+                "`acli` no está autenticado. Corré `acli jira auth login`."
             case .commandFailed(let exitCode, let output):
                 "`acli` falló (código \(exitCode)): \(output)"
+            case .badJSON(let detail):
+                "No pude parsear la respuesta de `acli`: \(detail)"
             }
         }
     }
@@ -45,20 +51,11 @@ enum ACLI {
     }()
 
     static func authenticationStatus() async throws -> AuthenticationStatus {
-        guard let executableURL else { throw Failure.notInstalled }
-        return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    let result = try runBlocking(executableURL, ["jira", "auth", "status"])
-                    continuation.resume(returning: try classifyAuthentication(
-                        exitCode: result.exitCode,
-                        output: result.output
-                    ))
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
+        let result = try await execute(["jira", "auth", "status"])
+        return try classifyAuthentication(
+            exitCode: result.exitCode,
+            output: result.combinedOutput
+        )
     }
 
     /// Separado del proceso para fijar con tests el contrato observable de ACLI.
@@ -66,7 +63,7 @@ enum ACLI {
         exitCode: Int32,
         output: String
     ) throws -> AuthenticationStatus {
-        if exitCode == 0 { return .authenticated }
+        if exitCode == 0 { return .authenticated(site: siteURL(in: output)) }
         if output.localizedCaseInsensitiveContains("unauthorized")
             || output.localizedCaseInsensitiveContains("auth login") {
             return .signedOut
@@ -77,34 +74,93 @@ enum ACLI {
         )
     }
 
+    static func run(_ arguments: [String]) async throws -> Data {
+        let result = try await execute(arguments)
+        guard result.exitCode == 0 else {
+            if outputMeansSignedOut(result.combinedOutput) {
+                throw Failure.notAuthenticated
+            }
+            throw Failure.commandFailed(
+                exitCode: result.exitCode,
+                output: result.combinedOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+        }
+        return result.stdout
+    }
+
+    private static func execute(_ arguments: [String]) async throws -> CommandResult {
+        guard let executableURL else { throw Failure.notInstalled }
+        return try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    continuation.resume(returning: try runBlocking(executableURL, arguments))
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    private static func outputMeansSignedOut(_ output: String) -> Bool {
+        output.localizedCaseInsensitiveContains("unauthorized")
+            || output.localizedCaseInsensitiveContains("auth login")
+    }
+
+    private static func siteURL(in output: String) -> URL? {
+        guard let line = output.split(whereSeparator: \Character.isNewline).first(where: {
+            $0.trimmingCharacters(in: .whitespaces).hasPrefix("Site:")
+        }) else { return nil }
+
+        let value = line
+            .trimmingCharacters(in: .whitespaces)
+            .dropFirst("Site:".count)
+            .trimmingCharacters(in: .whitespaces)
+        guard !value.isEmpty else { return nil }
+        return URL(string: value.hasPrefix("http") ? value : "https://\(value)")
+    }
+
+    private struct CommandResult: Sendable {
+        let exitCode: Int32
+        let stdout: Data
+        let stderr: String
+
+        var combinedOutput: String {
+            [String(decoding: stdout, as: UTF8.self), stderr]
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n")
+        }
+    }
+
     private static func runBlocking(
         _ executableURL: URL,
         _ arguments: [String]
-    ) throws -> (exitCode: Int32, output: String) {
+    ) throws -> CommandResult {
         let process = Process()
         process.executableURL = executableURL
         process.arguments = arguments
         process.standardInput = FileHandle.nullDevice
 
-        // Un solo archivo evita bloquear el proceso si cualquiera de las dos
-        // salidas llena un pipe. Para este comando el orden no importa.
-        let outputURL = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("work-buddy-\(UUID().uuidString).acli-output")
-        FileManager.default.createFile(atPath: outputURL.path, contents: nil, attributes: nil)
-        defer { try? FileManager.default.removeItem(at: outputURL) }
+        let stdout = Pipe()
+        process.standardOutput = stdout
 
-        let output = try FileHandle(forWritingTo: outputURL)
-        process.standardOutput = output
-        process.standardError = output
+        // stderr va a un archivo para poder drenar stdout sin riesgo de que el
+        // proceso bloquee al llenar el otro pipe.
+        let stderrURL = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("work-buddy-\(UUID().uuidString).acli-stderr")
+        FileManager.default.createFile(atPath: stderrURL.path, contents: nil, attributes: nil)
+        defer { try? FileManager.default.removeItem(at: stderrURL) }
+        let stderr = try FileHandle(forWritingTo: stderrURL)
+        process.standardError = stderr
 
         try process.run()
+        let stdoutData = stdout.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
-        try output.close()
+        try stderr.close()
 
-        let data = try Data(contentsOf: outputURL)
-        return (
-            process.terminationStatus,
-            String(decoding: data, as: UTF8.self)
+        return CommandResult(
+            exitCode: process.terminationStatus,
+            stdout: stdoutData,
+            stderr: String(decoding: try Data(contentsOf: stderrURL), as: UTF8.self)
         )
     }
 }
