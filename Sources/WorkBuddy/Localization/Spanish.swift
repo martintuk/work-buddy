@@ -51,7 +51,7 @@ extension L10n {
         case .agentTerminalCommandHelp: "Comando de apertura en zsh. Pasá la carpeta como \"$WORK_BUDDY_FOLDER\" y el comando del agente como \"$WORK_BUDDY_COMMAND\", conservando las comillas dobles. El comando del agente ya entra a la carpeta del proyecto."
         case .agentTerminalCommandMissing: "Ingresá un comando de apertura de terminal en Configuración."
         case .agentTitle: "Agente AI CLI"
-        case .agentChoose: "Elegir agente…"
+        case .agentChoose: "Elegir agente"
         case .agentCustom: "Personalizado…"
         case .agentCommand: "Comando CLI y argumentos"
         case .agentOpen: "Abrir agente AI"
