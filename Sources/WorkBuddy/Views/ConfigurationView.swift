@@ -61,6 +61,8 @@ struct ConfigurationView: View {
                 }
                 .controlSize(.small)
 
+                AgentCLISettingsView(store: store.agentCLI)
+
                 organizationsSelector
 
                 VStack(alignment: .leading, spacing: 6) {

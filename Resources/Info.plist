@@ -23,6 +23,8 @@
 	<!-- Solo barra de menú: sin icono en el Dock ni en el conmutador de apps. -->
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Work Buddy abre sesiones de agentes CLI en la terminal que elijas.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>

@@ -4,6 +4,7 @@ import SwiftUI
 struct GitHubSectionView: View {
     let store: ReviewQueueStore
     let showRepositories: () -> Void
+    let showAgentConfiguration: () -> Void
 
     @AppStorage("appearance.showEmptySections") private var showEmptySections = true
     @AppStorage("github.collapsedSections") private var collapsedSectionIDs = ""
@@ -109,11 +110,14 @@ struct GitHubSectionView: View {
 
             // La confirmación tapa el aviso: son el mismo lugar y nunca hacen
             // falta las dos a la vez.
-            if let warning = store.projectOpener.warning {
+            if let error = store.agentCLI.error {
+                projectError(error, dismiss: store.agentCLI.dismissError)
+                Divider()
+            } else if let warning = store.projectOpener.warning {
                 branchWarning(warning)
                 Divider()
             } else if let error = store.projectOpener.error {
-                projectError(error)
+                projectError(error, dismiss: store.projectOpener.dismissNotice)
                 Divider()
             } else if let pendingAction {
                 confirmBar(pendingAction)
@@ -164,12 +168,15 @@ struct GitHubSectionView: View {
         .background(Color.orange.opacity(0.16))
     }
 
-    private func projectError(_ error: Error) -> some View {
+    private func projectError(_ error: Error, dismiss: @escaping () -> Void) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
             Text(error.localizedDescription).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-            dismissProjectNoticeButton
+            Button(action: dismiss) { Image(systemName: "xmark") }
+                .buttonStyle(.borderless)
+                .help(L10n.text(.commonCancel))
+                .accessibilityLabel(L10n.text(.commonCancel))
         }
         .font(.system(size: 10))
         .foregroundStyle(.red)
@@ -382,8 +389,8 @@ struct GitHubSectionView: View {
                     store.dismissOutcome()
                     configurationHint = .folder(pullRequest.repository)
                 },
-                isOpeningProject: store.projectOpener.openingID == pullRequest.id,
-                canOpenProject: !store.projectOpener.isOpening,
+                isOpeningProject: store.projectOpener.openingID == pullRequest.id || store.agentCLI.openingID == pullRequest.id,
+                canOpenProject: !store.projectOpener.isOpening && !store.agentCLI.isOpening,
                 openProject: {
                     guard let folder = store.localRepositories.folder(for: pullRequest.repository) else { return }
                     pendingAction = nil
@@ -394,6 +401,21 @@ struct GitHubSectionView: View {
                             try await store.editor.open($0)
                         }
                     }
+                },
+                openAgent: {
+                    pendingAction = nil
+                    configurationHint = nil
+                    store.projectOpener.dismissNotice()
+                    store.dismissOutcome()
+                    guard let folder = store.localRepositories.folder(for: pullRequest.repository) else {
+                        showRepositories()
+                        return
+                    }
+                    guard store.agentCLI.isConfigured else {
+                        showAgentConfiguration()
+                        return
+                    }
+                    Task { await store.agentCLI.open(folder, id: pullRequest.id) }
                 }
             ) { action in
                 configurationHint = nil

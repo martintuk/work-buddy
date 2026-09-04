@@ -44,6 +44,18 @@ extension L10n {
         case editorBranchOperationInProgress
         case editorBranchWrongRepository
 
+        // MARK: - Agent CLI
+        case agentTerminal
+        case agentTitle
+        case agentChoose
+        case agentCustom
+        case agentCommand
+        case agentOpen
+        case agentMissingTerminal
+        case agentGhosttyVersion
+        case agentAutomationDenied
+        case agentLaunchFailed
+
         // MARK: - Notifications
         case notificationsTitle
         case notificationsTest

@@ -16,6 +16,7 @@ struct PullRequestRow: View {
     let isOpeningProject: Bool
     let canOpenProject: Bool
     let openProject: () -> Void
+    let openAgent: () -> Void
     let perform: (PullRequestAction) -> Void
 
     @State private var isHovering = false
@@ -141,6 +142,12 @@ struct PullRequestRow: View {
         } label: {
             Label(editor.selectedName.map { L10n.text(.editorOpenIn, $0) }
                 ?? L10n.text(.editorOpen), systemImage: "chevron.left.forwardslash.chevron.right")
+        }
+        .help(localFolder?.path ?? L10n.text(.repositoriesNoFolder))
+        .disabled(!canOpenProject)
+
+        Button(action: openAgent) {
+            Label(L10n.text(.agentOpen), systemImage: "terminal")
         }
         .help(localFolder?.path ?? L10n.text(.repositoriesNoFolder))
         .disabled(!canOpenProject)

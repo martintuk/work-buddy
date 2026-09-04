@@ -44,6 +44,18 @@ extension L10n {
         case .editorBranchOperationInProgress: "A Git operation is in progress."
         case .editorBranchWrongRepository: "The associated folder has no remote matching the PR repository."
 
+        // MARK: - Agent CLI
+        case .agentTerminal: "Terminal"
+        case .agentTitle: "AI agent CLI"
+        case .agentChoose: "Choose agent…"
+        case .agentCustom: "Custom…"
+        case .agentCommand: "CLI command and arguments"
+        case .agentOpen: "Open AI agent"
+        case .agentMissingTerminal: "The selected terminal is unavailable. Choose another in Settings."
+        case .agentGhosttyVersion: "Update Ghostty to version 1.3 or later to open an agent session."
+        case .agentAutomationDenied: "Allow Work Buddy to control the terminal in System Settings → Privacy & Security → Automation."
+        case .agentLaunchFailed: "Could not open the agent: %@"
+
         // MARK: - Notifications
         case .notificationsTitle: "Notifications"
         case .notificationsTest: "Test"
