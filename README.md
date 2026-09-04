@@ -104,7 +104,7 @@ los permisos siguen a cargo de la sesión activa del CLI `gh`.
 ./Scripts/run.sh release  # igual pero optimizado
 ```
 
-El icono `</>` aparece en la barra de menú, a la derecha.
+El icono de órbita aparece en la barra de menú, a la derecha.
 
 - **Click izquierdo** → abre/cierra el panel
 - **Click derecho** → menú contextual (Acerca de / Salir)

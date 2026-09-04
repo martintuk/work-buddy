@@ -9,4 +9,4 @@ BUNDLE="$("$ROOT/Scripts/build.sh" "${1:-debug}")"
 pkill -x WorkBuddy 2>/dev/null || true
 
 open "$BUNDLE"
-echo "Corriendo $BUNDLE — buscá el icono </> en la barra de menú."
+echo "Corriendo $BUNDLE — buscá el icono de órbita en la barra de menú."

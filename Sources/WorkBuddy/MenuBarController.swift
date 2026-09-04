@@ -54,6 +54,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         button.image = Self.makeIcon()
         button.imagePosition = .imageOnly
         button.toolTip = "work-buddy"
+        button.setAccessibilityLabel("work-buddy")
 
         // Un único action para los dos botones; los separamos en handleClick().
         button.target = self
@@ -119,12 +120,23 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         NSApp.modalWindow != nil || popover.contentViewController?.view.window?.attachedSheet != nil
     }
 
-    private static func makeIcon() -> NSImage? {
-        let image = NSImage(
-            systemSymbolName: "chevron.left.forwardslash.chevron.right",
-            accessibilityDescription: "work-buddy"
-        )
-        image?.isTemplate = true // se adapta a barra clara u oscura
+    private static func makeIcon() -> NSImage {
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
+            NSColor.black.set()
+
+            // El corte deja aire alrededor del satélite incluso a tamaño de menú.
+            let orbit = NSBezierPath()
+            orbit.appendArc(withCenter: NSPoint(x: 9, y: 9), radius: 6,
+                            startAngle: 70, endAngle: 380)
+            orbit.lineWidth = 1.4
+            orbit.lineCapStyle = .round
+            orbit.stroke()
+
+            NSBezierPath(ovalIn: NSRect(x: 7, y: 7, width: 4, height: 4)).fill()
+            NSBezierPath(ovalIn: NSRect(x: 11.1, y: 11.1, width: 4.4, height: 4.4)).fill()
+            return true
+        }
+        image.isTemplate = true // se adapta a barra clara u oscura
         return image
     }
 
