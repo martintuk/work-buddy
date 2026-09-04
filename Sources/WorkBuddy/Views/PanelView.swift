@@ -37,7 +37,7 @@ struct PanelView: View {
             Divider()
 
             if showingConfiguration {
-                ConfigurationView(store: store, onSave: { showingConfiguration = false })
+                ConfigurationView(store: store)
             } else {
                 categoryContent
             }

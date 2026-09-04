@@ -3,11 +3,16 @@ import SwiftUI
 /// Configuración accesible desde el encabezado general.
 struct ConfigurationView: View {
     let store: ReviewQueueStore
-    let onSave: () -> Void
+
+    private enum Field: Hashable {
+        case organization
+        case machineAccounts
+    }
 
     @State private var organization = ""
     @State private var machineAccounts = ""
-    @State private var configurationError: String?
+    @State private var configurationErrors: [Field: String] = [:]
+    @FocusState private var focusedField: Field?
 
     var body: some View {
         ScrollView {
@@ -17,6 +22,9 @@ struct ConfigurationView: View {
                         .font(.system(size: 12, weight: .semibold))
                     TextField("mi-organizacion", text: $organization)
                         .textFieldStyle(.roundedBorder)
+                        .focused($focusedField, equals: .organization)
+                        .onSubmit { saveConfiguration(field: .organization) }
+                    configurationError(for: .organization)
                     Text("Opcional. Si queda vacía, se buscan PRs en todas las organizaciones "
                         + "a las que accede la sesión de gh.")
                         .font(.system(size: 10))
@@ -28,6 +36,9 @@ struct ConfigurationView: View {
                         .font(.system(size: 12, weight: .semibold))
                     TextField("ci-bot, release-bot", text: $machineAccounts)
                         .textFieldStyle(.roundedBorder)
+                        .focused($focusedField, equals: .machineAccounts)
+                        .onSubmit { saveConfiguration(field: .machineAccounts) }
+                    configurationError(for: .machineAccounts)
                     Text("Logins que GitHub identifica como User aunque sean cuentas de máquina. "
                         + "Separalos con comas o espacios.")
                         .font(.system(size: 10))
@@ -39,19 +50,9 @@ struct ConfigurationView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
 
-                if let configurationError {
-                    Label(configurationError, systemImage: "exclamationmark.triangle.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.red)
-                }
-
-                HStack {
-                    Spacer()
-                    Button("Guardar y actualizar") {
-                        saveConfiguration()
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
+                Text("Los campos se guardan al salir del campo o presionar Enter.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
             }
             .padding(16)
         }
@@ -59,18 +60,38 @@ struct ConfigurationView: View {
             organization = store.configuration.organizationText
             machineAccounts = store.configuration.machineAccountsText
         }
+        .onChange(of: focusedField) { previousField, _ in
+            if let previousField {
+                saveConfiguration(field: previousField)
+            }
+        }
+        .onDisappear {
+            saveConfiguration(field: .organization)
+            saveConfiguration(field: .machineAccounts)
+        }
     }
 
-    private func saveConfiguration() {
+    @ViewBuilder
+    private func configurationError(for field: Field) -> some View {
+        if let error = configurationErrors[field] {
+            Label(error, systemImage: "exclamationmark.triangle.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(.red)
+        }
+    }
+
+    private func saveConfiguration(field: Field) {
         do {
+            // Cada campo se valida y aplica independientemente del otro borrador.
             try store.updateConfiguration(
-                organization: organization,
-                machineAccounts: machineAccounts
+                organization: field == .organization
+                    ? organization : store.configuration.organizationText,
+                machineAccounts: field == .machineAccounts
+                    ? machineAccounts : store.configuration.machineAccountsText
             )
-            onSave()
-            configurationError = nil
+            configurationErrors[field] = nil
         } catch {
-            configurationError = (error as? LocalizedError)?.errorDescription
+            configurationErrors[field] = (error as? LocalizedError)?.errorDescription
                 ?? error.localizedDescription
         }
     }
