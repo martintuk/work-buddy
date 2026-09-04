@@ -23,7 +23,18 @@ cp "$BIN" "$BUNDLE/Contents/MacOS/$EXECUTABLE"
 cp "$ROOT/Resources/Info.plist" "$BUNDLE/Contents/Info.plist"
 printf 'APPL????' > "$BUNDLE/Contents/PkgInfo"
 
-# Firma ad-hoc: sin firma macOS puede matar el proceso al reemplazar el binario.
-codesign --force --sign - "$BUNDLE" >&2
+# Usamos una identidad Apple cuando está disponible: la firma ad-hoc puede
+# ejecutar la app, pero macOS puede rechazar su solicitud de notificaciones.
+SIGNING_IDENTITY="${WORK_BUDDY_SIGNING_IDENTITY:-}"
+if [[ -z "$SIGNING_IDENTITY" ]]; then
+    SIGNING_IDENTITY="$(security find-identity -v -p codesigning \
+        | awk '/"Apple Development:|"Mac Developer:|"Developer ID Application:/ { if (!identity) identity = $2 } END { print identity }')"
+fi
+if [[ -z "$SIGNING_IDENTITY" ]]; then
+    SIGNING_IDENTITY="-"
+    echo "Aviso: firma ad-hoc; macOS puede rechazar las notificaciones. Configurá WORK_BUDDY_SIGNING_IDENTITY con una identidad Apple." >&2
+fi
+codesign --force --sign "$SIGNING_IDENTITY" "$BUNDLE" >&2
+codesign --verify --strict "$BUNDLE" >&2
 
 echo "$BUNDLE"

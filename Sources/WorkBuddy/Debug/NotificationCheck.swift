@@ -8,6 +8,7 @@ import UserNotifications
 ///
 ///     "build/work-buddy.app/Contents/MacOS/WorkBuddy" --check-notifications
 enum NotificationCheck {
+    @MainActor
     static func run() async {
         guard let identifier = Bundle.main.bundleIdentifier else {
             print("✗ sin bundle identifier — corré el binario de adentro del .app")
@@ -15,26 +16,24 @@ enum NotificationCheck {
         }
         print("bundle: \(identifier)")
 
-        let center = UNUserNotificationCenter.current()
+        let notifier = Notifier()
         do {
-            let granted = try await center.requestAuthorization(options: [.alert, .sound])
-            print("requestAuthorization → \(granted ? "concedido" : "denegado")")
+            try await notifier.requestAuthorization()
+            print("requestAuthorization → concedido")
         } catch {
             print("✗ requestAuthorization falló: \(error.localizedDescription)")
+            // Encolar no prueba que macOS vaya a mostrarla. No enviamos si
+            // el mismo flujo usado por la interfaz rechaza la autorización.
+            return
         }
 
+        let center = UNUserNotificationCenter.current()
         let settings = await center.notificationSettings()
         print("authorizationStatus: \(describe(settings.authorizationStatus))")
         print("alertSetting: \(settings.alertSetting == .enabled ? "enabled" : "disabled")")
 
-        let content = UNMutableNotificationContent()
-        content.title = "work-buddy"
-        content.body = "Notificación de prueba"
-        content.sound = .default
         do {
-            try await center.add(
-                UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-            )
+            try await notifier.sendTest()
             print("✓ notificación de prueba encolada")
         } catch {
             print("✗ add falló: \(error.localizedDescription)")
@@ -42,6 +41,7 @@ enum NotificationCheck {
 
         // Le damos tiempo al sistema a entregarla antes de salir.
         try? await Task.sleep(for: .seconds(2))
+        withExtendedLifetime(notifier) {}
     }
 
     private static func describe(_ status: UNAuthorizationStatus) -> String {

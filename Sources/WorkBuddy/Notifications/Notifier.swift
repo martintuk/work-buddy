@@ -39,7 +39,8 @@ final class Notifier: NSObject {
         var errorDescription: String? {
             switch self {
             case .unavailable: "Las notificaciones requieren ejecutar la app desde su bundle."
-            case .permissionRequired: "Habilitá las notificaciones de work-buddy en los ajustes de macOS."
+            case .permissionRequired:
+                "macOS bloqueó las notificaciones de work-buddy. Permitilas una vez en Configuración del Sistema → Notificaciones → work-buddy."
             }
         }
     }
@@ -56,7 +57,16 @@ final class Notifier: NSObject {
 
     func requestAuthorization() async throws {
         guard let center else { throw NotificationError.unavailable }
-        _ = try await center.requestAuthorization(options: [.alert, .sound])
+        await refreshAuthorization()
+        if isAuthorized { return }
+        guard authorizationStatus != .denied else { throw NotificationError.permissionRequired }
+        do {
+            _ = try await center.requestAuthorization(options: [.alert, .sound])
+        } catch {
+            await refreshAuthorization()
+            if authorizationStatus == .denied { throw NotificationError.permissionRequired }
+            throw error
+        }
         await refreshAuthorization()
         guard isAuthorized else { throw NotificationError.permissionRequired }
     }
