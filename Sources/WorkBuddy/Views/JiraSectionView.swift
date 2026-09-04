@@ -109,6 +109,7 @@ struct JiraSectionView: View {
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
+                    .padding(.trailing, 22)
                 Text([workItem.key, workItem.issueType, showStatus ? workItem.status : nil]
                     .compactMap { $0 }
                     .joined(separator: " · "))
@@ -123,7 +124,13 @@ struct JiraSectionView: View {
         .buttonStyle(.plain)
         .disabled(store.url(for: workItem) == nil)
         .help(L10n.text(.jiraOpen, workItem.key))
-
+        .overlay(alignment: .topTrailing) {
+            if let site = store.siteURL {
+                ItemNoteButton(itemID: .jira(key: workItem.key, site: site))
+                    .padding(.trailing, 10)
+                    .padding(.top, 6)
+            }
+        }
     }
 
     private var signedOut: some View {

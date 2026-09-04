@@ -20,12 +20,18 @@ struct PullRequestRow: View {
             Button { perform(.open) } label: { details }
                 .buttonStyle(.plain)
 
-            if isActing {
-                ProgressView()
-                    .controlSize(.small)
-                    .frame(width: 18, height: 18)
-            } else {
-                actionMenu
+            HStack(spacing: 4) {
+                ItemNoteButton(
+                    itemID: .github(nodeID: pullRequest.id, host: pullRequest.url.host() ?? "github.com"),
+                    isRowHovering: isHovering
+                )
+                if isActing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 18, height: 18)
+                } else {
+                    actionMenu
+                }
             }
         }
         .padding(.horizontal, 10)
@@ -49,7 +55,7 @@ struct PullRequestRow: View {
                 .font(.system(size: 12, weight: .medium))
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
-                .padding(.trailing, 22)
+                .padding(.trailing, 44)
             subtitle
         }
         .frame(maxWidth: .infinity, alignment: .leading)
