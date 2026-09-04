@@ -8,7 +8,7 @@ struct NotificationSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Notificaciones del sistema")
+            Text("Notificaciones")
                 .font(.system(size: 12, weight: .semibold))
 
             HStack(spacing: 8) {

@@ -39,14 +39,6 @@ struct ConfigurationView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Text("Estos campos guardan identificadores, no tokens. La autenticación sigue "
-                    + "a cargo de gh.")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-
-                Text("Las organizaciones se guardan al seleccionarlas. Las cuentas, al salir del campo o presionar Enter.")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
             }
             .padding(16)
         }
@@ -132,9 +124,6 @@ struct ConfigurationView: View {
             }
             configurationError(for: .organization)
 
-            Text("Elegí una o varias. Sin selección, se buscan PRs en todo lo accesible con gh.")
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
         }
         .task(id: organizationsRequest) { await loadOrganizations() }
     }
