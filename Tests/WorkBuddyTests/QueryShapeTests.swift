@@ -88,7 +88,7 @@ struct QueryShapeTests {
     @Test("La organización configurada limita todas las búsquedas")
     func alcancePorOrganizacion() throws {
         let configuration = try AppConfiguration(
-            organizationText: "example-org",
+            organizations: ["example-org"],
             machineAccountsText: ""
         )
 

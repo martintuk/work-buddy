@@ -9,7 +9,11 @@ struct ConfigurationView: View {
         case machineAccounts
     }
 
-    @State private var organization = ""
+    @State private var selectedOrganizations: Set<String> = []
+    @State private var availableOrganizations: [String] = []
+    @State private var isLoadingOrganizations = false
+    @State private var organizationsError: String?
+    @State private var organizationsRequest = 0
     @State private var machineAccounts = ""
     @State private var configurationErrors: [Field: String] = [:]
     @FocusState private var focusedField: Field?
@@ -17,19 +21,7 @@ struct ConfigurationView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Organización de GitHub")
-                        .font(.system(size: 12, weight: .semibold))
-                    TextField("mi-organizacion", text: $organization)
-                        .textFieldStyle(.roundedBorder)
-                        .focused($focusedField, equals: .organization)
-                        .onSubmit { saveConfiguration(field: .organization) }
-                    configurationError(for: .organization)
-                    Text("Opcional. Si queda vacía, se buscan PRs en todas las organizaciones "
-                        + "a las que accede la sesión de gh.")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
+                organizationsSelector
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Cuentas de automatización")
@@ -50,14 +42,14 @@ struct ConfigurationView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
 
-                Text("Los campos se guardan al salir del campo o presionar Enter.")
+                Text("Las organizaciones se guardan al seleccionarlas. Las cuentas, al salir del campo o presionar Enter.")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }
             .padding(16)
         }
         .onAppear {
-            organization = store.configuration.organizationText
+            selectedOrganizations = store.configuration.organizations
             machineAccounts = store.configuration.machineAccountsText
         }
         .onChange(of: focusedField) { previousField, _ in
@@ -68,6 +60,106 @@ struct ConfigurationView: View {
         .onDisappear {
             saveConfiguration(field: .organization)
             saveConfiguration(field: .machineAccounts)
+        }
+    }
+
+    private var listedOrganizations: [String] {
+        Set(availableOrganizations).union(selectedOrganizations).sorted()
+    }
+
+    private var organizationsSelector: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Tus organizaciones de GitHub")
+                    .font(.system(size: 12, weight: .semibold))
+                Spacer()
+                Button {
+                    organizationsRequest += 1
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.borderless)
+                .help("Actualizar lista")
+                .accessibilityLabel("Actualizar lista de organizaciones")
+                .disabled(isLoadingOrganizations)
+            }
+
+            if isLoadingOrganizations {
+                ProgressView("Leyendo organizaciones de GitHub…")
+                    .controlSize(.small)
+                    .font(.system(size: 11))
+            }
+
+            if !listedOrganizations.isEmpty {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(listedOrganizations, id: \.self) { organization in
+                            Toggle(isOn: Binding(
+                                get: { selectedOrganizations.contains(organization) },
+                                set: { selected in
+                                    if selected {
+                                        selectedOrganizations.insert(organization)
+                                    } else {
+                                        selectedOrganizations.remove(organization)
+                                    }
+                                    saveConfiguration(field: .organization)
+                                }
+                            )) {
+                                HStack {
+                                    Text(organization)
+                                    if !availableOrganizations.contains(organization) {
+                                        Text("Guardada · no disponible en la lista")
+                                            .font(.system(size: 9))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                            .toggleStyle(.checkbox)
+                            .font(.system(size: 11))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                }
+                .frame(height: min(CGFloat(listedOrganizations.count) * 28 + 10, 170))
+                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+            } else if !isLoadingOrganizations && organizationsError == nil {
+                Text("GitHub no devolvió organizaciones para esta sesión de gh.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+
+            if let organizationsError {
+                Label(organizationsError, systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.red)
+                Button("Reintentar") { organizationsRequest += 1 }
+                    .controlSize(.small)
+                    .disabled(isLoadingOrganizations)
+            }
+            configurationError(for: .organization)
+
+            Text("Elegí una o varias. Sin selección, se buscan PRs en todo lo accesible con gh.")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+        }
+        .task(id: organizationsRequest) { await loadOrganizations() }
+    }
+
+    private func loadOrganizations() async {
+        isLoadingOrganizations = true
+        organizationsError = nil
+        defer { isLoadingOrganizations = false }
+        do {
+            let organizations = try await GitHubOrganizations.fetch()
+            try Task.checkCancellation()
+            availableOrganizations = organizations
+        } catch is CancellationError {
+            return
+        } catch {
+            guard !Task.isCancelled else { return }
+            organizationsError = (error as? LocalizedError)?.errorDescription
+                ?? error.localizedDescription
         }
     }
 
@@ -84,8 +176,8 @@ struct ConfigurationView: View {
         do {
             // Cada campo se valida y aplica independientemente del otro borrador.
             try store.updateConfiguration(
-                organization: field == .organization
-                    ? organization : store.configuration.organizationText,
+                organizations: field == .organization
+                    ? selectedOrganizations : store.configuration.organizations,
                 machineAccounts: field == .machineAccounts
                     ? machineAccounts : store.configuration.machineAccountsText
             )

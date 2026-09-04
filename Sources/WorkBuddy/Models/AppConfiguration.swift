@@ -21,32 +21,33 @@ struct AppConfiguration: Equatable, Sendable {
     }
 
     private enum Key {
-        static let organization = "configuration.organization"
+        static let organization = "configuration.organization" // Preferencia anterior.
+        static let organizations = "configuration.organizations"
         static let machineAccounts = "configuration.machineAccounts"
     }
 
-    static let empty = AppConfiguration(organization: nil, machineAccounts: [])
+    static let empty = AppConfiguration(organizations: [], machineAccounts: [])
 
-    let organization: String?
+    let organizations: Set<String>
     let machineAccounts: Set<String>
 
-    var organizationText: String { organization ?? "" }
     var machineAccountsText: String { machineAccounts.sorted().joined(separator: ", ") }
 
-    private init(organization: String?, machineAccounts: Set<String>) {
-        self.organization = organization
+    private init(organizations: Set<String>, machineAccounts: Set<String>) {
+        self.organizations = organizations
         self.machineAccounts = machineAccounts
     }
 
-    init(organizationText: String, machineAccountsText: String) throws {
-        let rawOrganization = Self.strippingAt(organizationText)
-        if rawOrganization.isEmpty {
-            organization = nil
-        } else if Self.isValidGitHubLogin(rawOrganization) {
-            organization = rawOrganization.lowercased()
-        } else {
-            throw ValidationError.invalidOrganization(rawOrganization)
+    init(organizations: Set<String>, machineAccountsText: String) throws {
+        var normalized: Set<String> = []
+        for value in organizations {
+            let organization = Self.strippingAt(value)
+            guard Self.isValidGitHubLogin(organization) else {
+                throw ValidationError.invalidOrganization(organization)
+            }
+            normalized.insert(organization.lowercased())
         }
+        self.organizations = normalized
 
         let rawAccounts = machineAccountsText.components(
             separatedBy: CharacterSet(charactersIn: ",;\n\t ")
@@ -66,23 +67,34 @@ struct AppConfiguration: Equatable, Sendable {
     /// Agrega el alcance a una búsqueda de GitHub. El valor ya fue validado y
     /// no puede cerrar las comillas de la query GraphQL que lo contiene.
     func scopedSearch(_ search: String) -> String {
-        guard let organization else { return search }
-        return "\(search) org:\(organization)"
+        guard !organizations.isEmpty else { return search }
+        // Las queries usan type: ISSUE (búsqueda clásica), donde varios org:
+        // se combinan con OR. ISSUE_ADVANCED requiere otra sintaxis.
+        return search + " " + organizations.sorted().map { "org:\($0)" }.joined(separator: " ")
     }
 
     func persist(defaults: UserDefaults = .standard) {
-        defaults.set(organization, forKey: Key.organization)
+        defaults.set(organizations.sorted(), forKey: Key.organizations)
+        defaults.removeObject(forKey: Key.organization)
         defaults.set(machineAccounts.sorted(), forKey: Key.machineAccounts)
     }
 
     static func load(defaults: UserDefaults = .standard) -> AppConfiguration {
-        let storedOrganization = defaults.string(forKey: Key.organization) ?? ""
+        let storedOrganizations: [String]
+        if let selected = defaults.stringArray(forKey: Key.organizations) {
+            storedOrganizations = selected
+        } else if let legacy = defaults.string(forKey: Key.organization),
+                  !legacy.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            storedOrganizations = [legacy]
+        } else {
+            storedOrganizations = []
+        }
         let storedAccounts = defaults.stringArray(forKey: Key.machineAccounts) ?? []
 
         // Si una versión futura cambia la validación, un valor viejo inválido
         // no debe impedir que la aplicación arranque.
         return (try? AppConfiguration(
-            organizationText: storedOrganization,
+            organizations: Set(storedOrganizations),
             machineAccountsText: storedAccounts.joined(separator: ",")
         )) ?? .empty
     }

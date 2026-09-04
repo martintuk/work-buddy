@@ -173,9 +173,9 @@ final class ReviewQueueStore {
     }
 
     /// Valida, guarda y aplica el alcance sin tener que reiniciar la app.
-    func updateConfiguration(organization: String, machineAccounts: String) throws {
+    func updateConfiguration(organizations: Set<String>, machineAccounts: String) throws {
         let updated = try AppConfiguration(
-            organizationText: organization,
+            organizations: organizations,
             machineAccountsText: machineAccounts
         )
         guard updated != configuration else { return }
