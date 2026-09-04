@@ -44,7 +44,7 @@ struct JiraSectionView: View {
 
     private var queue: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 4, pinnedViews: [.sectionHeaders]) {
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                 if !showEmptySections && store.shrItems.isEmpty && store.recentlyCreatedItems.isEmpty {
                     ContentUnavailableView {
                         Label(L10n.text(.commonNothingPending), systemImage: "checkmark.circle")
@@ -56,6 +56,7 @@ struct JiraSectionView: View {
                         if isSHRExpanded {
                             ForEach(store.shrItems) { workItem in
                                 workItemRow(workItem)
+                                    .padding(.top, QueueLayout.rowSpacing)
                             }
                         }
                     } header: {
@@ -80,6 +81,7 @@ struct JiraSectionView: View {
                         if isRecentlyCreatedExpanded {
                             ForEach(store.recentlyCreatedItems) { workItem in
                                 workItemRow(workItem, showStatus: true)
+                                    .padding(.top, QueueLayout.rowSpacing)
                             }
                         }
                     } header: {
@@ -99,7 +101,8 @@ struct JiraSectionView: View {
                     }
                 }
             }
-            .padding(10)
+            .padding(.horizontal, QueueLayout.sectionSpacing)
+            .padding(.bottom, QueueLayout.sectionSpacing)
         }
     }
 

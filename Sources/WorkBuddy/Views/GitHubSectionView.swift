@@ -338,7 +338,7 @@ struct GitHubSectionView: View {
         let sections = store.reviewSections
         let merge = store.readyToMerge
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 4, pinnedViews: [.sectionHeaders]) {
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                 if !hasVisiblePullRequests && (!showEmptySections || store.hasRepositoryFilteredResults) {
                     centered {
                         ContentUnavailableView {
@@ -371,7 +371,8 @@ struct GitHubSectionView: View {
                 queueSection(.automation, title: L10n.text(.githubAutomation), items: store.automation)
                 queueSection(.ignored, title: L10n.text(.githubIgnored), items: store.ignored)
             }
-            .padding(10)
+            .padding(.horizontal, QueueLayout.sectionSpacing)
+            .padding(.bottom, QueueLayout.sectionSpacing)
         }
     }
 
@@ -438,6 +439,7 @@ struct GitHubSectionView: View {
                     store.perform(action, on: pullRequest)
                 }
             }
+            .padding(.top, QueueLayout.rowSpacing)
         }
     }
 
@@ -463,6 +465,7 @@ struct GitHubSectionView: View {
                             .padding(.horizontal, 10)
                             .padding(.vertical, 7)
                             .background(section.tint.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+                            .padding(.top, QueueLayout.rowSpacing)
                     }
                     rows(items)
                 }
@@ -494,6 +497,11 @@ struct GitHubSectionView: View {
         content().frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+}
+
+enum QueueLayout {
+    static let sectionSpacing: CGFloat = 10
+    static let rowSpacing: CGFloat = 4
 }
 
 /// Todas las categorías comparten tamaño, contraste y área de interacción.
@@ -555,6 +563,8 @@ struct QueueSectionHeader: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        // El margen viaja con el encabezado para conservarlo al fijarse al techo.
+        .padding(.top, QueueLayout.sectionSpacing)
         // El fondo opaco evita que las filas se vean detrás del encabezado fijo.
         .background(Color(nsColor: .windowBackgroundColor))
         .onHover { isHovering = $0 }
