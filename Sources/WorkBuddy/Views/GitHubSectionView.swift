@@ -54,8 +54,7 @@ struct GitHubSectionView: View {
             switch self {
             case .readyToMerge: "arrow.triangle.merge"
             case .needingCIFix: "wrench.and.screwdriver"
-            case .needingReply: "bubble.left.and.bubble.right"
-            case .waitingForReply: "clock.bubble"
+            case .needingReply, .waitingForReply: "bubble.left.and.bubble.right"
             case .review(.needsReview): "eye"
             case .review(.approvedAlready): "checkmark.circle"
             case .automation: "gearshape.2"
