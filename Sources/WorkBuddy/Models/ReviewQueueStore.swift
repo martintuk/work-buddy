@@ -61,8 +61,8 @@ final class ReviewQueueStore {
 
     // MARK: - Vistas de la data
     //
-    // La lógica vive en la extensión de `[PullRequest]`, que es testeable sin
-    // instanciar el store.
+    // La lógica vive en Domain/PullRequestQueuePolicy.swift y se puede probar
+    // sin instanciar el store.
 
     /// La cola de review completa: personas y dependabot. No hace falta
     /// deduplicar porque los filtros de las dos queries son complementarios

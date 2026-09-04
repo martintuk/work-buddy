@@ -107,7 +107,7 @@ struct PullRequestRow: View {
                 button(.approve)
             }
             // `canMerge` es false cuando no tenemos datos de merge, que es el caso
-            // de la cola de review: la acción aparece sólo en "Listos para
+            // de la cola de review: la acción aparece sólo en "Para
             // mergear". El método no se elige acá: lo define el repo.
             if pullRequest.canMerge {
                 button(.merge)

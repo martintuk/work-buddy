@@ -49,53 +49,6 @@ enum MergeStateStatus: String, Sendable {
     case unknown = "UNKNOWN"
 }
 
-/// En qué cola cae un PR. El orden del `case` es el orden de prioridad.
-enum ReviewBucket: Int, CaseIterable, Sendable {
-    /// Te lo pidieron a vos y todavía no lo miraste.
-    case blocksYou
-    /// Ya lo revisaste y volvió a tu cola.
-    case revisited
-    /// Se lo pidieron a un equipo tuyo: lo puede agarrar cualquiera.
-    case teamQueue
-    /// GitHub ya lo considera aprobado, así que tu review es opcional. Sigue
-    /// apareciendo porque todavía figurás como reviewer.
-    case approvedAlready
-    /// Sin actividad hace más de 30 días. Probablemente abandonado.
-    case zombie
-
-    var title: String {
-        switch self {
-        case .blocksYou: "Para revisar"
-        case .revisited: "Volvieron a vos"
-        case .teamQueue: "Cola del equipo"
-        case .approvedAlready: "Ya aprobados"
-        case .zombie: "Zombies"
-        }
-    }
-
-    /// La sección espera una acción **tuya**, no de otra persona ni de nadie.
-    ///
-    /// `teamQueue` queda afuera porque la puede agarrar cualquiera del equipo;
-    /// `approvedAlready` porque tu review es opcional; `zombie` porque nadie
-    /// espera nada.
-    var needsYourReview: Bool {
-        switch self {
-        case .blocksYou, .revisited: true
-        case .teamQueue, .approvedAlready, .zombie: false
-        }
-    }
-
-    /// Aclaración para las secciones cuyo nombre no se explica solo.
-    var subtitle: String? {
-        switch self {
-        case .approvedAlready: "tu review es opcional, ya tienen los approvals"
-        case .zombie: "sin actividad hace más de 30 días"
-        case .teamQueue: "se lo pidieron a un equipo tuyo"
-        case .blocksYou, .revisited: nil
-        }
-    }
-}
-
 /// Quién abrió el PR.
 struct Author: Sendable {
     let login: String
@@ -125,7 +78,7 @@ struct PullRequest: Identifiable, Sendable {
     let checks: CheckState
     let reviewDecision: ReviewDecision?
 
-    /// Sólo se piden en la query de "listos para mergear": calcularlos es caro.
+    /// Sólo se piden en la query de "Para mergear": calcularlos es caro.
     let mergeable: MergeableState?
     let mergeStateStatus: MergeStateStatus?
 
@@ -136,14 +89,11 @@ struct PullRequest: Identifiable, Sendable {
     /// Lo abriste vos.
     let authoredByMe: Bool
 
-    /// El review te lo pidieron a vos, no sólo a un equipo del que sos parte.
-    /// Es la señal que más ordena la cola: parte los 63 casi por la mitad.
+    /// Pedido directo a vos. Los pedidos a tus equipos tienen la misma prioridad.
     let requestedFromMe: Bool
     /// Ya dejaste un review en este PR.
     let reviewedByMe: Bool
     let approvals: Int
-
-    static let zombieThreshold: TimeInterval = 30 * 24 * 60 * 60
 
     /// GitHub habilitaría el botón de merge ahora mismo.
     ///
@@ -180,66 +130,8 @@ struct PullRequest: Identifiable, Sendable {
         repository.split(separator: "/").last.map(String.init) ?? repository
     }
 
-    /// `reviewDecision` es la única fuente de verdad sobre si un PR está
-    /// aprobado: contempla las reglas de branch protection y CODEOWNERS.
-    ///
-    /// Acá antes había un `approvals > 0`, y estaba mal: en la cola real hay un
-    /// PR con **3 approvals** que GitHub sigue marcando `REVIEW_REQUIRED` (falta
-    /// un CODEOWNER, o los approvals quedaron viejos tras nuevos commits).
-    /// Contar approvals a mano lo habría archivado como "ya cubierto" cuando
-    /// todavía necesita review. `approvals` queda sólo como badge.
-    func bucket(now: Date = .now) -> ReviewBucket {
-        if now.timeIntervalSince(updatedAt) > Self.zombieThreshold { return .zombie }
-        if reviewDecision == .approved { return .approvedAlready }
-        if requestedFromMe { return reviewedByMe ? .revisited : .blocksYou }
-        return .teamQueue
-    }
-}
-
-// MARK: - Agrupaciones
-
-/// Viven acá y no en el store para que sean funciones puras sobre un array:
-/// se pueden testear sin instanciar nada ni abrir un seam de test.
-extension [PullRequest] {
-    /// Saca los PRs con estos ids. Se compone antes de agrupar, así el filtro de
-    /// ignorados vale también para el contador del badge.
-    func excluding(_ ids: Set<String>) -> [PullRequest] {
-        filter { !ids.contains($0.id) }
-    }
-
-    /// Deja sólo los PRs con estos ids.
-    func only(_ ids: Set<String>) -> [PullRequest] {
-        filter { ids.contains($0.id) }
-    }
-
-    /// PRs de personas, agrupados por bucket en orden de prioridad.
-    var humanSections: [(bucket: ReviewBucket, items: [PullRequest])] {
-        let humans = filter { !$0.author.isBot }
-        let grouped = Dictionary(grouping: humans) { $0.bucket() }
-        return ReviewBucket.allCases.compactMap { bucket in
-            guard let items = grouped[bucket], !items.isEmpty else { return nil }
-            return (bucket, items.sorted { $0.updatedAt > $1.updatedAt })
-        }
-    }
-
-    /// Lo que abrieron bots o cuentas de máquina. Va aparte, colapsado.
-    var automation: [PullRequest] {
-        filter(\.author.isBot).sorted { $0.updatedAt > $1.updatedAt }
-    }
-
-    /// PRs que GitHub dejaría mergear y que te toca mergear a vos: los tuyos y
-    /// los de automatización. Los de otras personas son de ellas para mergear,
-    /// aunque estén aprobados.
-    var readyToMerge: [PullRequest] {
-        filter { ($0.authoredByMe || $0.author.isBot) && $0.isReadyToMerge }
-            .sorted { $0.updatedAt > $1.updatedAt }
-    }
-
-    /// PRs de personas que esperan que los revises vos.
-    ///
-    /// Los de automatización quedan afuera a propósito: si el badge contara los
-    /// 56 PRs de bots de la cola, dejarías de mirarlo.
-    var awaitingYourReview: [PullRequest] {
-        filter { !$0.author.isBot && $0.bucket().needsYourReview }
+    /// Clasifica un PR que pertenece a la cola de pedidos de review.
+    func bucket() -> ReviewBucket {
+        PullRequestQueuePolicy.reviewBucket(for: self)
     }
 }

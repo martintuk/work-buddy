@@ -3,25 +3,23 @@
 App de barra de menú para macOS que junta los PRs que dependen de vos y los deja
 accionar sin abrir el navegador.
 
-El problema que resuelve no es *listar* PRs: la cola de `review-requested:@me`
-tiene 57, de los cuales 50 son de dependabot y 5 esperan algo tuyo de verdad. El
-valor está en el filtrado y la clasificación.
+La cola incluye pedidos de review personales y a tus equipos. Las categorías
+separan la acción pendiente de los PRs aprobados y la automatización.
 
 **Qué muestra el panel**, de arriba hacia abajo:
 
 | Sección | Qué junta |
 | --- | --- |
-| **Listos para mergear** | Tuyos y de automatización que GitHub ya considera mergeables |
-| **Para revisar** | Te lo pidieron a vos y todavía no lo miraste |
-| **Volvieron a vos** | Lo revisaste y te lo volvieron a pedir |
-| **Cola del equipo** | Pedido al equipo: lo puede agarrar cualquiera |
+| **Para mergear** | Tuyos y de automatización que GitHub ya considera mergeables |
+| **Para revisar** | Pedido a vos o a tus equipos, sin aprobación agregada de GitHub |
 | **Ya aprobados** | `reviewDecision = APPROVED`: tu review es opcional |
-| **Zombies** | Sin actividad hace más de 30 días |
 | **Automatización** _(colapsada)_ | dependabot y cuentas de máquina |
 | **Ignorados** _(colapsada)_ | Los que archivaste a mano |
 
 El badge del icono cuenta lo accionable: lo que espera tu review más lo que podés
-mergear de un click. La automatización **no** cuenta, y tampoco notifica.
+mergear de un click. Los pedidos a equipos cuentan igual que los personales;
+la antigüedad y haber revisado antes no cambian la categoría. La automatización
+no cuenta como review pendiente ni notifica; sí cuenta cuando está para mergear.
 
 **Acciones por fila** (menú `⋯`): abrir, aprobar, mergear (con confirmación) e
 ignorar. El método de merge lo decide el repo, no la app.
@@ -130,9 +128,10 @@ Sources/WorkBuddy/
 │   ├── MergeQueue.swift     Candidatos a merge (tres búsquedas, una request).
 │   ├── BehindCount.swift    Cuántos commits atrás está cada PR (batches de 20).
 │   └── GitHubWrite.swift    Escrituras: aprobar y mergear.
+├── Domain/PullRequestQueuePolicy.swift Reglas de clasificación y agrupación.
 ├── Models/
 │   ├── AppConfiguration.swift Configuración persistente del entorno.
-│   ├── PullRequest.swift    Modelo, buckets, agrupaciones.
+│   ├── PullRequest.swift    Datos y estado del PR.
 │   ├── ReviewQueueStore.swift Estado del panel, refresh, acciones.
 │   ├── IgnoreList.swift     PRs ignorados, persistidos.
 │   └── PullRequestAction.swift Acciones sobre un PR.

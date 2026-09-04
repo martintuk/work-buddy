@@ -79,7 +79,7 @@ struct QueryShapeTests {
     @Test("La cola de merge sí pide el estado de merge")
     func mergeQueuePideMergeable() {
         // El complemento del test de arriba: es la única query que lo pide, y sin
-        // eso la sección "Listos para mergear" no puede existir.
+        // eso la sección "Para mergear" no puede existir.
         #expect(PullRequestFields.withMergeState.contains("mergeable"))
         #expect(PullRequestFields.withMergeState.contains("mergeStateStatus"))
         #expect(!PullRequestFields.base.contains("mergeable"))

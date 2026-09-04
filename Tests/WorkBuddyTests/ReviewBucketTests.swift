@@ -20,7 +20,7 @@ struct ReviewBucketTests {
             approvals: 3,
             reviewDecision: .reviewRequired
         )
-        #expect(pullRequest.bucket() == .teamQueue)
+        #expect(pullRequest.bucket() == .needsReview)
     }
 
     @Test("CI en rojo nunca esconde un PR que espera tu review")
@@ -28,7 +28,7 @@ struct ReviewBucketTests {
         // `statusCheckRollup` incluye checks opcionales: usarlo como filtro
         // escondía 40 de 63 PRs, muchos de los cuales sí necesitaban review.
         let pullRequest = makePullRequest(requestedFromMe: true, checks: .failure)
-        #expect(pullRequest.bucket() == .blocksYou)
+        #expect(pullRequest.bucket() == .needsReview)
     }
 
     // MARK: - Prioridad entre buckets
@@ -44,40 +44,48 @@ struct ReviewBucketTests {
         #expect(pullRequest.bucket() == .approvedAlready)
     }
 
-    @Test("Sin actividad hace más de 30 días es zombie, incluso si te bloquea")
-    func zombieGanaSobreTodo() {
-        let pullRequest = makePullRequest(
-            requestedFromMe: true,
-            updatedAt: .now.addingTimeInterval(-40 * 24 * 60 * 60)
-        )
-        #expect(pullRequest.bucket() == .zombie)
+    @Test("La antigüedad no cambia una review pendiente ni un PR aprobado",
+          arguments: [1, 29, 30, 31, 40, 365])
+    func antiguedadNoCambiaLaAccion(days: Int) {
+        let updatedAt = Date.now.addingTimeInterval(-Double(days) * 24 * 60 * 60)
+        let pendiente = makePullRequest(requestedFromMe: true, updatedAt: updatedAt)
+        let aprobado = makePullRequest(reviewDecision: .approved, updatedAt: updatedAt)
+        #expect(pendiente.bucket() == .needsReview)
+        #expect(aprobado.bucket() == .approvedAlready)
+        #expect([pendiente, aprobado].awaitingYourReview.map(\.id) == [pendiente.id])
     }
 
-    @Test("Recién pasado el umbral todavía no es zombie")
-    func justoAntesDelUmbralNoEsZombie() {
-        let pullRequest = makePullRequest(
-            requestedFromMe: true,
-            updatedAt: .now.addingTimeInterval(-(PullRequest.zombieThreshold - 60))
-        )
-        #expect(pullRequest.bucket() == .blocksYou)
+    @Test("Pedidos personales y de equipo usan las mismas reglas",
+          arguments: [false, true], [false, true])
+    func pedidosEquivalentes(requestedFromMe: Bool, reviewedByMe: Bool) {
+        for decision: ReviewDecision? in [nil, .reviewRequired, .changesRequested, .approved] {
+            let pr = makePullRequest(
+                requestedFromMe: requestedFromMe,
+                reviewedByMe: reviewedByMe,
+                approvals: 3,
+                reviewDecision: decision
+            )
+            #expect(pr.bucket() == (decision == .approved ? .approvedAlready : .needsReview))
+            #expect([pr].awaitingYourReview.isEmpty == (decision == .approved))
+        }
     }
 
     // MARK: - Casos base
 
     @Test("Pedido a vos y sin revisar todavía: para revisar")
     func pedidoAMiSinRevisar() {
-        #expect(makePullRequest(requestedFromMe: true).bucket() == .blocksYou)
+        #expect(makePullRequest(requestedFromMe: true).bucket() == .needsReview)
     }
 
-    @Test("Ya lo revisaste y te lo volvieron a pedir")
+    @Test("Haberlo revisado antes no crea otra categoría")
     func revisadoYVueltoAPedir() {
         let pullRequest = makePullRequest(requestedFromMe: true, reviewedByMe: true)
-        #expect(pullRequest.bucket() == .revisited)
+        #expect(pullRequest.bucket() == .needsReview)
     }
 
-    @Test("Pedido sólo al equipo: cola del equipo")
+    @Test("Pedido sólo al equipo: para revisar")
     func pedidoAlEquipo() {
-        #expect(makePullRequest(requestedFromMe: false).bucket() == .teamQueue)
+        #expect(makePullRequest(requestedFromMe: false).bucket() == .needsReview)
     }
 }
 
@@ -128,29 +136,24 @@ struct GroupingTests {
             ),
             makePullRequest(requestedFromMe: false, authorLogin: "bob")
         ]
-        #expect(queue.awaitingYourReview.count == 1)
+        #expect(queue.awaitingYourReview.count == 2)
     }
 
     @Test(
         "Sólo cuentan para el badge las secciones que esperan algo tuyo",
         arguments: [
-            (ReviewBucket.blocksYou, true),
-            (.revisited, true), // la revisaste y te la volvieron a pedir
-            (.teamQueue, false), // la puede agarrar cualquiera del equipo
-            (.approvedAlready, false), // tu review es opcional
-            (.zombie, false) // nadie espera nada
+            (ReviewBucket.needsReview, true),
+            (.approvedAlready, false) // tu review es opcional
         ]
     )
     func queSeccionesCuentan(bucket: ReviewBucket, cuenta: Bool) {
         #expect(bucket.needsYourReview == cuenta)
     }
 
-    @Test("Un PR que volvió a vos cuenta para el badge")
-    func revisitedCuenta() {
-        // Antes el badge contaba sólo `blocksYou`, así que un PR que revisaste y
-        // te volvieron a pedir no aparecía en el número.
+    @Test("Una review pendiente cuenta aunque ya hayas revisado el PR")
+    func revisadoAntesCuenta() {
         let queue = [makePullRequest(requestedFromMe: true, reviewedByMe: true)]
-        #expect(queue[0].bucket() == .revisited)
+        #expect(queue[0].bucket() == .needsReview)
         #expect(queue.awaitingYourReview.count == 1)
     }
 
@@ -161,7 +164,7 @@ struct GroupingTests {
             makePullRequest(requestedFromMe: true, authorLogin: "dependabot", authorTypename: "Bot")
         ]
         #expect(queue.humanSections.count == 1)
-        #expect(queue.humanSections[0].bucket == .blocksYou)
+        #expect(queue.humanSections[0].bucket == .needsReview)
         #expect(queue.humanSections[0].items.count == 1)
         #expect(queue.automation.count == 1)
     }
@@ -173,7 +176,7 @@ struct GroupingTests {
             makePullRequest(number: 2, requestedFromMe: true),
             makePullRequest(number: 3, requestedFromMe: false)
         ]
-        #expect(queue.humanSections.map(\.bucket) == [.blocksYou, .teamQueue, .approvedAlready])
+        #expect(queue.humanSections.map(\.bucket) == [.needsReview, .approvedAlready])
     }
 
     @Test("Dentro de una sección, lo más reciente va primero")
@@ -241,7 +244,7 @@ struct IgnoreListTests {
     }
 }
 
-@Suite("Listos para mergear")
+@Suite("Para mergear")
 struct ReadyToMergeTests {
     /// Estados observados en la cola real, con su veredicto esperado.
     /// De 56 PRs: 45 BLOCKED, 4 BEHIND, 3 DIRTY, 3 UNKNOWN, 1 CLEAN.

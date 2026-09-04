@@ -18,7 +18,7 @@ enum PullRequestFields {
     """
 
     /// `mergeable` obliga a GitHub a calcular la mergeabilidad, que es caro. Lo
-    /// pedimos sólo en la query de "listos para mergear", que devuelve un puñado
+    /// pedimos sólo en la query de "Para mergear", que devuelve un puñado
     /// de PRs, y no en la cola de review, que trae decenas.
     static let withMergeState = base + "\nmergeable mergeStateStatus"
 }

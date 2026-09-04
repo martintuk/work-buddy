@@ -29,7 +29,7 @@ cola completa: 3 páginas y ~17s en vez de 1 y ~4s.
 
 **Qué se rompe:** si un repo deja de exigir review, un PR mergeable donde todavía
 figurás como reviewer tendría `reviewDecision = null` y **no aparecería** en
-"Listos para mergear". No hay error: la sección muestra menos de lo que debería.
+"Para mergear". No hay error: la sección muestra menos de lo que debería.
 El impacto está acotado, porque si además lo revisaste vos lo levanta
 `reviewed-by:@me`, que no filtra.
 
@@ -315,8 +315,7 @@ Quedan acá porque el patrón se repitió, y los tests que los fijan viven en
 
 **Buscar sólo por `review-requested:@me`.** Aprobar un PR te saca de sus review
 requests, así que el acto que lo vuelve mergeable es el mismo que lo saca de esa
-búsqueda. Los PRs de automatización que aprobabas desaparecían de "Listos para
-mergear": el caso que lo destapó fue un PR de una cuenta de servicio, `CLEAN` y
+búsqueda. Los PRs de automatización que aprobabas desaparecían de "Para mergear": el caso que lo destapó fue un PR de una cuenta de servicio, `CLEAN` y
 aprobado por nosotros. Agregar `reviewed-by:@me` llevó la sección de 1 PR a 5.
 
 Lección general: **`review-requested:@me` es "lo que falta que hagas", no "lo que

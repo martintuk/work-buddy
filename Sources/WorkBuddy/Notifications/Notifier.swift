@@ -47,7 +47,7 @@ final class Notifier: NSObject {
 
     /// Compara la cola nueva con la anterior y notifica sólo las diferencias.
     func process(_ pullRequests: [PullRequest]) async {
-        let relevant = pullRequests.filter { !$0.author.isBot && $0.bucket() == .blocksYou }
+        let relevant = pullRequests.awaitingYourReview
         let currentIDs = Set(relevant.map(\.id))
 
         // Primera corrida: guardamos el backlog como línea de base sin notificar.

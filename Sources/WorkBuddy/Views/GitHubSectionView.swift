@@ -24,11 +24,8 @@ struct GitHubSectionView: View {
         var symbol: String {
             switch self {
             case .readyToMerge: "arrow.triangle.merge"
-            case .review(.blocksYou): "eye"
-            case .review(.revisited): "arrow.uturn.backward"
-            case .review(.teamQueue): "person.2"
+            case .review(.needsReview): "eye"
             case .review(.approvedAlready): "checkmark.circle"
-            case .review(.zombie): "moon.zzz"
             case .automation: "gearshape.2"
             case .ignored: "eye.slash"
             }
@@ -37,11 +34,8 @@ struct GitHubSectionView: View {
         var tint: Color {
             switch self {
             case .readyToMerge: .green
-            case .review(.blocksYou): .blue
-            case .review(.revisited): .orange
-            case .review(.teamQueue): .purple
+            case .review(.needsReview): .blue
             case .review(.approvedAlready): .teal
-            case .review(.zombie): .indigo
             case .automation: .cyan
             case .ignored: .gray
             }
@@ -193,7 +187,7 @@ struct GitHubSectionView: View {
                     }
                 }
                 // Primero, porque es lo que se resuelve con un click.
-                queueSection(.readyToMerge, title: "Listos para mergear", items: merge)
+                queueSection(.readyToMerge, title: "Para mergear", items: merge)
                 ForEach(ReviewBucket.allCases, id: \.self) { bucket in
                     queueSection(
                         .review(bucket),
@@ -325,5 +319,22 @@ private struct QueueSectionHeader: View {
         .accessibilityValue(isExpanded ? "Expandido" : "Contraído")
         .accessibilityHint(isExpanded ? "Ocultar la sección" : "Mostrar la sección")
         .help(isExpanded ? "Ocultar \(title)" : "Mostrar \(title)")
+    }
+}
+
+/// Presentación de las categorías; las reglas viven en PullRequestQueuePolicy.
+extension ReviewBucket {
+    var title: String {
+        switch self {
+        case .needsReview: "Para revisar"
+        case .approvedAlready: "Ya aprobados"
+        }
+    }
+
+    var subtitle: String? {
+        switch self {
+        case .needsReview: nil
+        case .approvedAlready: "tu review es opcional, ya tienen los approvals"
+        }
     }
 }
