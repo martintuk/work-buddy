@@ -5,7 +5,7 @@ import Testing
 
 @Suite("Filtro de repositorios")
 struct RepositoryFilterTests {
-    @Test("Solo es exclusivo, ignora mayúsculas y conserva los muteos")
+    @Test("Solo permite varios repos, ignora mayúsculas y limpia los muteos")
     func soloAndMute() {
         var filter = RepositoryFilter()
         filter.toggleMute("Org/API")
@@ -13,32 +13,42 @@ struct RepositoryFilterTests {
         #expect(filter.includes("org/web"))
 
         filter.toggleSolo("ORG/API")
+        #expect(filter.muted.isEmpty)
         #expect(filter.includes("org/api"))
         #expect(!filter.includes("org/web"))
         filter.toggleSolo("org/web")
-        #expect(!filter.includes("org/api"))
+        #expect(filter.includes("org/api"))
         #expect(filter.includes("org/web"))
+        #expect(!filter.includes("org/new-repo"))
         filter.toggleSolo("ORG/WEB")
-        #expect(filter.solo == nil)
-        #expect(!filter.includes("org/api"))
+        #expect(filter.solo == ["org/api"])
+        #expect(!filter.includes("org/web"))
+        filter.toggleSolo("org/api")
+        #expect(filter.solo.isEmpty)
         #expect(filter.includes("org/new-repo"))
+        #expect(!filter.isActive)
+    }
+
+    @Test("Mutear cualquier repo limpia todos los ojos y permite varios muteos")
+    func muteSolo() {
+        var filter = RepositoryFilter()
+        filter.toggleSolo("org/api")
+        filter.toggleSolo("org/web")
+        filter.toggleMute("org/other")
+        #expect(filter.solo.isEmpty)
+        #expect(filter.includes("org/api"))
+        #expect(!filter.includes("org/other"))
+        #expect(filter.includes("org/web"))
+        filter.toggleMute("org/api")
+        #expect(!filter.includes("org/api"))
+        #expect(!filter.includes("org/other"))
+        filter.toggleMute("org/other")
+        #expect(filter.muted == ["org/api"])
         filter.toggleMute("org/api")
         #expect(!filter.isActive)
     }
 
-    @Test("Mutear el repo en solo sale de solo y lo oculta")
-    func muteSolo() {
-        var filter = RepositoryFilter()
-        filter.toggleMute("org/other")
-        filter.toggleSolo("org/api")
-        filter.toggleMute("org/api")
-        #expect(filter.solo == nil)
-        #expect(!filter.includes("org/api"))
-        #expect(!filter.includes("org/other"))
-        #expect(filter.includes("org/web"))
-    }
-
-    @Test("Restaura Solo y Mute desde preferencias y permite limpiar ambos")
+    @Test("Persiste cada modo con varios repos y permite limpiar el filtro")
     func persistence() throws {
         let suiteName = "repository-filter-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -46,22 +56,44 @@ struct RepositoryFilterTests {
         #expect(!RepositoryFilter.load(defaults: defaults).isActive)
         var filter = RepositoryFilter()
         filter.toggleMute("org/api")
+        filter.toggleMute("org/other")
+        filter.persist(defaults: defaults)
+        #expect(RepositoryFilter.load(defaults: defaults) == filter)
         filter.toggleSolo("org/web")
+        filter.toggleSolo("org/docs")
         filter.persist(defaults: defaults)
         let reopenedDefaults = try #require(UserDefaults(suiteName: suiteName))
         let restored = RepositoryFilter.load(defaults: reopenedDefaults)
         #expect(restored == filter)
         #expect(!restored.includes("org/api"))
         #expect(restored.includes("org/web"))
+        #expect(restored.includes("org/docs"))
+        #expect(restored.muted.isEmpty)
         RepositoryFilter().persist(defaults: defaults)
         #expect(!RepositoryFilter.load(defaults: reopenedDefaults).isActive)
+    }
+
+    @Test("Migra el solo anterior sin mantener modos simultáneos")
+    func migration() throws {
+        let previous = Data(#"{"solo":"Org/API","muted":["org/web"]}"#.utf8)
+        let filter = try JSONDecoder().decode(RepositoryFilter.self, from: previous)
+        #expect(filter.solo == ["org/api"])
+        #expect(filter.muted.isEmpty)
+        let muteOnly = Data(#"{"muted":["Org/Web","org/api"]}"#.utf8)
+        let migratedMute = try JSONDecoder().decode(RepositoryFilter.self, from: muteOnly)
+        #expect(migratedMute.solo.isEmpty)
+        #expect(migratedMute.muted == ["org/web", "org/api"])
+        let mixed = Data(#"{"solo":["org/api","org/web"],"muted":["org/docs"]}"#.utf8)
+        let repaired = try JSONDecoder().decode(RepositoryFilter.self, from: mixed)
+        #expect(repaired.solo == ["org/api", "org/web"])
+        #expect(repaired.muted.isEmpty)
     }
 
     @Test("Distinct usa todos los resultados y conserva preferencias sin resultados")
     func distinctRepositories() {
         var filter = RepositoryFilter()
-        filter.toggleMute("org/api")
-        filter.toggleMute("org/gone")
+        filter.toggleSolo("org/api")
+        filter.toggleSolo("org/gone")
         filter.toggleSolo("org/empty")
         let review = pullRequest("review", repository: "Org/API")
         let merge = pullRequest("merge", repository: "org/web")

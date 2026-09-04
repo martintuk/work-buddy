@@ -1,17 +1,36 @@
 import Foundation
 
-/// Solo es exclusivo y tiene prioridad sobre los muteos, que se conservan.
+/// Dos modos excluyentes: sólo los seleccionados, o todos menos los muteados.
 struct RepositoryFilter: Codable, Equatable {
     private static let key = "repositoryFilter"
 
-    private(set) var solo: String?
+    private(set) var solo: Set<String> = []
     private(set) var muted: Set<String> = []
 
-    var isActive: Bool { solo != nil || !muted.isEmpty }
+    var isActive: Bool { !solo.isEmpty || !muted.isEmpty }
+
+    init() {}
+
+    private enum CodingKeys: String, CodingKey { case solo, muted }
+
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        // La versión anterior guardaba un único repo y podía conservar muteos
+        // simultáneos. Se mantiene su selección visible, descartando los muteos.
+        if let repositories = try? values.decode(Set<String>.self, forKey: .solo) {
+            solo = Set(repositories.map { $0.lowercased() })
+        } else if let repository = try values.decodeIfPresent(String.self, forKey: .solo) {
+            solo = [repository.lowercased()]
+        }
+        if solo.isEmpty {
+            muted = Set((try values.decodeIfPresent(Set<String>.self, forKey: .muted) ?? [])
+                .map { $0.lowercased() })
+        }
+    }
 
     func includes(_ repository: String) -> Bool {
         let repository = repository.lowercased()
-        if let solo { return solo == repository }
+        if !solo.isEmpty { return solo.contains(repository) }
         return !muted.contains(repository)
     }
 
@@ -21,16 +40,14 @@ struct RepositoryFilter: Codable, Equatable {
 
     mutating func toggleSolo(_ repository: String) {
         let repository = repository.lowercased()
-        solo = solo == repository ? nil : repository
+        muted.removeAll()
+        if !solo.insert(repository).inserted { solo.remove(repository) }
     }
 
     mutating func toggleMute(_ repository: String) {
         let repository = repository.lowercased()
-        // Mutear el repo en solo vuelve a la mezcla, dejando ese repo muteado.
-        if solo == repository {
-            solo = nil
-            muted.insert(repository)
-        } else if !muted.insert(repository).inserted {
+        solo.removeAll()
+        if !muted.insert(repository).inserted {
             muted.remove(repository)
         }
     }
@@ -44,8 +61,7 @@ struct RepositoryFilter: Codable, Equatable {
     /// resultados para poder deshacer un solo o mute tras un reinicio.
     func repositories(in pullRequests: [PullRequest]) -> [Repository] {
         let grouped = Dictionary(grouping: pullRequests) { $0.repository.lowercased() }
-        var names = Set(grouped.keys).union(muted)
-        if let solo { names.insert(solo) }
+        let names = Set(grouped.keys).union(muted).union(solo)
         return names.sorted().map { name in
             Repository(id: name, pullRequestCount: Set((grouped[name] ?? []).map(\.id)).count)
         }

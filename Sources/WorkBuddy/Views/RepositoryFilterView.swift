@@ -60,7 +60,7 @@ struct RepositoryFilterView: View {
     }
 
     private func row(_ repository: RepositoryFilter.Repository) -> some View {
-        let solo = store.repositoryFilter.solo == repository.id
+        let solo = store.repositoryFilter.solo.contains(repository.id)
         let muted = store.repositoryFilter.muted.contains(repository.id)
         return HStack(spacing: 6) {
             Text(repository.id)
@@ -71,12 +71,12 @@ struct RepositoryFilterView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             filterButton(solo ? "eye.fill" : "eye", active: solo, tint: .orange,
-                         help: solo ? "Dejar de ver solo este" : "Ver solo este") {
+                         help: solo ? "Quitar de la selección" : "Ver solo los repositorios seleccionados") {
                 store.toggleRepositorySolo(repository.id)
             }
-            .accessibilityLabel("Ver solo \(repository.id)")
-            filterButton(muted && !solo ? "speaker.slash.fill" : "speaker.slash", active: muted && !solo, tint: .red,
-                         help: solo || !muted ? "Mutear repositorio" : "Dejar de mutear") {
+            .accessibilityLabel("Seleccionar \(repository.id)")
+            filterButton(muted ? "speaker.slash.fill" : "speaker.slash", active: muted, tint: .red,
+                         help: muted ? "Dejar de mutear" : "Mutear repositorio") {
                 store.toggleRepositoryMute(repository.id)
             }
             .accessibilityLabel("Mutear \(repository.id)")
