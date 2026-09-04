@@ -52,8 +52,8 @@ struct EditorStoreTests {
         }
     }
 
-    @Test("Xcode installations share one choice, preserving an explicitly selected copy")
-    func duplicateInstallations() throws {
+    @Test("Separate installations of the same editor remain available")
+    func separateInstallations() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let standard = try makeApplication(at: root.appendingPathComponent("Xcode.app"),
@@ -61,10 +61,8 @@ struct EditorStoreTests {
         let beta = try makeApplication(at: root.appendingPathComponent("Xcode-27-Beta.app"),
                                        identifier: "com.apple.dt.Xcode", name: "Xcode")
         let discovered = EditorApplication.discover(in: [root])
-        #expect(discovered.map(\.url) == [standard])
-        let betaApplication = try #require(EditorApplication(url: beta))
-        let selected = EditorApplication.unique(discovered + [betaApplication], preferring: beta)
-        #expect(selected.map(\.url) == [beta])
+        #expect(Set(discovered.map(\.url)) == Set([standard, beta]))
+        #expect(discovered.count == 2)
     }
 
     @Test("Refreshing installed editors does not select one")
