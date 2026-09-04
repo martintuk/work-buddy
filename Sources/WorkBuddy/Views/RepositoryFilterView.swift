@@ -54,6 +54,7 @@ struct RepositoryFilterView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
                 }
+                .scrollIndicators(.hidden)
             }
         }
     }
@@ -69,7 +70,7 @@ struct RepositoryFilterView: View {
                 .help(repository.id)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            filterButton(solo ? "headphones.circle.fill" : "headphones.circle", active: solo, tint: .orange,
+            filterButton(solo ? "eye.fill" : "eye", active: solo, tint: .orange,
                          help: solo ? "Dejar de ver solo este" : "Ver solo este") {
                 store.toggleRepositorySolo(repository.id)
             }
@@ -91,7 +92,7 @@ struct RepositoryFilterView: View {
             Image(systemName: symbol)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(active ? tint : Color.secondary)
-                .frame(width: 26, height: 26)
+                .frame(width: 26, height: 26, alignment: .trailing)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
