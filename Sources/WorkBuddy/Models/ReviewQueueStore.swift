@@ -91,7 +91,7 @@ final class ReviewQueueStore {
     }
 
     var automation: [PullRequest] {
-        repositoryFilter.prioritizingFavorites(in: visible.automation)
+        repositoryFilter.prioritizingFavorites(in: visible.automation).prioritizingSuccessfulCI
     }
 
     var awaitingYourReview: [PullRequest] { visible.awaitingYourReview }

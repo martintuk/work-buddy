@@ -48,9 +48,15 @@ extension [PullRequest] {
         }
     }
 
-    /// Lo que abrieron bots o cuentas de máquina. Va aparte, colapsado.
+    /// Bots y cuentas de máquina: CI exitosa primero, luego actividad reciente.
     var automation: [PullRequest] {
         filter(\.author.isBot).sorted { $0.updatedAt > $1.updatedAt }
+            .prioritizingSuccessfulCI
+    }
+
+    /// Partición estable: conserva favoritos y actividad dentro de cada grupo.
+    var prioritizingSuccessfulCI: [PullRequest] {
+        filter { $0.checks == .success } + filter { $0.checks != .success }
     }
 
     /// PRs que GitHub dejaría mergear y que te toca mergear a vos: los tuyos y

@@ -14,7 +14,7 @@ separan la acción pendiente de los PRs aprobados y la automatización.
 | **Para Fixear** | Sólo PRs de tu autoría con CI fallida o en error, incluidos drafts |
 | **Para revisar** | Pedido a vos o a tus equipos, sin aprobación tuya vigente ni aprobación agregada de GitHub |
 | **Ya aprobados** | `reviewDecision = APPROVED`, sin aprobación tuya vigente: tu review es opcional |
-| **Automatización** _(colapsada)_ | dependabot y cuentas de máquina |
+| **Automatización** _(colapsada)_ | dependabot y cuentas de máquina; CI exitosa primero, luego favoritos y actividad reciente dentro de cada grupo |
 | **Ignorados** _(colapsada)_ | Los que archivaste a mano |
 
 El badge del icono cuenta lo accionable: lo que espera tu review más lo que podés

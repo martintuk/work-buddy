@@ -190,6 +190,35 @@ struct GroupingTests {
         #expect(queue.automation.count == 1)
     }
 
+    @Test("Automatización muestra CI exitosa antes que cualquier otro estado")
+    func automatizacionConCIExitosaPrimero() {
+        let now = Date.now
+        let states: [CheckState] = [.failure, .pending, .error, .expected, .unknown, .success, .success]
+        let bots = states.enumerated().map { index, state in
+            makePullRequest(number: index, checks: state,
+                            updatedAt: now.addingTimeInterval(-Double(index)),
+                            authorLogin: "dependabot", authorTypename: "Bot")
+        }
+        let human = makePullRequest(number: 99, checks: .success)
+        #expect((bots.reversed() + [human]).automation.map(\.number) == [5, 6, 0, 1, 2, 3, 4])
+    }
+
+    @Test("CI exitosa tiene prioridad sobre favoritos, que se conservan dentro de cada grupo")
+    func automatizacionCIFavoritos() {
+        let now = Date.now
+        let success = makePullRequest(number: 1, updatedAt: now, authorTypename: "Bot")
+        let favoriteSuccess = makePullRequest(number: 2, repository: "org/favorite",
+                                             updatedAt: now.addingTimeInterval(-3600), authorTypename: "Bot")
+        let failure = makePullRequest(number: 3, checks: .failure, updatedAt: now, authorTypename: "Bot")
+        let favoriteFailure = makePullRequest(number: 4, repository: "org/favorite", checks: .failure,
+                                             updatedAt: now.addingTimeInterval(-3600), authorTypename: "Bot")
+        var filter = RepositoryFilter()
+        filter.toggleFavorite("org/favorite")
+        let automation = [failure, success, favoriteFailure, favoriteSuccess].automation
+        let ordered = filter.prioritizingFavorites(in: automation).prioritizingSuccessfulCI
+        #expect(ordered.map(\.number) == [2, 1, 4, 3])
+    }
+
     @Test("Las secciones salen en orden de prioridad")
     func ordenDeSecciones() {
         let queue = [
@@ -425,6 +454,7 @@ struct FixQueueTests {
 
 private func makePullRequest(
     number: Int = 1,
+    repository: String = "org/repo",
     requestedFromMe: Bool = false,
     reviewedByMe: Bool = false,
     approvedByMe: Bool = false,
@@ -445,8 +475,8 @@ private func makePullRequest(
         id: "PR_\(number)_\(UUID().uuidString)",
         number: number,
         title: "un cambio",
-        url: URL(string: "https://github.com/org/repo/pull/\(number)")!,
-        repository: "org/repo",
+        url: URL(string: "https://github.com/\(repository)/pull/\(number)")!,
+        repository: repository,
         baseRefName: "main",
         headRefName: "una-rama",
         author: Author(
