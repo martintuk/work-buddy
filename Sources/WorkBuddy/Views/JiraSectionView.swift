@@ -39,7 +39,6 @@ struct JiraSectionView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { store.refresh() }
     }
 
     private var queue: some View {

@@ -15,6 +15,10 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private let popover: NSPopover
     private let store = ReviewQueueStore()
     private let jiraStore = JiraStore()
+    private lazy var syncScheduler = SyncScheduler { [store, jiraStore] in
+        store.refresh(force: true)
+        jiraStore.refresh()
+    }
 
     private var resignObserver: NSObjectProtocol?
     private var lastAutoClose: Date = .distantPast
@@ -28,7 +32,8 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         configurePopover()
 
         store.onChange = { [weak self] in self?.updateBadge() }
-        store.start()
+        Task { await store.notifier.refreshAuthorization() }
+        syncScheduler.start()
 
         // `--open-panel` abre el panel al arrancar, para poder probar el cierre
         // automático sin clickear.

@@ -15,10 +15,6 @@ final class ReviewQueueStore {
     /// Pasado este tiempo, abrir el panel dispara un refresh.
     private static let staleAfter: TimeInterval = 120
 
-    /// Cada 5 minutos: a 4s por consulta y con 5000 puntos/hora de presupuesto
-    /// GraphQL, 12 refreshes por hora no mueven la aguja.
-    static let autoRefreshInterval: TimeInterval = 300
-
     private(set) var state: State = .idle
     private(set) var configuration = AppConfiguration.load()
     private(set) var repositoryFilter = RepositoryFilter.load()
@@ -59,7 +55,6 @@ final class ReviewQueueStore {
     private var inFlight: Task<Void, Never>?
     /// Una acción durante una consulta necesita otra lectura al terminar.
     private var hasPendingRefresh = false
-    private var autoRefresh: Task<Void, Never>?
     /// Invalida resultados de una consulta que empezó con otra configuración.
     private var configurationRevision = 0
 
@@ -428,20 +423,4 @@ final class ReviewQueueStore {
         }
     }
 
-    /// Arranca el ciclo de refresh en background y consulta el permiso de notificaciones.
-    func start() {
-        Task { await notifier.refreshAuthorization() }
-        refresh()
-
-        autoRefresh?.cancel()
-        autoRefresh = Task {
-            while !Task.isCancelled {
-                // Durante el sleep del sistema el reloj no corre: al despertar
-                // se completa lo que faltaba y sigue. No hace falta manejarlo.
-                try? await Task.sleep(for: .seconds(Self.autoRefreshInterval))
-                guard !Task.isCancelled else { return }
-                refresh(force: true)
-            }
-        }
-    }
 }
