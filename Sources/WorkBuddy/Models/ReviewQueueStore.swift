@@ -31,6 +31,7 @@ final class ReviewQueueStore {
     private(set) var mergeCandidates: [PullRequest] = []
     /// PRs propios; se consultan aparte aunque no esperen review ni puedan mergearse.
     private(set) var fixCandidates: [PullRequest] = []
+    private(set) var replyCandidates: [PullRequest] = []
     private(set) var lastUpdated: Date?
 
     /// Resultado de la última acción que escribió en GitHub.
@@ -110,14 +111,21 @@ final class ReviewQueueStore {
         )
     }
 
+    var needingReply: [PullRequest] {
+        repositoryFilter.prioritizingFavorites(
+            in: repositoryFilter.apply(to: replyCandidates).excluding(ignoreList.ids)
+        )
+    }
+
     /// Lo que va en el badge: todo lo que espera una acción tuya.
     ///
-    /// Suma review, merge y CI por corregir. Deduplica por id porque un check
+    /// Suma review, merge, CI por corregir y respuestas pendientes. Deduplica por id porque un check
     /// opcional fallido puede aparecer tanto para fixear como para mergear.
     var actionableCount: Int {
         Set(awaitingYourReview.map(\.id))
             .union(readyToMerge.map(\.id))
             .union(needingCIFix.map(\.id))
+            .union(needingReply.map(\.id))
             .count
     }
 
@@ -127,10 +135,12 @@ final class ReviewQueueStore {
         let review = awaitingYourReview.count
         let merge = readyToMerge.count
         let fix = needingCIFix.count
+        let reply = needingReply.count
         let parts = [
             review > 0 ? "\(review) para revisar" : nil,
             merge > 0 ? "\(merge) para mergear" : nil,
-            fix > 0 ? "\(fix) para fixear" : nil
+            fix > 0 ? "\(fix) para fixear" : nil,
+            reply > 0 ? "\(reply) para responder" : nil
         ].compactMap(\.self)
         return parts.isEmpty ? "Nada pendiente" : parts.joined(separator: " · ")
     }
@@ -240,7 +250,7 @@ final class ReviewQueueStore {
     /// solapan (un PR aprobado por vos está en las dos).
     private var allKnown: [PullRequest] {
         var seen: Set<String> = []
-        return (reviewQueue + mergeCandidates + fixCandidates).filter { seen.insert($0.id).inserted }
+        return (reviewQueue + mergeCandidates + fixCandidates + replyCandidates).filter { seen.insert($0.id).inserted }
     }
 
     func isActing(on pullRequest: PullRequest) -> Bool {
@@ -271,6 +281,7 @@ final class ReviewQueueStore {
         dependabotPullRequests = []
         mergeCandidates = []
         fixCandidates = []
+        replyCandidates = []
         behindCounts = [:]
         lastUpdated = nil
         state = .idle
@@ -376,6 +387,15 @@ final class ReviewQueueStore {
                 }
                 await notifier.send(notifications)
                 guard requestedRevision == configurationRevision else { return }
+
+                // La lista propia ya está disponible. Una falla de hilos conserva
+                // la última clasificación sin impedir que se actualice la CI.
+                onChange?()
+                if let fetchedFixCandidates {
+                    let replies = try? await ReplyQueue.fetch(for: fetchedFixCandidates)
+                    guard requestedRevision == configurationRevision else { return }
+                    if let replies { replyCandidates = replies }
+                }
 
                 // Segunda fase: lo caro, después de que el panel se dibujó.
                 // Dependabot son 50 PRs (~9s) y comparar ramas ~4s por cada 20.

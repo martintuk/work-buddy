@@ -22,6 +22,7 @@ enum DumpQueue {
             let dependabot = try await dependabotQueue
             let mergeCandidates = try await mergeQueue
             let fixCandidates = try await fixQueue
+            let replyCandidates = try await ReplyQueue.fetch(for: fixCandidates)
             let pullRequests = humans + dependabot
             let elapsed = Date().timeIntervalSince(start)
 
@@ -31,6 +32,7 @@ enum DumpQueue {
             let visible = pullRequests.excluding(ignoredIDs)
             let readyToMerge = mergeCandidates.excluding(ignoredIDs).readyToMerge
             let needingCIFix = fixCandidates.excluding(ignoredIDs).needingCIFix
+            let needingReply = replyCandidates.excluding(ignoredIDs)
 
             var seen: Set<String> = []
             let allKnown = (pullRequests + mergeCandidates + fixCandidates)
@@ -41,10 +43,10 @@ enum DumpQueue {
             let people = visible.filter { !$0.author.isBot }
             let bots = visible.filter(\.author.isBot)
 
-            // Mismo cálculo que el badge: las tres fuentes, deduplicadas por id.
+            // Mismo cálculo que el badge: las cuatro fuentes, deduplicadas por id.
             let awaiting = visible.awaitingYourReview
             let badge = Set(awaiting.map(\.id)).union(readyToMerge.map(\.id))
-                .union(needingCIFix.map(\.id)).count
+                .union(needingCIFix.map(\.id)).union(needingReply.map(\.id)).count
 
             print("\(pullRequests.count) PRs con review pedido — \(format(elapsed))")
             print("  personas: \(humans.count)  |  dependabot: \(dependabot.count)")
@@ -52,7 +54,7 @@ enum DumpQueue {
                 + "  |  automatización: \(bots.count)"
                 + "  |  ignorados: \(ignored.count)")
             print("BADGE: \(badge)  (\(awaiting.count) para revisar + "
-                + "\(readyToMerge.count) para mergear + \(needingCIFix.count) para fixear)\n")
+                + "\(readyToMerge.count) para mergear + \(needingCIFix.count) para fixear + \(needingReply.count) para responder)\n")
 
             print("── LISTOS PARA MERGEAR (\(readyToMerge.count)) ──")
             for pullRequest in readyToMerge {
@@ -63,6 +65,12 @@ enum DumpQueue {
 
             print("── PARA FIXEAR (\(needingCIFix.count)) ──")
             for pullRequest in needingCIFix {
+                print("  \(describe(pullRequest, behind: behind))")
+            }
+            print("")
+
+            print("── PARA RESPONDER (\(needingReply.count)) ──")
+            for pullRequest in needingReply {
                 print("  \(describe(pullRequest, behind: behind))")
             }
             print("")
