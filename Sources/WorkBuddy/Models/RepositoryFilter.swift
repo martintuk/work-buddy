@@ -79,9 +79,9 @@ struct RepositoryFilter: Codable, Equatable {
 
     /// Distinct sobre los resultados SIN filtrar. Incluye preferencias sin
     /// resultados para poder deshacer una preferencia tras un reinicio.
-    func repositories(in pullRequests: [PullRequest]) -> [Repository] {
+    func repositories(in pullRequests: [PullRequest], including saved: Set<String> = []) -> [Repository] {
         let grouped = Dictionary(grouping: pullRequests) { $0.repository.lowercased() }
-        let names = Set(grouped.keys).union(muted).union(solo).union(favorites)
+        let names = Set(grouped.keys).union(muted).union(solo).union(favorites).union(saved)
         return names.sorted { lhs, rhs in
             let lhsFavorite = favorites.contains(lhs)
             let rhsFavorite = favorites.contains(rhs)

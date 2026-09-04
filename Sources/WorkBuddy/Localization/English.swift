@@ -61,6 +61,11 @@ extension L10n {
         case .repositoriesFavoriteAccessibility: "Favorite: %@"
         case .repositoriesSelectAccessibility: "Select %@"
         case .repositoriesMuteAccessibility: "Mute %@"
+        case .repositoriesAssociateFolder: "Associate folder with %@"
+        case .repositoriesChooseFolder: "Choose folder…"
+        case .repositoriesRemoveFolder: "Remove association"
+        case .repositoriesNoFolder: "No associated folder"
+        case .repositoriesInvalidFolder: "Choose the root folder of a Git repository (it must contain .git)."
 
         // MARK: - Panel
         case .panelCategory: "Category"

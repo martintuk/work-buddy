@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Ocupa todo el panel para que la lista siga siendo cómoda con muchos repos.
@@ -6,6 +7,7 @@ struct RepositoryFilterView: View {
     let close: () -> Void
 
     @State private var search = ""
+    @State private var showingFolderError = false
 
     private var repositories: [RepositoryFilter.Repository] {
         let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -61,6 +63,27 @@ struct RepositoryFilterView: View {
                 .scrollIndicators(.hidden)
             }
         }
+        .alert(L10n.text(.repositoriesInvalidFolder), isPresented: $showingFolderError) {
+            Button(L10n.text(.commonBack), role: .cancel) {}
+        }
+    }
+
+    private func chooseFolder(for repository: String) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.title = L10n.text(.repositoriesAssociateFolder, repository)
+        panel.prompt = L10n.text(.repositoriesChooseFolder)
+        panel.directoryURL = store.localRepositories.folder(for: repository)
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+        do {
+            try store.localRepositories.associate(folder, with: repository)
+        } catch {
+            showingFolderError = true
+        }
     }
 
     private func row(_ repository: RepositoryFilter.Repository) -> some View {
@@ -81,6 +104,8 @@ struct RepositoryFilterView: View {
                 .help(repository.id)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
+            folderButton(for: repository.id)
+
             filterButton(solo ? "eye.fill" : "eye", active: solo, tint: .orange,
                          help: solo ? L10n.text(.repositoriesDeselect) : L10n.text(.repositoriesSolo)) {
                 store.toggleRepositorySolo(repository.id)
@@ -93,6 +118,29 @@ struct RepositoryFilterView: View {
             .accessibilityLabel(L10n.text(.repositoriesMuteAccessibility, repository.id))
         }
         .frame(height: 30)
+    }
+
+    private func folderButton(for repository: String) -> some View {
+        let folder = store.localRepositories.folder(for: repository)
+        return Button { chooseFolder(for: repository) } label: {
+            Image(systemName: folder == nil ? "folder.badge.plus" : "folder.fill")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(folder == nil ? Color.secondary : Color.accentColor)
+                .frame(width: 26, height: 26)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .help(folder?.path ?? L10n.text(.repositoriesAssociateFolder, repository))
+        .accessibilityLabel(L10n.text(.repositoriesAssociateFolder, repository))
+        .accessibilityValue(folder?.path ?? L10n.text(.repositoriesNoFolder))
+        .contextMenu {
+            Button(L10n.text(.repositoriesChooseFolder)) { chooseFolder(for: repository) }
+            if folder != nil {
+                Button(L10n.text(.repositoriesRemoveFolder)) {
+                    store.localRepositories.removeFolder(for: repository)
+                }
+            }
+        }
     }
 
     private func filterButton(

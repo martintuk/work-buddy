@@ -61,6 +61,11 @@ extension L10n {
         case repositoriesFavoriteAccessibility
         case repositoriesSelectAccessibility
         case repositoriesMuteAccessibility
+        case repositoriesAssociateFolder
+        case repositoriesChooseFolder
+        case repositoriesRemoveFolder
+        case repositoriesNoFolder
+        case repositoriesInvalidFolder
 
         // MARK: - Panel
         case panelCategory

@@ -104,7 +104,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     }
 
     func popoverShouldClose(_ popover: NSPopover) -> Bool {
-        !isPinned
+        !isPinned && NSApp.modalWindow == nil
     }
 
     private static func makeIcon() -> NSImage? {
@@ -179,7 +179,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     }
 
     private func autoClose() {
-        guard popover.isShown, !isPinned else { return }
+        guard popover.isShown, !isPinned, NSApp.modalWindow == nil else { return }
 
         // Un menú abierto *dentro* del panel también hace que la ventana resigne
         // key, y ahí no hay que cerrar nada. La app distingue los dos casos:

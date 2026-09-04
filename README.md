@@ -58,6 +58,14 @@ El filtro se guarda automáticamente entre reinicios y alcanza las secciones,
 el badge y las nuevas notificaciones. Los repos con preferencias guardadas siguen
 en la lista aunque no tengan resultados actuales, para poder restaurarlos.
 
+En **Repositorios**, el icono de carpeta permite asociar manualmente la raíz de
+un clone o worktree local (con `.git`). La asociación se guarda entre reinicios
+y mantiene el repo en la lista aunque no tenga PRs. Pasar el mouse muestra la
+ruta; otro click permite cambiarla y el menú contextual permite quitarla. Este
+paso solo guarda la carpeta elegida: no clona ni cambia de rama, y no verifica
+que el remoto corresponda al repo; las acciones locales deberán validarlo antes
+de operar.
+
 ## Requisitos
 
 - macOS 14+
