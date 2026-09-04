@@ -34,6 +34,9 @@ conserva su sección. CI pendiente, desconocida o exitosa no entra en “Para Fi
 mergear, ignorar y dejar de ignorar. Todas piden confirmación, incluso abrir el PR
 desde el cuerpo de la fila. Para Dependabot se muestra **Rebasear con Dependabot**
 y se envía su comando específico; el método de merge lo decide el repo, no la app.
+Cada acción ejecutada actualiza todas las colas. Si ya hay una consulta en curso,
+se hace otra al terminar; las escrituras esperan la respuesta de GitHub antes de
+actualizar, también cuando fallan.
 
 Refresca cada 5 minutos y notifica lo nuevo que te bloquea.
 

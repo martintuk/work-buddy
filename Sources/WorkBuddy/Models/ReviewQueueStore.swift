@@ -56,6 +56,8 @@ final class ReviewQueueStore {
     private let notificationTracker = PullRequestNotificationTracker()
     private let ignoreList = IgnoreList()
     private var inFlight: Task<Void, Never>?
+    /// Una acción durante una consulta necesita otra lectura al terminar.
+    private var hasPendingRefresh = false
     private var autoRefresh: Task<Void, Never>?
     /// Invalida resultados de una consulta que empezó con otra configuración.
     private var configurationRevision = 0
@@ -220,6 +222,9 @@ final class ReviewQueueStore {
         }
         // Ignorar y restaurar mueven el contador del badge.
         onChange?()
+        if !action.writesToGitHub {
+            refresh(force: true)
+        }
     }
 
     func isIgnored(_ pullRequest: PullRequest) -> Bool {
@@ -259,6 +264,7 @@ final class ReviewQueueStore {
         configurationRevision += 1
         inFlight?.cancel()
         inFlight = nil
+        hasPendingRefresh = false
 
         // No dejamos datos del alcance anterior visibles mientras carga el nuevo.
         pullRequests = []
@@ -300,10 +306,6 @@ final class ReviewQueueStore {
                         + "#\(pullRequest.number)",
                     isError: false
                 )
-                // Aprobar te saca de los review requests, mergear cierra el PR y
-                // Dependabot puede reemplazarlo al rebasear: la fila puede
-                // desaparecer, así que el aviso es la única señal inmediata.
-                refresh(force: true)
             } catch {
                 outcome = Outcome(
                     text: (error as? LocalizedError)?.errorDescription
@@ -313,6 +315,9 @@ final class ReviewQueueStore {
             }
             inFlightActions.remove(pullRequest.id)
             onChange?()
+            // Consultamos todas las colas al finalizar, incluso si GitHub
+            // devolvió un error y no sabemos si alcanzó a aplicar la escritura.
+            refresh(force: true)
         }
     }
 
@@ -322,7 +327,10 @@ final class ReviewQueueStore {
         if !force, let lastUpdated, Date().timeIntervalSince(lastUpdated) < Self.staleAfter {
             return
         }
-        guard inFlight == nil else { return }
+        guard inFlight == nil else {
+            if force { hasPendingRefresh = true }
+            return
+        }
 
         state = .loading
         onChange?()
@@ -393,6 +401,10 @@ final class ReviewQueueStore {
             guard requestedRevision == configurationRevision else { return }
             inFlight = nil
             onChange?()
+            if hasPendingRefresh {
+                hasPendingRefresh = false
+                refresh(force: true)
+            }
         }
     }
 
