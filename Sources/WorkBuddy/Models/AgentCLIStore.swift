@@ -32,7 +32,7 @@ enum AgentCLI: String, CaseIterable, Identifiable, Sendable {
         case .none: L10n.text(.agentChoose)
         case .codex: "Codex"
         case .claude: "Claude Code"
-        case .gemini: "Gemini CLI"
+        case .gemini: "Gemini"
         case .custom: L10n.text(.agentCustom)
         }
     }
