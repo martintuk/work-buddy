@@ -52,7 +52,7 @@ struct PullRequestRow: View {
 
     private var subtitle: some View {
         HStack(spacing: 5) {
-            Text("\(pullRequest.shortRepository) #\(pullRequest.number)")
+            Text("\(pullRequest.shortRepository) #\(String(pullRequest.number))")
                 .foregroundStyle(.secondary)
             Text("· \(pullRequest.author.login)")
                 .foregroundStyle(.tertiary)
