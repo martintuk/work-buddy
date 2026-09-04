@@ -6,7 +6,7 @@ import SwiftUI
 /// Click izquierdo abre/cierra el panel. Click derecho abre un menú contextual
 /// (la app no tiene icono en el Dock, así que el menú es la salida de emergencia).
 @MainActor
-final class MenuBarController: NSObject {
+final class MenuBarController: NSObject, NSPopoverDelegate {
     /// Ventana de gracia tras un cierre automático, para que el click que hizo
     /// perder el foco no vuelva a abrir el panel.
     private static let reopenGuard: TimeInterval = 0.3
@@ -55,6 +55,7 @@ final class MenuBarController: NSObject {
     }
 
     private func configurePopover() {
+        popover.delegate = self
         popover.contentSize = PanelView.preferredSize
         popover.behavior = .transient // se cierra solo al clickear afuera
         popover.animates = false // sin esto el panel "resbala" al abrirse
@@ -66,11 +67,23 @@ final class MenuBarController: NSObject {
     /// entran — si el badge contara ruido, dejarías de mirarlo.
     private func updateBadge() {
         guard let button = statusItem.button else { return }
+        // El número solo no dice de qué se compone, ahora que suma dos cosas.
+        button.toolTip = "work-buddy — \(store.actionableSummary)"
+
+        // Cambiar el título cambia el ancho del status item y mueve el ancla
+        // del popover. Mientras está abierto, la cola se actualiza en vivo y
+        // el badge espera al cierre para no desplazar el panel bajo el mouse.
+        guard !popover.isShown else { return }
         let count = store.actionableCount
         button.title = count > 0 ? " \(count)" : ""
         button.imagePosition = count > 0 ? .imageLeading : .imageOnly
-        // El número solo no dice de qué se compone, ahora que suma dos cosas.
-        button.toolTip = "work-buddy — \(store.actionableSummary)"
+    }
+
+    // Incluye el cierre automático de NSPopover (.transient), que no pasa
+    // necesariamente por closePanel(). Se usa siempre el último contador.
+    func popoverDidClose(_ notification: Notification) {
+        stopObservingFocusLoss()
+        updateBadge()
     }
 
     private static func makeIcon() -> NSImage? {
