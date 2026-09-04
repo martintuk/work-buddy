@@ -20,19 +20,23 @@ struct RepositoryFilterView: View {
                 }
                 .buttonStyle(.borderless)
                 Spacer()
+            }
+            .overlay {
                 Text("Repositorios").font(.system(size: 13, weight: .semibold))
-                Spacer()
-                Button("Ver todos") { store.clearRepositoryFilter() }
-                    .buttonStyle(.borderless)
-                    .disabled(!store.repositoryFilter.isActive)
             }
             .padding(14)
 
-            TextField("Buscar repositorio…", text: $search)
-                .textFieldStyle(.roundedBorder)
-                .accessibilityLabel("Buscar repositorio")
-                .padding(.horizontal, 14)
-                .padding(.bottom, 10)
+            HStack(spacing: 8) {
+                TextField("Buscar repositorio…", text: $search)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel("Buscar repositorio")
+                Button("Limpiar") { store.clearRepositoryFilter() }
+                    .buttonStyle(.borderless)
+                    .disabled(!store.repositoryFilter.isActive)
+                    .fixedSize()
+            }
+            .padding(.horizontal, 14)
+            .padding(.bottom, 10)
             Divider()
 
             if repositories.isEmpty {
