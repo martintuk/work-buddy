@@ -1,11 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// Ocupa todo el panel para que la lista siga siendo cómoda con muchos repos.
+/// Contenido del selector de repositorios dentro del panel principal.
 struct RepositoryFilterView: View {
     let store: ReviewQueueStore
     var parentWindow: () -> NSWindow? = { nil }
-    let close: () -> Void
 
     @State private var search = ""
     @State private var showingFolderError = false
@@ -17,18 +16,6 @@ struct RepositoryFilterView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Button(action: close) {
-                    Label(L10n.text(.commonBack), systemImage: "chevron.left")
-                }
-                .buttonStyle(.borderless)
-                Spacer()
-            }
-            .overlay {
-                Text(L10n.text(.repositoriesTitle)).font(.system(size: 13, weight: .semibold))
-            }
-            .padding(14)
-
             HStack(spacing: 8) {
                 TextField(L10n.text(.repositoriesSearchPlaceholder), text: $search)
                     .textFieldStyle(.roundedBorder)
@@ -39,7 +26,7 @@ struct RepositoryFilterView: View {
                     .fixedSize()
             }
             .padding(.horizontal, 14)
-            .padding(.bottom, 10)
+            .padding(.vertical, 10)
             Divider()
 
             if repositories.isEmpty {

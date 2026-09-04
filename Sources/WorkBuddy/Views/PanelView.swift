@@ -24,13 +24,7 @@ struct PanelView: View {
     }
 
     var body: some View {
-        Group {
-            if showingRepositories {
-                RepositoryFilterView(store: store, parentWindow: repositoryPickerWindow) { showingRepositories = false }
-            } else {
-                panel
-            }
-        }
+        panel
         .frame(width: Self.preferredSize.width, height: Self.preferredSize.height)
         .environment(\.locale, Locale(identifier: Localization.shared.language.rawValue))
         .onChange(of: Localization.shared.language) { _, _ in onLanguageChange() }
@@ -41,9 +35,13 @@ struct PanelView: View {
             header
 
             if showingConfiguration {
-                configurationHeader
+                navigationHeader(title: L10n.text(.settingsTitle)) { showingConfiguration = false }
                 Divider()
                 ConfigurationView(store: store)
+            } else if showingRepositories {
+                navigationHeader(title: L10n.text(.repositoriesTitle)) { showingRepositories = false }
+                Divider()
+                RepositoryFilterView(store: store, parentWindow: repositoryPickerWindow)
             } else {
                 Picker(L10n.text(.panelCategory), selection: $selectedCategory) {
                     ForEach(Category.allCases) { category in
@@ -65,11 +63,9 @@ struct PanelView: View {
         .frame(width: Self.preferredSize.width, height: Self.preferredSize.height)
     }
 
-    private var configurationHeader: some View {
+    private func navigationHeader(title: String, back: @escaping () -> Void) -> some View {
         HStack {
-            Button {
-                showingConfiguration = false
-            } label: {
+            Button(action: back) {
                 Image(systemName: "chevron.left")
             }
             .buttonStyle(.borderless)
@@ -78,7 +74,7 @@ struct PanelView: View {
             Spacer()
         }
         .overlay {
-            Text(L10n.text(.settingsTitle))
+            Text(title)
                 .font(.system(size: 13, weight: .semibold))
                 .accessibilityAddTraits(.isHeader)
         }
