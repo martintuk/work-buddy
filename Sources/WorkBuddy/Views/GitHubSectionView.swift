@@ -4,7 +4,7 @@ import SwiftUI
 struct GitHubSectionView: View {
     let store: ReviewQueueStore
 
-    @State private var expanded: Set<CollapsibleSection> = []
+    @State private var collapsed: Set<QueueSection> = []
     @State private var pendingMerge: PendingMerge?
 
     /// Merge esperando confirmación.
@@ -13,10 +13,38 @@ struct GitHubSectionView: View {
         var id: String { pullRequest.id }
     }
 
-    /// Secciones que arrancan colapsadas.
-    private enum CollapsibleSection: Hashable {
+    /// Una identidad estable conserva el plegado cuando se actualiza la cola.
+    private enum QueueSection: Hashable {
+        case readyToMerge
+        case review(ReviewBucket)
         case automation
         case ignored
+
+        var symbol: String {
+            switch self {
+            case .readyToMerge: "arrow.triangle.merge"
+            case .review(.blocksYou): "eye"
+            case .review(.revisited): "arrow.uturn.backward"
+            case .review(.teamQueue): "person.2"
+            case .review(.approvedAlready): "checkmark.circle"
+            case .review(.zombie): "moon.zzz"
+            case .automation: "gearshape.2"
+            case .ignored: "eye.slash"
+            }
+        }
+
+        var tint: Color {
+            switch self {
+            case .readyToMerge: .green
+            case .review(.blocksYou): .blue
+            case .review(.revisited): .orange
+            case .review(.teamQueue): .purple
+            case .review(.approvedAlready): .teal
+            case .review(.zombie): .indigo
+            case .automation: .cyan
+            case .ignored: .gray
+            }
+        }
     }
 
     var body: some View {
@@ -135,31 +163,21 @@ struct GitHubSectionView: View {
             }
         } else {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 12) {
                     // Primero, porque es lo que se resuelve con un click.
-                    if !merge.isEmpty {
-                        VStack(alignment: .leading, spacing: 5) {
-                            sectionTitle("Listos para mergear", count: merge.count)
-                                .padding(.horizontal, 10)
-                            rows(merge)
-                        }
-                    }
+                    queueSection(.readyToMerge, title: "Listos para mergear", items: merge)
                     ForEach(sections, id: \.bucket) { section in
-                        VStack(alignment: .leading, spacing: 5) {
-                            sectionTitle(
-                                section.bucket.title,
-                                count: section.items.count,
-                                subtitle: section.bucket.subtitle
-                            )
-                            .padding(.horizontal, 10)
-                            rows(section.items)
-                        }
+                        queueSection(
+                            .review(section.bucket),
+                            title: section.bucket.title,
+                            subtitle: section.bucket.subtitle,
+                            items: section.items
+                        )
                     }
-                    collapsible(.automation, title: "Automatización", items: store.automation)
-                    collapsible(.ignored, title: "Ignorados", items: store.ignored)
+                    queueSection(.automation, title: "Automatización", items: store.automation)
+                    queueSection(.ignored, title: "Ignorados", items: store.ignored)
                 }
-                .padding(.vertical, 10)
-                .padding(.horizontal, 4)
+                .padding(10)
             }
         }
     }
@@ -184,31 +202,27 @@ struct GitHubSectionView: View {
     }
 
     @ViewBuilder
-    private func collapsible(
-        _ section: CollapsibleSection,
+    private func queueSection(
+        _ section: QueueSection,
         title: String,
+        subtitle: String? = nil,
         items: [PullRequest]
     ) -> some View {
         if !items.isEmpty {
-            let isExpanded = expanded.contains(section)
-            VStack(alignment: .leading, spacing: 5) {
-                Button {
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        if isExpanded { expanded.remove(section) } else { expanded.insert(section) }
+            let isExpanded = !collapsed.contains(section)
+            VStack(alignment: .leading, spacing: 4) {
+                QueueSectionHeader(
+                    title: title,
+                    subtitle: subtitle,
+                    symbol: section.symbol,
+                    tint: section.tint,
+                    count: items.count,
+                    isExpanded: isExpanded
+                ) {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        if isExpanded { collapsed.insert(section) } else { collapsed.remove(section) }
                     }
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(.tertiary)
-                        // El chevron las indenta un poco respecto de las
-                        // secciones de acción, que es justo la jerarquía buscada.
-                        sectionTitle(title, count: items.count, prominence: .muted)
-                    }
-                    .padding(.horizontal, 10)
-                    .contentShape(.rect)
                 }
-                .buttonStyle(.plain)
 
                 if isExpanded {
                     rows(items)
@@ -217,52 +231,74 @@ struct GitHubSectionView: View {
         }
     }
 
-    /// Dos niveles de jerarquía: las secciones que piden algo de vos y las
-    /// colapsadas, que están para consultar.
-    private enum Prominence {
-        case action
-        case muted
-
-        var size: CGFloat { self == .action ? 11 : 10 }
-        var weight: Font.Weight { self == .action ? .bold : .semibold }
-        var style: AnyShapeStyle {
-            self == .action ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary)
-        }
-    }
-
-    private func sectionTitle(
-        _ title: String,
-        count: Int,
-        subtitle: String? = nil,
-        prominence: Prominence = .action
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            HStack(spacing: 6) {
-                Text(title.uppercased())
-                    .font(.system(size: prominence.size, weight: prominence.weight))
-                    // Sin tracking las mayúsculas se apelotonan y pierden el peso
-                    // de encabezado que les estamos dando.
-                    .tracking(0.7)
-                    .foregroundStyle(prominence.style)
-                Text("\(count)")
-                    .font(.system(size: 9, weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(.quaternary, in: Capsule())
-                Spacer(minLength: 0)
-            }
-            if let subtitle {
-                Text(subtitle)
-                    .font(.system(size: 9))
-                    .foregroundStyle(.tertiary)
-            }
-        }
-    }
-
     private func centered<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         content().frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+}
+
+/// Todas las categorías comparten tamaño, contraste y área de interacción.
+private struct QueueSectionHeader: View {
+    let title: String
+    let subtitle: String?
+    let symbol: String
+    let tint: Color
+    let count: Int
+    let isExpanded: Bool
+    let toggle: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: toggle) {
+            HStack(spacing: 9) {
+                Image(systemName: symbol)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 28, height: 28)
+                    .background(tint.opacity(0.13), in: RoundedRectangle(cornerRadius: 7))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Text("\(count)")
+                    .font(.system(size: 10, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(tint.opacity(0.13), in: Capsule())
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    .frame(width: 12)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 46)
+            .background(tint.opacity(isHovering ? 0.13 : 0.07), in: RoundedRectangle(cornerRadius: 10))
+            .overlay {
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(tint.opacity(isHovering ? 0.35 : 0.2), lineWidth: 1)
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .accessibilityLabel("\(title), \(count) pull requests")
+        .accessibilityValue(isExpanded ? "Expandido" : "Contraído")
+        .accessibilityHint(isExpanded ? "Ocultar la sección" : "Mostrar la sección")
+        .help(isExpanded ? "Ocultar \(title)" : "Mostrar \(title)")
+    }
 }
