@@ -94,6 +94,8 @@ struct PullRequest: Identifiable, Sendable {
     /// Ya dejaste un review en este PR.
     let reviewedByMe: Bool
     let approvals: Int
+    /// Tu última decisión de review es APPROVED y no fue descartada.
+    let approvedByMe: Bool
 
     /// GitHub habilitaría el botón de merge ahora mismo.
     ///
@@ -131,7 +133,7 @@ struct PullRequest: Identifiable, Sendable {
     }
 
     /// Clasifica un PR que pertenece a la cola de pedidos de review.
-    func bucket() -> ReviewBucket {
+    func bucket() -> ReviewBucket? {
         PullRequestQueuePolicy.reviewBucket(for: self)
     }
 }

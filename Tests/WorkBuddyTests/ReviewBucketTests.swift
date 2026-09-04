@@ -70,6 +70,27 @@ struct ReviewBucketTests {
         }
     }
 
+    @Test("Mi aprobación excluye ambas categorías aunque el pedido siga activo",
+          arguments: [false, true], [false, true])
+    func aprobadoPorMiNoPideReview(requestedFromMe: Bool, globallyApproved: Bool) {
+        let pr = makePullRequest(
+            requestedFromMe: requestedFromMe,
+            reviewedByMe: true,
+            approvedByMe: true,
+            reviewDecision: globallyApproved ? .approved : .reviewRequired
+        )
+        #expect(pr.bucket() == nil)
+        #expect([pr].humanSections.isEmpty)
+        #expect([pr].awaitingYourReview.isEmpty)
+    }
+
+    @Test("Los approvals ajenos no equivalen a una aprobación personal")
+    func aprobadoPorOtrosSigueVisible() {
+        let pr = makePullRequest(approvals: 2, reviewDecision: .approved)
+        #expect([pr].humanSections.map(\.bucket) == [.approvedAlready])
+        #expect([pr].humanSections.first?.items.map(\.id) == [pr.id])
+    }
+
     // MARK: - Casos base
 
     @Test("Pedido a vos y sin revisar todavía: para revisar")
@@ -314,6 +335,7 @@ struct ReadyToMergeTests {
         // debe hacerlo desaparecer justo cuando se vuelve mergeable.
         let pullRequest = makePullRequest(
             reviewedByMe: true,
+            approvedByMe: true,
             reviewDecision: .approved,
             authorLogin: "ci-service-user",
             authorTypename: "User",
@@ -356,6 +378,7 @@ private func makePullRequest(
     number: Int = 1,
     requestedFromMe: Bool = false,
     reviewedByMe: Bool = false,
+    approvedByMe: Bool = false,
     approvals: Int = 0,
     reviewDecision: ReviewDecision? = .reviewRequired,
     checks: CheckState = .success,
@@ -392,6 +415,7 @@ private func makePullRequest(
         authoredByMe: authoredByMe,
         requestedFromMe: requestedFromMe,
         reviewedByMe: reviewedByMe,
-        approvals: approvals
+        approvals: approvals,
+        approvedByMe: approvedByMe
     )
 }

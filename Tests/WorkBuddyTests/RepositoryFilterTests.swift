@@ -136,7 +136,7 @@ struct RepositoryFilterTests {
             updatedAt: .now, isDraft: false, checks: .success, reviewDecision: .reviewRequired,
             mergeable: mine ? .mergeable : nil, mergeStateStatus: mine ? .clean : nil,
             defaultMergeMethod: .squash, authoredByMe: mine, requestedFromMe: true,
-            reviewedByMe: false, approvals: 0
+            reviewedByMe: false, approvals: 0, approvedByMe: false
         )
     }
 }

@@ -14,9 +14,11 @@ enum PullRequestQueuePolicy {
     /// Sólo el veredicto agregado de GitHub confirma los approvals requeridos,
     /// incluyendo CODEOWNERS y branch protection. Contar approvals no alcanza.
     /// Un pedido al equipo equivale a uno personal. La antigüedad, la CI y haber
-    /// revisado antes no cambian la acción pendiente ni crean otra categoría.
-    static func reviewBucket(for pullRequest: PullRequest) -> ReviewBucket {
-        pullRequest.reviewDecision == .approved ? .approvedAlready : .needsReview
+    /// comentado antes no cambian la categoría. Tu aprobación vigente sí te saca
+    /// de ambas categorías de review, aunque falten approvals de otras personas.
+    static func reviewBucket(for pullRequest: PullRequest) -> ReviewBucket? {
+        guard !pullRequest.approvedByMe else { return nil }
+        return pullRequest.reviewDecision == .approved ? .approvedAlready : .needsReview
     }
 }
 
@@ -64,6 +66,6 @@ extension [PullRequest] {
     /// Los de automatización quedan afuera a propósito: si el badge contara los
     /// 56 PRs de bots de la cola, dejarías de mirarlo.
     var awaitingYourReview: [PullRequest] {
-        filter { !$0.author.isBot && $0.bucket().needsYourReview }
+        filter { !$0.author.isBot && $0.bucket()?.needsYourReview == true }
     }
 }

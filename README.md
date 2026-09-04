@@ -11,15 +11,18 @@ separan la acción pendiente de los PRs aprobados y la automatización.
 | Sección | Qué junta |
 | --- | --- |
 | **Para mergear** | Tuyos y de automatización que GitHub ya considera mergeables |
-| **Para revisar** | Pedido a vos o a tus equipos, sin aprobación agregada de GitHub |
-| **Ya aprobados** | `reviewDecision = APPROVED`: tu review es opcional |
+| **Para revisar** | Pedido a vos o a tus equipos, sin aprobación tuya vigente ni aprobación agregada de GitHub |
+| **Ya aprobados** | `reviewDecision = APPROVED`, sin aprobación tuya vigente: tu review es opcional |
 | **Automatización** _(colapsada)_ | dependabot y cuentas de máquina |
 | **Ignorados** _(colapsada)_ | Los que archivaste a mano |
 
 El badge del icono cuenta lo accionable: lo que espera tu review más lo que podés
 mergear de un click. Los pedidos a equipos cuentan igual que los personales;
-la antigüedad y haber revisado antes no cambian la categoría. La automatización
-no cuenta como review pendiente ni notifica; sí cuenta cuando está para mergear.
+la antigüedad y haber comentado antes no cambian la categoría. Tu aprobación
+personal vigente excluye el PR de ambas categorías de review, aunque siga
+pedido al equipo. Si se descarta o pedís cambios después, puede volver a aparecer.
+La automatización no cuenta como review pendiente ni notifica; sí cuenta cuando
+está para mergear.
 
 **Acciones por fila** (menú `⋯`): abrir, aprobar, mergear (con confirmación) e
 ignorar. El método de merge lo decide el repo, no la app.

@@ -92,6 +92,17 @@ enum DumpQueue {
                 print("  \(describe(pullRequest, behind: behind))")
             }
         }
+        // Siguen disponibles para automatización, merge e ignorados, aunque
+        // ya no pertenecen a ninguna categoría de review del panel.
+        let approvedByMe = pullRequests.filter(\.approvedByMe)
+        if !approvedByMe.isEmpty {
+            print("Aprobados por vos, fuera de la cola de review (\(approvedByMe.count))")
+            if listing {
+                for pullRequest in approvedByMe.sorted(by: { $0.updatedAt > $1.updatedAt }) {
+                    print("  \(describe(pullRequest, behind: behind))")
+                }
+            }
+        }
         print("")
     }
 

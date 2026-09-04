@@ -7,8 +7,8 @@ import Foundation
 /// 1. **Rate limit.** La API de search REST permite 30 req/min y se comparte con
 ///    todo lo demás. GraphQL tiene un presupuesto de 5000 puntos/hora, así que
 ///    una app que hace polling no lo agota.
-/// 2. **Una sola ida y vuelta.** La misma query trae review requests, reviews y
-///    estado de CI. Con `gh search prs` haría falta una llamada extra por PR.
+/// 2. **Datos en conjunto.** Tras resolver tu login, la misma query trae pedidos,
+///    reviews personales y estado de CI, sin hacer una llamada extra por PR.
 enum ReviewQueue {
     /// 25 y no más: con conexiones anidadas, `first: 100` hace que GitHub
     /// devuelva **502**. Verificado contra la API real. (`first: 50` también

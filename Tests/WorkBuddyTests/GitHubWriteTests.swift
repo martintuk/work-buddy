@@ -151,6 +151,6 @@ private func makePullRequest(
         authoredByMe: authoredByMe,
         requestedFromMe: true,
         reviewedByMe: false,
-        approvals: 0
+        approvals: 0, approvedByMe: false
     )
 }

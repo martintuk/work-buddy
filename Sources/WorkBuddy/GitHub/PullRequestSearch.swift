@@ -16,7 +16,7 @@ enum PullRequestSearch {
     /// menos.
     static func query(search: String, fields: String, pageSize: Int) -> String {
         """
-        query($cursor: String) {
+        query($cursor: String, $reviewAuthor: String!) {
           viewer { login }
           search(
             query: "\(search)"
@@ -38,12 +38,14 @@ enum PullRequestSearch {
         maxPages: Int,
         machineAccounts: Set<String> = []
     ) async throws -> [PullRequest] {
+        let viewer = try await Viewer.fetch()
         let query = query(search: search, fields: fields, pageSize: pageSize)
         var results: [PullRequest] = []
         var cursor: String?
 
         for _ in 0 ..< maxPages {
-            var arguments = ["api", "graphql", "-f", "query=\(query)"]
+            var arguments = ["api", "graphql", "-f", "query=\(query)",
+                             "-f", "reviewAuthor=\(viewer.login)"]
             if let cursor { arguments += ["-F", "cursor=\(cursor)"] }
 
             let data = try await GH.runRetrying(arguments)

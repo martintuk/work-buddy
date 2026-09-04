@@ -29,7 +29,7 @@ enum MergeQueue {
             "is:open is:pr review-requested:@me review:approved archived:false"
         )
         return """
-    query {
+    query($reviewAuthor: String!) {
       viewer { login }
       authored: search(
         query: "\(authored)"
@@ -66,8 +66,11 @@ enum MergeQueue {
     /// Devuelve los candidatos ya deduplicados. Filtrar por "listo para mergear"
     /// es responsabilidad de `[PullRequest].readyToMerge`.
     static func fetch(configuration: AppConfiguration = .empty) async throws -> [PullRequest] {
+        let viewer = try await Viewer.fetch()
         let query = query(configuration: configuration)
-        let data = try await GH.runRetrying(["api", "graphql", "-f", "query=\(query)"])
+        let data = try await GH.runRetrying([
+            "api", "graphql", "-f", "query=\(query)", "-f", "reviewAuthor=\(viewer.login)"
+        ])
         let payload = try GraphQLResponse<Payload>.decode(data)
         let me = payload.viewer.login
 

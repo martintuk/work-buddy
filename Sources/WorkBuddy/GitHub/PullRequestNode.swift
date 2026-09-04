@@ -14,6 +14,9 @@ enum PullRequestFields {
       nodes { requestedReviewer { ... on User { login } ... on Team { slug } } }
     }
     latestReviews(first: 10) { nodes { author { login } state } }
+    myReview: reviews(author: $reviewAuthor, last: 1, states: [APPROVED, CHANGES_REQUESTED, DISMISSED]) {
+      nodes { author { login } state }
+    }
     commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
     """
 
@@ -45,6 +48,9 @@ struct PullRequestNode: Decodable {
     let author: AuthorDTO?
     let reviewRequests: ReviewRequests?
     let latestReviews: Reviews?
+    /// Última decisión personal; comentarios y borradores no reemplazan un approval.
+    /// Se consulta por autor para no depender de los primeros 10 reviewers.
+    let myReview: Reviews?
     let commits: Commits?
 
     struct Repository: Decodable {
@@ -132,7 +138,10 @@ struct PullRequestNode: Decodable {
             authoredByMe: login == me,
             requestedFromMe: reviewers.contains { $0.login == me },
             reviewedByMe: reviews.contains { $0.author?.login == me },
-            approvals: reviews.count { $0.state == "APPROVED" }
+            approvals: reviews.count { $0.state == "APPROVED" },
+            approvedByMe: myReview?.nodes.compactMap { $0 }.last.map {
+                $0.author?.login.lowercased() == me.lowercased() && $0.state == "APPROVED"
+            } ?? false
         )
     }
 }
@@ -155,7 +164,18 @@ struct SearchPage: Decodable {
     }
 }
 
-struct Viewer: Decodable { let login: String }
+struct Viewer: Decodable {
+    let login: String
+
+    /// Resuelve el login para filtrar la review personal en la consulta de PRs.
+    static func fetch() async throws -> Viewer {
+        struct Payload: Decodable { let viewer: Viewer }
+        let data = try await GH.runRetrying([
+            "api", "graphql", "-f", "query=query { viewer { login } }"
+        ])
+        return try GraphQLResponse<Payload>.decode(data).viewer
+    }
+}
 
 extension GraphQLResponse {
     /// Decodifica y convierte los errores de GraphQL en un throw.

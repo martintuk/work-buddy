@@ -69,7 +69,7 @@ struct QueryShapeTests {
         )
         // Sin `hasNextPage`/`endCursor` la paginación se corta en la primera
         // página sin avisar.
-        #expect(query.contains("query($cursor: String)"))
+        #expect(query.contains("query($cursor: String, $reviewAuthor: String!)"))
         #expect(query.contains("after: $cursor"))
         #expect(query.contains("hasNextPage"))
         #expect(query.contains("endCursor"))
@@ -83,6 +83,14 @@ struct QueryShapeTests {
         #expect(PullRequestFields.withMergeState.contains("mergeable"))
         #expect(PullRequestFields.withMergeState.contains("mergeStateStatus"))
         #expect(!PullRequestFields.base.contains("mergeable"))
+    }
+
+    @Test("La decisión personal no depende de una página de reviews ajenas")
+    func reviewPersonalPorAutor() {
+        #expect(PullRequestFields.base.contains(
+            "myReview: reviews(author: $reviewAuthor, last: 1, states: [APPROVED, CHANGES_REQUESTED, DISMISSED])"
+        ))
+        #expect(MergeQueue.query(configuration: .empty).contains("query($reviewAuthor: String!)"))
     }
 
     @Test("La organización configurada limita todas las búsquedas")
