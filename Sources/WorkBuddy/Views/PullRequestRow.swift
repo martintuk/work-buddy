@@ -12,6 +12,7 @@ struct PullRequestRow: View {
     let localFolder: URL?
     let editor: EditorStore
     let requestEditorConfiguration: () -> Void
+    let requestFolderConfiguration: () -> Void
     let perform: (PullRequestAction) -> Void
 
     @State private var isHovering = false
@@ -134,19 +135,19 @@ struct PullRequestRow: View {
     @ViewBuilder
     private var actionMenuItems: some View {
         button(.open)
-        if let localFolder {
-            Button {
-                if editor.selectedURL == nil {
-                    requestEditorConfiguration()
-                } else {
-                    openLocalFolder()
-                }
-            } label: {
-                Label(editor.selectedName.map { L10n.text(.editorOpenIn, $0) }
-                    ?? L10n.text(.editorOpen), systemImage: "chevron.left.forwardslash.chevron.right")
+        Button {
+            if localFolder == nil {
+                requestFolderConfiguration()
+            } else if editor.selectedURL == nil {
+                requestEditorConfiguration()
+            } else {
+                openLocalFolder()
             }
-            .help(localFolder.path)
+        } label: {
+            Label(editor.selectedName.map { L10n.text(.editorOpenIn, $0) }
+                ?? L10n.text(.editorOpen), systemImage: "chevron.left.forwardslash.chevron.right")
         }
+        .help(localFolder?.path ?? L10n.text(.repositoriesNoFolder))
 
         Divider()
 

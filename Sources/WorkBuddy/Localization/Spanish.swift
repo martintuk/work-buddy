@@ -30,6 +30,7 @@ extension L10n {
         case .settingsEditor: "Editor"
         case .editorChoose: "Elegir editor…"
         case .editorSelectInSettings: "Elegí un IDE en Configuración → Editor."
+        case .editorAssociateFolderInRepositories: "Asociá una carpeta a %@ en Repositorios."
         case .editorSelect: "Elegir"
         case .editorOther: "Elegir otra app…"
         case .editorOpen: "Abrir en editor…"

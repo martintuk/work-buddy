@@ -30,6 +30,7 @@ extension L10n {
         case settingsEditor
         case editorChoose
         case editorSelectInSettings
+        case editorAssociateFolderInRepositories
         case editorSelect
         case editorOther
         case editorOpen

@@ -8,7 +8,12 @@ struct GitHubSectionView: View {
     @AppStorage("appearance.showEmptySections") private var showEmptySections = true
     @AppStorage("github.collapsedSections") private var collapsedSectionIDs = ""
     @State private var pendingAction: PendingAction?
-    @State private var showingEditorHint = false
+    @State private var configurationHint: ConfigurationHint?
+
+    private enum ConfigurationHint {
+        case editor
+        case folder(String)
+    }
 
     /// Acción sobre un PR esperando confirmación.
     struct PendingAction: Identifiable {
@@ -107,8 +112,8 @@ struct GitHubSectionView: View {
             if let pendingAction {
                 confirmBar(pendingAction)
                 Divider()
-            } else if showingEditorHint && store.editor.selectedURL == nil {
-                editorConfigurationNotice
+            } else if let message = configurationHintMessage {
+                configurationNotice(message)
                 Divider()
             } else if let outcome = store.outcome {
                 outcomeBanner(outcome)
@@ -117,19 +122,30 @@ struct GitHubSectionView: View {
             content
         }
         .onChange(of: store.editor.selectedURL) { _, selectedURL in
-            if selectedURL != nil { showingEditorHint = false }
+            if selectedURL != nil, case .editor = configurationHint { configurationHint = nil }
         }
     }
 
-    private var editorConfigurationNotice: some View {
+    private var configurationHintMessage: String? {
+        switch configurationHint {
+        case .editor where store.editor.selectedURL == nil:
+            L10n.text(.editorSelectInSettings)
+        case .folder(let repository) where store.localRepositories.folder(for: repository) == nil:
+            L10n.text(.editorAssociateFolderInRepositories, repository)
+        default:
+            nil
+        }
+    }
+
+    private func configurationNotice(_ message: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "info.circle.fill")
                 .foregroundStyle(.orange)
-            Text(L10n.text(.editorSelectInSettings))
+            Text(message)
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 4)
-            Button { showingEditorHint = false } label: {
+            Button { configurationHint = nil } label: {
                 Image(systemName: "xmark")
             }
             .buttonStyle(.borderless)
@@ -309,10 +325,15 @@ struct GitHubSectionView: View {
                 requestEditorConfiguration: {
                     pendingAction = nil
                     store.dismissOutcome()
-                    showingEditorHint = true
+                    configurationHint = .editor
+                },
+                requestFolderConfiguration: {
+                    pendingAction = nil
+                    store.dismissOutcome()
+                    configurationHint = .folder(pullRequest.repository)
                 }
             ) { action in
-                showingEditorHint = false
+                configurationHint = nil
                 if action.needsConfirmation {
                     pendingAction = PendingAction(
                         pullRequest: pullRequest,
