@@ -1,4 +1,5 @@
 import AppKit
+import Observation
 import UserNotifications
 
 /// Avisa cuando aparece un PR nuevo que espera tu review.
@@ -6,6 +7,7 @@ import UserNotifications
 /// Sólo notifica PRs de personas en la cola "Para revisar": los de bots son el
 /// 89% del volumen y notificarlos convertiría esto en ruido.
 @MainActor
+@Observable
 final class Notifier: NSObject {
     /// Pasado este número mandamos un solo resumen. Si entran diez PRs juntos,
     /// diez banners seguidos son peores que ninguno.
@@ -21,7 +23,24 @@ final class Notifier: NSObject {
     /// identifier es un crash, no un error recuperable.
     private let center: UNUserNotificationCenter?
 
-    private var isAuthorized = false
+    private(set) var authorizationStatus: UNAuthorizationStatus?
+
+    var isAvailable: Bool { center != nil }
+    var isAuthorized: Bool {
+        authorizationStatus == .authorized || authorizationStatus == .provisional
+    }
+
+    enum NotificationError: LocalizedError {
+        case unavailable
+        case permissionRequired
+
+        var errorDescription: String? {
+            switch self {
+            case .unavailable: "Las notificaciones requieren ejecutar la app desde su bundle."
+            case .permissionRequired: "Habilitá las notificaciones de work-buddy en los ajustes de macOS."
+            }
+        }
+    }
 
     override init() {
         center = Bundle.main.bundleIdentifier == nil ? nil : .current()
@@ -29,13 +48,22 @@ final class Notifier: NSObject {
         center?.delegate = self
     }
 
-    func requestAuthorization() async {
-        guard let center else { return }
-        do {
-            isAuthorized = try await center.requestAuthorization(options: [.alert, .sound])
-        } catch {
-            isAuthorized = false
-        }
+    func refreshAuthorization() async {
+        authorizationStatus = await center?.notificationSettings().authorizationStatus
+    }
+
+    func requestAuthorization() async throws {
+        guard let center else { throw NotificationError.unavailable }
+        _ = try await center.requestAuthorization(options: [.alert, .sound])
+        await refreshAuthorization()
+        guard isAuthorized else { throw NotificationError.permissionRequired }
+    }
+
+    func sendTest() async throws {
+        await refreshAuthorization()
+        guard isAvailable else { throw NotificationError.unavailable }
+        guard isAuthorized else { throw NotificationError.permissionRequired }
+        try await send(title: "work-buddy", body: "Notificación de prueba", url: nil)
     }
 
     /// Cambiar el alcance no debe notificar de golpe todo el backlog del nuevo
@@ -65,16 +93,17 @@ final class Notifier: NSObject {
         // vuelven a pedir, queremos que avise de nuevo.
         persist(currentIDs)
 
+        await refreshAuthorization()
         guard isAuthorized, !new.isEmpty else { return }
         if new.count > Self.maxIndividual {
-            await send(
+            try? await send(
                 title: "\(new.count) PRs nuevos para revisar",
                 body: new.map(\.author.login).uniqued().joined(separator: ", "),
                 url: nil
             )
         } else {
             for pullRequest in new {
-                await send(
+                try? await send(
                     title: "Nuevo PR para revisar",
                     body: "\(pullRequest.author.login) — \(pullRequest.shortRepository) "
                         + "#\(pullRequest.number)\n\(pullRequest.title)",
@@ -88,8 +117,8 @@ final class Notifier: NSObject {
         defaults.set(Array(ids), forKey: Self.seenKey)
     }
 
-    private func send(title: String, body: String, url: URL?) async {
-        guard let center else { return }
+    private func send(title: String, body: String, url: URL?) async throws {
+        guard let center else { throw NotificationError.unavailable }
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
@@ -101,7 +130,7 @@ final class Notifier: NSObject {
             content: content,
             trigger: nil // inmediata
         )
-        try? await center.add(request)
+        try await center.add(request)
     }
 }
 

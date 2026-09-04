@@ -52,7 +52,7 @@ final class ReviewQueueStore {
     /// así que le avisamos por acá cuándo repintar el badge.
     var onChange: (() -> Void)?
 
-    private let notifier = Notifier()
+    let notifier = Notifier()
     private let ignoreList = IgnoreList()
     private var inFlight: Task<Void, Never>?
     private var autoRefresh: Task<Void, Never>?
@@ -344,9 +344,9 @@ final class ReviewQueueStore {
         }
     }
 
-    /// Arranca el ciclo de refresh en background y pide permiso de notificaciones.
+    /// Arranca el ciclo de refresh en background y consulta el permiso de notificaciones.
     func start() {
-        Task { await notifier.requestAuthorization() }
+        Task { await notifier.refreshAuthorization() }
         refresh()
 
         autoRefresh?.cancel()

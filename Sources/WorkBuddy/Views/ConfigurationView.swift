@@ -21,6 +21,8 @@ struct ConfigurationView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                NotificationSettingsView(notifier: store.notifier)
+
                 organizationsSelector
 
                 VStack(alignment: .leading, spacing: 6) {
