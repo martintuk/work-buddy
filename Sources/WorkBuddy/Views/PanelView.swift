@@ -70,7 +70,7 @@ struct PanelView: View {
             Button {
                 showingConfiguration = false
             } label: {
-                Label(L10n.text(.commonBack), systemImage: "chevron.left")
+                Image(systemName: "chevron.left")
             }
             .buttonStyle(.borderless)
             .help(L10n.text(.commonBack))
