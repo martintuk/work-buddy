@@ -63,10 +63,9 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
     private func configurePopover() {
         popover.delegate = self
-        popover.contentSize = PanelView.preferredSize
         popover.behavior = .transient // se cierra solo al clickear afuera
         popover.animates = false // sin esto el panel "resbala" al abrirse
-        popover.contentViewController = NSHostingController(
+        let controller = NSHostingController(
             rootView: PanelView(
                 store: store,
                 jiraStore: jiraStore,
@@ -80,6 +79,12 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
                 }
             )
         )
+        controller.view.setFrameSize(PanelView.preferredSize)
+        controller.view.layoutSubtreeIfNeeded()
+        popover.contentViewController = controller
+        // Asignar el controller reemplaza contentSize por el tamaño de su vista.
+        // Fijarlo después evita usar un tamaño inicial provisional de SwiftUI.
+        popover.contentSize = PanelView.preferredSize
     }
 
     /// El badge cuenta todo lo que espera una acción tuya: lo que tenés que
@@ -149,6 +154,11 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         guard let button = statusItem.button else { return }
 
         store.refresh() // no-op si la data es reciente
+        // Resolver el contenido y el ancla antes de calcular la primera posición.
+        // El refresh puede cambiar el ancho del badge mientras el panel está cerrado.
+        button.window?.contentView?.layoutSubtreeIfNeeded()
+        popover.contentViewController?.view.layoutSubtreeIfNeeded()
+        popover.contentSize = PanelView.preferredSize
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
 
         // Al ser una app .accessory el panel no recibe foco de teclado por su
