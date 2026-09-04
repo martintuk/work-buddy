@@ -8,10 +8,12 @@ struct PanelView: View {
     let store: ReviewQueueStore
     let jiraStore: JiraStore
     var onLanguageChange: () -> Void = {}
+    var onPinChange: (Bool) -> Void = { _ in }
 
     @State private var selectedCategory: Category = .github
     @State private var showingConfiguration = false
     @State private var showingRepositories = false
+    @State private var isPinned = false
 
     private enum Category: String, CaseIterable, Identifiable {
         case github = "GitHub"
@@ -115,6 +117,19 @@ struct PanelView: View {
                 Text("v\(Self.version)")
             }
             Spacer()
+            Button {
+                isPinned.toggle()
+                onPinChange(isPinned)
+            } label: {
+                Image(systemName: isPinned ? "pin.fill" : "pin")
+                    .font(.system(size: 12))
+                    .rotationEffect(.degrees(45))
+                    .foregroundStyle(isPinned ? Color.accentColor : Color.secondary)
+            }
+            .buttonStyle(.borderless)
+            .help(L10n.text(isPinned ? .panelUnpin : .panelPin))
+            .accessibilityLabel(L10n.text(isPinned ? .panelUnpin : .panelPin))
+            .accessibilityValue(L10n.text(isPinned ? .commonEnabled : .commonDisabled))
         }
         .font(.system(size: 10))
         .foregroundStyle(.secondary)

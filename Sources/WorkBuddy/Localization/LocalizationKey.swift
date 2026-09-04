@@ -65,6 +65,8 @@ extension L10n {
         // MARK: - Panel
         case panelCategory
         case panelRefresh
+        case panelPin
+        case panelUnpin
 
         // MARK: - Menu
         case menuAbout

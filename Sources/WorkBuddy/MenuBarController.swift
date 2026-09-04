@@ -22,6 +22,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
     private var resignObserver: NSObjectProtocol?
     private var lastAutoClose: Date = .distantPast
+    private var isPinned = false
 
     override init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -66,9 +67,15 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         popover.behavior = .transient // se cierra solo al clickear afuera
         popover.animates = false // sin esto el panel "resbala" al abrirse
         popover.contentViewController = NSHostingController(
-            rootView: PanelView(store: store, jiraStore: jiraStore) { [weak self] in
-                self?.updateBadge()
-            }
+            rootView: PanelView(
+                store: store,
+                jiraStore: jiraStore,
+                onLanguageChange: { [weak self] in self?.updateBadge() },
+                onPinChange: { [weak self] isPinned in
+                    self?.isPinned = isPinned
+                    self?.popover.behavior = isPinned ? .applicationDefined : .transient
+                }
+            )
         )
     }
 
@@ -94,6 +101,10 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     func popoverDidClose(_ notification: Notification) {
         stopObservingFocusLoss()
         updateBadge()
+    }
+
+    func popoverShouldClose(_ popover: NSPopover) -> Bool {
+        !isPinned
     }
 
     private static func makeIcon() -> NSImage? {
@@ -142,7 +153,8 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
     private func closePanel() {
         stopObservingFocusLoss()
-        popover.performClose(nil)
+        // El cierre explícito desde el menubar también funciona con el pin activo.
+        popover.close()
     }
 
     // MARK: - Cierre al perder el foco
@@ -167,7 +179,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     }
 
     private func autoClose() {
-        guard popover.isShown else { return }
+        guard popover.isShown, !isPinned else { return }
 
         // Un menú abierto *dentro* del panel también hace que la ventana resigne
         // key, y ahí no hay que cerrar nada. La app distingue los dos casos:

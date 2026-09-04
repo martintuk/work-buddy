@@ -65,6 +65,8 @@ extension L10n {
         // MARK: - Panel
         case .panelCategory: "Categoría"
         case .panelRefresh: "Actualizar GitHub y Jira"
+        case .panelPin: "Mantener el panel abierto"
+        case .panelUnpin: "Permitir que el panel se oculte automáticamente"
 
         // MARK: - Menu
         case .menuAbout: "Acerca de work-buddy"
