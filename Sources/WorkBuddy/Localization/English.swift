@@ -141,6 +141,7 @@ extension L10n {
         case .githubReply: "To reply"
         case .githubWaiting: "Awaiting reply"
         case .githubAutomation: "Automation"
+        case .githubAutomationHelp: "No CI failures, awaiting review → To review.\nReady to merge → To merge."
         case .githubIgnored: "Ignored"
         case .githubReview: "To review"
         case .githubApproved: "Already approved"

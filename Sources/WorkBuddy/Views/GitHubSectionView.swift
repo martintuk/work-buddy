@@ -39,6 +39,8 @@ struct GitHubSectionView: View {
                 L10n.text(.githubReplyHelp)
             case .waitingForReply:
                 L10n.text(.githubWaitingHelp)
+            case .automation:
+                L10n.text(.githubAutomationHelp)
             default:
                 nil
             }
