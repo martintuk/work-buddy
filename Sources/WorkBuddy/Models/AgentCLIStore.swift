@@ -58,6 +58,13 @@ final class AgentCLIStore {
     private(set) var openingID: String?
     private(set) var error: Error?
     var isOpening: Bool { openingID != nil }
+    var openTitle: String {
+        switch agent {
+        case .none: L10n.text(.agentOpen)
+        case .custom: L10n.text(.agentOpenCustom)
+        default: L10n.text(.agentOpenWith, agent.name)
+        }
+    }
     var isConfigured: Bool {
         !agent.command(custom: customCommand).isEmpty
             && (terminal != .custom || !customTerminalCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

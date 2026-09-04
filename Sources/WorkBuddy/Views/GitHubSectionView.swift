@@ -377,6 +377,7 @@ struct GitHubSectionView: View {
                 behindBy: store.behindCount(for: pullRequest),
                 localFolder: store.localRepositories.folder(for: pullRequest.repository),
                 editor: store.editor,
+                agentCLI: store.agentCLI,
                 requestEditorConfiguration: {
                     pendingAction = nil
                     store.projectOpener.dismissNotice()

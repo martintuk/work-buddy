@@ -11,6 +11,7 @@ struct PullRequestRow: View {
     let behindBy: Int?
     let localFolder: URL?
     let editor: EditorStore
+    let agentCLI: AgentCLIStore
     let requestEditorConfiguration: () -> Void
     let requestFolderConfiguration: () -> Void
     let isOpeningProject: Bool
@@ -147,7 +148,7 @@ struct PullRequestRow: View {
         .disabled(!canOpenProject)
 
         Button(action: openAgent) {
-            Label(L10n.text(.agentOpen), systemImage: "terminal")
+            Label(agentCLI.openTitle, systemImage: "terminal")
         }
         .help(localFolder?.path ?? L10n.text(.repositoriesNoFolder))
         .disabled(!canOpenProject)

@@ -55,6 +55,8 @@ extension L10n {
         case .agentCustom: "Personalizado…"
         case .agentCommand: "Comando CLI y argumentos"
         case .agentOpen: "Abrir agente AI"
+        case .agentOpenWith: "Abrir con %@"
+        case .agentOpenCustom: "Abrir con agente personalizado"
         case .agentMissingTerminal: "La terminal seleccionada no está disponible. Elegí otra en Configuración."
         case .agentGhosttyVersion: "Actualizá Ghostty a la versión 1.3 o posterior para abrir una sesión del agente."
         case .agentAutomationDenied: "Permití que Work Buddy controle la terminal en Ajustes del Sistema → Privacidad y seguridad → Automatización."

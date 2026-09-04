@@ -55,6 +55,8 @@ extension L10n {
         case agentCustom
         case agentCommand
         case agentOpen
+        case agentOpenWith
+        case agentOpenCustom
         case agentMissingTerminal
         case agentGhosttyVersion
         case agentAutomationDenied
