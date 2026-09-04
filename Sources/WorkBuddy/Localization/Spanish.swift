@@ -159,7 +159,7 @@ extension L10n {
         case .prDraft: "borrador"
         case .prCI: "CI"
         case .prActions: "Acciones"
-        case .prOpen: "Abrir en el navegador"
+        case .prOpen: "Abrir en GitHub"
         case .prIgnore: "Ignorar"
         case .prRestore: "Dejar de ignorar"
         case .prApprove: "Aprobar"
