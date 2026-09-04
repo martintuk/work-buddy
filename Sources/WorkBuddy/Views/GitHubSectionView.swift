@@ -125,8 +125,8 @@ struct GitHubSectionView: View {
     private func confirmationTitle(for pending: PendingAction) -> String {
         switch pending.action {
         case .dependabotRebase:
-            "¿Pedir rebase de \(pending.pullRequest.shortRepository) "
-                + "#\(pending.pullRequest.number)?"
+            "¿Rebasear \(pending.pullRequest.shortRepository) "
+                + "#\(pending.pullRequest.number) con Dependabot?"
         case .merge:
             "¿Mergear \(pending.pullRequest.shortRepository) "
                 + "#\(pending.pullRequest.number)?"

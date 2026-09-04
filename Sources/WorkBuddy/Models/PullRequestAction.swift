@@ -24,7 +24,7 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
         case .restore: "Dejar de ignorar"
         case .approve: "Aprobar"
         case .rebase: "Rebasear"
-        case .dependabotRebase: "Pedir rebase"
+        case .dependabotRebase: "Rebasear con Dependabot"
         case .merge: "Mergear"
         }
     }

@@ -24,9 +24,10 @@ pedido al equipo. Si se descarta o pedís cambios después, puede volver a apare
 La automatización no cuenta como review pendiente ni notifica; sí cuenta cuando
 está para mergear.
 
-**Acciones por fila** (menú `⋯`): abrir, aprobar, pedir rebase a Dependabot
-cuando está atrasado, mergear e ignorar. Rebase y merge piden confirmación; el
-método de merge lo decide el repo, no la app.
+**Acciones por fila** (menú `⋯`): abrir, aprobar, rebasear ramas atrasadas,
+mergear e ignorar. Para Dependabot se muestra **Rebasear con Dependabot** y se
+envía su comando específico, con confirmación; el método de merge lo decide el
+repo, no la app.
 
 Refresca cada 5 minutos y notifica lo nuevo que te bloquea.
 

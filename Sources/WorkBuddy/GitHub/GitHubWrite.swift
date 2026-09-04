@@ -78,7 +78,7 @@ enum GitHubWrite: Sendable {
         switch self {
         case .approve: "Aprobado"
         case .rebase: "Rebaseado"
-        case .dependabotRebase: "Rebase pedido"
+        case .dependabotRebase: "Rebase solicitado a Dependabot"
         case .merge: "Mergeado"
         }
     }

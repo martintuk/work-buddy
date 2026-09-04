@@ -173,7 +173,7 @@ final class ReviewQueueStore {
                 behindBy: behindCount(for: pullRequest)
             ) else {
                 outcome = Outcome(
-                    text: "No se puede pedir rebase para \(pullRequest.shortRepository)",
+                    text: "Dependabot no puede rebasear \(pullRequest.shortRepository)",
                     isError: true
                 )
                 break
