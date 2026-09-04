@@ -300,7 +300,7 @@ struct GitHubSectionView: View {
     // MARK: - Contenido
 
     private var hasVisiblePullRequests: Bool {
-        !store.humanSections.isEmpty || !store.readyToMerge.isEmpty || !store.needingCIFix.isEmpty
+        !store.reviewSections.isEmpty || !store.readyToMerge.isEmpty || !store.needingCIFix.isEmpty
             || !store.needingReply.isEmpty || !store.waitingForReply.isEmpty || !store.automation.isEmpty || !store.ignored.isEmpty
     }
 
@@ -333,7 +333,7 @@ struct GitHubSectionView: View {
 
     @ViewBuilder
     private var list: some View {
-        let sections = store.humanSections
+        let sections = store.reviewSections
         let merge = store.readyToMerge
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {

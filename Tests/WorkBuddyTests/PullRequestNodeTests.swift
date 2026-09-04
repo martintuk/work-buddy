@@ -13,7 +13,7 @@ struct PullRequestNodeTests {
         )
         #expect(pr.approvedByMe)
         #expect(pr.bucket() == nil)
-        #expect([pr].humanSections.isEmpty)
+        #expect([pr].reviewSections.isEmpty)
         #expect([pr].awaitingYourReview.isEmpty)
     }
 

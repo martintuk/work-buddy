@@ -33,6 +33,7 @@ enum DumpQueue {
             // refleja lo que se ve en la app.
             let ignoredIDs = IgnoreList().ids
             let visible = pullRequests.excluding(ignoredIDs)
+                .excludingMergeableAutomation(in: mergeCandidates)
             let readyToMerge = mergeCandidates.excluding(ignoredIDs).readyToMerge
             let needingCIFix = fixCandidates.excluding(ignoredIDs).needingCIFix
             let needingReply = replies.needingReply.excluding(ignoredIDs)
@@ -44,8 +45,8 @@ enum DumpQueue {
             let ignored = allKnown.only(ignoredIDs)
             let behind = await BehindCount.fetch(for: allKnown)
 
-            let people = visible.filter { !$0.author.isBot }
-            let bots = visible.filter(\.author.isBot)
+            let reviews = visible.reviewSections.flatMap(\.items)
+            let bots = visible.automation
 
             // Mismo cálculo que el badge: las cuatro fuentes, deduplicadas por id.
             let awaiting = visible.awaitingYourReview
@@ -54,7 +55,7 @@ enum DumpQueue {
 
             print("\(pullRequests.count) PRs con review pedido — \(format(elapsed))")
             print("  personas: \(humans.count)  |  dependabot: \(dependabot.count)")
-            print("visibles → personas: \(people.count)"
+            print("visibles → reviews: \(reviews.count)"
                 + "  |  automatización: \(bots.count)"
                 + "  |  ignorados: \(ignored.count)")
             print("BADGE: \(badge)  (\(awaiting.count) para revisar + "
@@ -85,14 +86,17 @@ enum DumpQueue {
             }
             print("")
 
-            print("── PERSONAS ──")
-            printBuckets(people, behind: behind, listing: true)
+            print("── REVIEWS ──")
+            printBuckets(reviews, behind: behind, listing: true)
 
             // Se listan igual que las personas: desde que dependabot entra al
             // panel, su atraso contra la base es el dato que decide si hace falta
             // un rebase, y no verlo acá sería volar a ciegas.
             print("── AUTOMATIZACIÓN ──")
-            printBuckets(bots, behind: behind, listing: true)
+            for pullRequest in bots {
+                print("  \(describe(pullRequest, behind: behind))")
+            }
+            print("")
 
             if !ignored.isEmpty {
                 print("── IGNORADOS ──")
@@ -122,11 +126,11 @@ enum DumpQueue {
         }
         // Siguen disponibles para automatización, merge e ignorados, aunque
         // ya no pertenecen a ninguna categoría de review del panel.
-        let approvedByMe = pullRequests.filter(\.approvedByMe)
-        if !approvedByMe.isEmpty {
-            print("Aprobados por vos, fuera de la cola de review (\(approvedByMe.count))")
+        let outsideReview = pullRequests.filter { $0.bucket() == nil }
+        if !outsideReview.isEmpty {
+            print("Fuera de la cola de review (\(outsideReview.count))")
             if listing {
-                for pullRequest in approvedByMe.sorted(by: { $0.updatedAt > $1.updatedAt }) {
+                for pullRequest in outsideReview.sorted(by: { $0.updatedAt > $1.updatedAt }) {
                     print("  \(describe(pullRequest, behind: behind))")
                 }
             }

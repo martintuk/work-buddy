@@ -107,9 +107,9 @@ página y el panel aparece en ~4s, y dependabot se carga en segunda fase.
 `QueryShapeTests.complementarias`.
 
 **Qué se rompe:** si la org migra a Renovate, sus PRs caen en la cola de
-personas —el filtro no los excluye— y aparecen entre los que esperan tu review,
-inflando el badge. `Author.isBot` los saca de las secciones de personas sólo si
-GitHub los tipa como `Bot` (ver #4).
+ReviewQueue —el filtro no los excluye—. `Author.isBot` permite agruparlos
+en Automatización cuando falla CI; sin fallas aparecen en las secciones de
+review y cuentan en el badge (ver #4).
 
 **Cómo detectarlo:** `--dump-queue` imprime `personas: N | dependabot: M`. Si
 `personas` sube mucho o aparecen logins de bot ahí, el supuesto cayó.
@@ -128,8 +128,8 @@ cuentas automáticas. Una cuenta de servicio venía tipada como `User` y requiri
 configuración explícita.
 
 **Qué se rompe:** una cuenta de máquina nueva tipada como `User` se cuenta como
-persona. Eso **infla el badge** y **dispara notificaciones** por PRs de bots, que
-es justo lo que el diseño evita.
+persona. Sus PRs con CI fallida quedan en review y pueden contar en el badge
+y notificar, en lugar de ir a Automatización.
 
 **Cómo detectarlo:** logins que no reconocés en "Para revisar". Para revisar la
 clasificación actual:

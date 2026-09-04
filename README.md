@@ -14,7 +14,7 @@ separan la acción pendiente de los PRs aprobados y la automatización.
 | **Para Fixear** | Sólo PRs de tu autoría con CI fallida o en error, incluidos drafts |
 | **Para revisar** | Pedido a vos o a tus equipos, sin aprobación tuya vigente ni aprobación agregada de GitHub |
 | **Ya aprobados** | `reviewDecision = APPROVED`, sin aprobación tuya vigente: tu review es opcional |
-| **Automatización** _(colapsada)_ | dependabot y cuentas de máquina; CI exitosa primero, luego favoritos y actividad reciente dentro de cada grupo |
+| **Automatización** _(colapsada)_ | Bots y cuentas de máquina con CI fallida o en error, salvo los que ya están en Para mergear; favoritos y actividad reciente |
 | **Ignorados** _(colapsada)_ | Los que archivaste a mano |
 
 El badge del icono cuenta lo accionable: lo que espera tu review más lo que podés
@@ -23,12 +23,14 @@ Los pedidos a equipos cuentan igual que los personales;
 la antigüedad y haber comentado antes no cambian la categoría. Tu aprobación
 personal vigente excluye el PR de ambas categorías de review, aunque siga
 pedido al equipo. Si se descarta o pedís cambios después, puede volver a aparecer.
-La automatización no cuenta como review pendiente ni notifica; sí cuenta cuando
-está para mergear.
+La automatización sin fallas de CI se agrupa en Para revisar o Ya aprobados,
+según sus reviews. CI pendiente o desconocida conserva su indicador. Los bots
+en Para revisar cuentan en el badge y notifican; los listos para mergear aparecen
+sólo en Para mergear.
 
 “Para Fixear” respeta filtros, favoritos e ignorados. Un check opcional fallido
 puede hacer que el PR aparezca también en “Para mergear”. La automatización
-conserva su sección. CI pendiente, desconocida o exitosa no entra en “Para Fixear”.
+con CI fallida va a su sección, salvo que ya esté lista para mergear. CI pendiente, desconocida o exitosa no entra en “Para Fixear”.
 
 **Acciones por fila** (menú `⋯`): abrir, aprobar, rebasear ramas atrasadas,
 mergear, ignorar y dejar de ignorar. Todas piden confirmación, incluso abrir el PR
@@ -164,7 +166,7 @@ Notificaciones → work-buddy; la app no puede concederse ese permiso.
 
 Cada PR que entra en **Para revisar** o **Para mergear** genera su propia
 notificación, sin agrupar. Se usan las mismas listas del panel, incluidos los
-bots listos para mergear. La primera carga de cada sección es silenciosa;
+bots por revisar sin fallas de CI y los listos para mergear. La primera carga de cada sección es silenciosa;
 si un PR sale y vuelve a entrar, vuelve a avisar.
 
 ## Estructura

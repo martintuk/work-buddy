@@ -23,7 +23,7 @@ final class ReviewQueueStore {
     let agentCLI = AgentCLIStore()
     let projectOpener = ProjectOpener()
     private(set) var pullRequests: [PullRequest] = []
-    /// PRs de dependabot en la cola de review, mostrados en automatización.
+    /// PRs de dependabot en la cola de review, agrupados según su CI.
     /// Los que están para mergear llegan por `mergeCandidates`.
     private(set) var dependabotPullRequests: [PullRequest] = []
     /// Candidatos a merge. Vienen de otra query porque pedirle a GitHub que
@@ -83,6 +83,7 @@ final class ReviewQueueStore {
     /// no hay forma de que el badge cuente algo que el panel no muestra.
     private var visible: [PullRequest] {
         repositoryFilter.apply(to: reviewQueue).excluding(ignoreList.ids)
+            .excludingMergeableAutomation(in: mergeCandidates)
     }
 
     var repositories: [RepositoryFilter.Repository] {
@@ -93,14 +94,14 @@ final class ReviewQueueStore {
         allKnown.contains { !repositoryFilter.includes($0.repository) }
     }
 
-    var humanSections: [(bucket: ReviewBucket, items: [PullRequest])] {
-        visible.humanSections.map { section in
+    var reviewSections: [(bucket: ReviewBucket, items: [PullRequest])] {
+        visible.reviewSections.map { section in
             (section.bucket, repositoryFilter.prioritizingFavorites(in: section.items))
         }
     }
 
     var automation: [PullRequest] {
-        repositoryFilter.prioritizingFavorites(in: visible.automation).prioritizingSuccessfulCI
+        repositoryFilter.prioritizingFavorites(in: visible.automation)
     }
 
     var awaitingYourReview: [PullRequest] { visible.awaitingYourReview }
@@ -394,12 +395,10 @@ final class ReviewQueueStore {
                     fixCandidates = fetchedFixCandidates
                 }
 
-                var notifications = notificationTracker.process(awaitingYourReview, in: .review)
                 // No sembrar ni reemplazar la base de merge si su consulta falló.
                 if fetchedMergeCandidates != nil {
-                    notifications += notificationTracker.process(readyToMerge, in: .merge)
+                    await notifier.send(notificationTracker.process(readyToMerge, in: .merge))
                 }
-                await notifier.send(notifications)
                 guard requestedRevision == configurationRevision else { return }
 
                 // La lista propia ya está disponible. Una falla de hilos conserva
@@ -425,10 +424,15 @@ final class ReviewQueueStore {
                 // dato que decide si hace falta un rebase, así que necesitamos
                 // la lista antes de medir.
                 onChange?()
-                dependabotPullRequests =
-                    (try? await DependabotQueue.fetch(configuration: requestedConfiguration))
-                    ?? dependabotPullRequests
+                let fetchedDependabot = try? await DependabotQueue.fetch(configuration: requestedConfiguration)
                 guard requestedRevision == configurationRevision else { return }
+                if let fetchedDependabot {
+                    dependabotPullRequests = fetchedDependabot
+                    // Review incluye bots: esperar ambas consultas evita sembrar
+                    // una base parcial y notificar el backlog en la primera carga.
+                    await notifier.send(notificationTracker.process(awaitingYourReview, in: .review))
+                    guard requestedRevision == configurationRevision else { return }
+                }
                 // Recién con todas las colas consultadas podemos mostrar un
                 // estado vacío. Medir ramas después no agrega ni quita PRs.
                 lastUpdated = .now

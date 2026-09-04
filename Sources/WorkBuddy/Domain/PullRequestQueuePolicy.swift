@@ -14,9 +14,11 @@ enum PullRequestQueuePolicy {
     /// Sólo el veredicto agregado de GitHub confirma los approvals requeridos,
     /// incluyendo CODEOWNERS y branch protection. Contar approvals no alcanza.
     /// Un pedido al equipo equivale a uno personal. La antigüedad, la CI y haber
-    /// comentado antes no cambian la categoría. Tu aprobación vigente sí te saca
+    /// comentado antes no cambian la categoría de personas. La automatización
+    /// con CI fallida queda en su sección. Tu aprobación vigente sí te saca
     /// de ambas categorías de review, aunque falten approvals de otras personas.
     static func reviewBucket(for pullRequest: PullRequest) -> ReviewBucket? {
+        guard !pullRequest.author.isBot || !pullRequest.checks.isRed else { return nil }
         guard !pullRequest.approvedByMe else { return nil }
         return pullRequest.reviewDecision == .approved ? .approvedAlready : .needsReview
     }
@@ -38,25 +40,25 @@ extension [PullRequest] {
         filter { ids.contains($0.id) }
     }
 
-    /// PRs de personas, agrupados por bucket en orden de prioridad.
-    var humanSections: [(bucket: ReviewBucket, items: [PullRequest])] {
-        let humans = filter { !$0.author.isBot }
-        let grouped = Dictionary(grouping: humans) { $0.bucket() }
+    /// Personas y automatización sin fallas de CI, agrupadas por review pendiente.
+    var reviewSections: [(bucket: ReviewBucket, items: [PullRequest])] {
+        let grouped = Dictionary(grouping: self) { $0.bucket() }
         return ReviewBucket.allCases.compactMap { bucket in
             guard let items = grouped[bucket], !items.isEmpty else { return nil }
             return (bucket, items.sorted { $0.updatedAt > $1.updatedAt })
         }
     }
 
-    /// Bots y cuentas de máquina: CI exitosa primero, luego actividad reciente.
+    /// Bots y cuentas de máquina con CI fallida, por actividad reciente.
     var automation: [PullRequest] {
-        filter(\.author.isBot).sorted { $0.updatedAt > $1.updatedAt }
-            .prioritizingSuccessfulCI
+        filter { $0.author.isBot && $0.checks.isRed }
+            .sorted { $0.updatedAt > $1.updatedAt }
     }
 
-    /// Partición estable: conserva favoritos y actividad dentro de cada grupo.
-    var prioritizingSuccessfulCI: [PullRequest] {
-        filter { $0.checks == .success } + filter { $0.checks != .success }
+    /// La consulta de review no trae mergeabilidad. La de merge decide qué bots
+    /// ya tienen su acción resuelta allí y no deben repetirse en review o automation.
+    func excludingMergeableAutomation(in mergeCandidates: [PullRequest]) -> [PullRequest] {
+        excluding(Set(mergeCandidates.readyToMerge.filter(\.author.isBot).map(\.id)))
     }
 
     /// PRs que GitHub dejaría mergear y que te toca mergear a vos: los tuyos y
@@ -74,11 +76,8 @@ extension [PullRequest] {
             .sorted { $0.updatedAt > $1.updatedAt }
     }
 
-    /// PRs de personas que esperan que los revises vos.
-    ///
-    /// Los de automatización quedan afuera a propósito: si el badge contara los
-    /// 56 PRs de bots de la cola, dejarías de mirarlo.
+    /// Los mismos PRs que muestra Para revisar cuentan en el badge y notifican.
     var awaitingYourReview: [PullRequest] {
-        filter { !$0.author.isBot && $0.bucket()?.needsYourReview == true }
+        filter { $0.bucket()?.needsYourReview == true }
     }
 }

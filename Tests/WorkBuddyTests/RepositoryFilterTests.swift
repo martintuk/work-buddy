@@ -122,7 +122,8 @@ struct RepositoryFilterTests {
         filter.toggleSolo("org/api")
         let solo = filter.apply(to: queue).excluding(["ignored"])
         #expect(solo.count == 3)
-        #expect(solo.automation.map(\.id) == ["bot"])
+        #expect(solo.automation.isEmpty)
+        #expect(solo.awaitingYourReview.map(\.id) == ["review", "bot", "merge"])
         #expect(solo.readyToMerge.map(\.id) == ["merge"])
     }
 

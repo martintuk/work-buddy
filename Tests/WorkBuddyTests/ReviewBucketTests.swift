@@ -80,15 +80,15 @@ struct ReviewBucketTests {
             reviewDecision: globallyApproved ? .approved : .reviewRequired
         )
         #expect(pr.bucket() == nil)
-        #expect([pr].humanSections.isEmpty)
+        #expect([pr].reviewSections.isEmpty)
         #expect([pr].awaitingYourReview.isEmpty)
     }
 
     @Test("Los approvals ajenos no equivalen a una aprobación personal")
     func aprobadoPorOtrosSigueVisible() {
         let pr = makePullRequest(approvals: 2, reviewDecision: .approved)
-        #expect([pr].humanSections.map(\.bucket) == [.approvedAlready])
-        #expect([pr].humanSections.first?.items.map(\.id) == [pr.id])
+        #expect([pr].reviewSections.map(\.bucket) == [.approvedAlready])
+        #expect([pr].reviewSections.first?.items.map(\.id) == [pr.id])
     }
 
     // MARK: - Casos base
@@ -144,9 +144,8 @@ struct AuthorTests {
 
 @Suite("Agrupación de la cola")
 struct GroupingTests {
-    @Test("El badge ignora los PRs de automatización")
-    func badgeSoloCuentaPersonas() {
-        // Si el badge contara los 56 PRs de bots dejaría de significar algo.
+    @Test("El badge incluye automatización sin fallas que espera review")
+    func badgeIncluyeAutomatizacion() {
         let queue = [
             makePullRequest(requestedFromMe: true, authorLogin: "alice"),
             makePullRequest(requestedFromMe: true, authorLogin: "dependabot", authorTypename: "Bot"),
@@ -157,7 +156,7 @@ struct GroupingTests {
             ),
             makePullRequest(requestedFromMe: false, authorLogin: "bob")
         ]
-        #expect(queue.awaitingYourReview.count == 2)
+        #expect(queue.awaitingYourReview.count == 4)
     }
 
     @Test(
@@ -178,45 +177,71 @@ struct GroupingTests {
         #expect(queue.awaitingYourReview.count == 1)
     }
 
-    @Test("Las secciones de personas excluyen la automatización")
-    func seccionesSoloDePersonas() {
-        let queue = [
-            makePullRequest(requestedFromMe: true, authorLogin: "alice"),
-            makePullRequest(requestedFromMe: true, authorLogin: "dependabot", authorTypename: "Bot")
-        ]
-        #expect(queue.humanSections.count == 1)
-        #expect(queue.humanSections[0].bucket == .needsReview)
-        #expect(queue.humanSections[0].items.count == 1)
-        #expect(queue.automation.count == 1)
+    @Test("Automatización se reparte por CI, para bots y cuentas de máquina",
+          arguments: [CheckState.success, .failure, .error, .pending, .expected, .unknown], [false, true])
+    func automatizacionPorCI(checks: CheckState, machine: Bool) {
+        let bot = makePullRequest(checks: checks, authorLogin: "automation",
+                                  authorTypename: machine ? "User" : "Bot",
+                                  machineAccounts: machine ? ["automation"] : [])
+        let human = makePullRequest(checks: checks)
+        let queue = [human, bot]
+        #expect(queue.reviewSections.count == 1)
+        #expect(Set(queue.reviewSections[0].items.map(\.id)) ==
+                (checks.isRed ? [human.id] : [human.id, bot.id]))
+        #expect(Set(queue.awaitingYourReview.map(\.id)) ==
+                Set(queue.reviewSections[0].items.map(\.id)))
+        #expect(queue.automation.map(\.id) == (checks.isRed ? [bot.id] : []))
     }
 
-    @Test("Automatización muestra CI exitosa antes que cualquier otro estado")
-    func automatizacionConCIExitosaPrimero() {
-        let now = Date.now
-        let states: [CheckState] = [.failure, .pending, .error, .expected, .unknown, .success, .success]
-        let bots = states.enumerated().map { index, state in
-            makePullRequest(number: index, checks: state,
-                            updatedAt: now.addingTimeInterval(-Double(index)),
-                            authorLogin: "dependabot", authorTypename: "Bot")
-        }
-        let human = makePullRequest(number: 99, checks: .success)
-        #expect((bots.reversed() + [human]).automation.map(\.number) == [5, 6, 0, 1, 2, 3, 4])
+    @Test("Automatización respeta aprobaciones propias y ajenas",
+          arguments: [false, true], [false, true])
+    func automatizacionAprobada(personal: Bool, global: Bool) {
+        let bot = makePullRequest(approvedByMe: personal,
+                                  reviewDecision: global ? .approved : .reviewRequired,
+                                  authorTypename: "Bot")
+        #expect([bot].reviewSections.map(\.bucket) ==
+                (personal ? [] : [global ? .approvedAlready : .needsReview]))
+        #expect([bot].awaitingYourReview.isEmpty == (personal || global))
+        #expect([bot].automation.isEmpty)
     }
 
-    @Test("CI exitosa tiene prioridad sobre favoritos, que se conservan dentro de cada grupo")
-    func automatizacionCIFavoritos() {
+    @Test("Los bots listos para mergear no se duplican aunque review no traiga mergeabilidad",
+          arguments: [CheckState.success, .failure])
+    func prioridadDeMerge(checks: CheckState) {
+        let bot = makePullRequest(checks: checks, authorTypename: "Bot",
+                                  mergeable: .mergeable,
+                                  mergeStateStatus: checks.isRed ? .unstable : .clean)
+        let human = makePullRequest(authoredByMe: true, mergeable: .mergeable, mergeStateStatus: .clean)
+        let data = [bot, human]
+        #expect(data.readyToMerge.count == 2)
+        // El snapshot de review conserva el id pero carece de campos de merge.
+        let reviewBot = PullRequest(
+            id: bot.id, number: bot.number, title: bot.title, url: bot.url,
+            repository: bot.repository, baseRefName: bot.baseRefName, headRefName: bot.headRefName,
+            author: bot.author, updatedAt: bot.updatedAt, isDraft: false, checks: checks,
+            reviewDecision: .reviewRequired, mergeable: nil, mergeStateStatus: nil,
+            defaultMergeMethod: nil, authoredByMe: false, requestedFromMe: true,
+            reviewedByMe: false, approvals: 0, approvedByMe: false
+        )
+        let visible = [reviewBot, human].excludingMergeableAutomation(in: data)
+        #expect(visible.map(\.id) == [human.id])
+        #expect(visible.automation.isEmpty)
+        #expect(visible.awaitingYourReview.map(\.id) == [human.id])
+        #expect([reviewBot].excludingMergeableAutomation(in: []).count == 1)
+    }
+
+    @Test("Automatización con fallas conserva favoritos y actividad reciente")
+    func automatizacionFavoritos() {
         let now = Date.now
-        let success = makePullRequest(number: 1, updatedAt: now, authorTypename: "Bot")
-        let favoriteSuccess = makePullRequest(number: 2, repository: "org/favorite",
-                                             updatedAt: now.addingTimeInterval(-3600), authorTypename: "Bot")
-        let failure = makePullRequest(number: 3, checks: .failure, updatedAt: now, authorTypename: "Bot")
-        let favoriteFailure = makePullRequest(number: 4, repository: "org/favorite", checks: .failure,
-                                             updatedAt: now.addingTimeInterval(-3600), authorTypename: "Bot")
+        let recent = makePullRequest(number: 1, checks: .failure, updatedAt: now, authorTypename: "Bot")
+        let old = makePullRequest(number: 2, checks: .error,
+                                  updatedAt: now.addingTimeInterval(-3600), authorTypename: "Bot")
+        let favorite = makePullRequest(number: 3, repository: "org/favorite", checks: .failure,
+                                       updatedAt: now.addingTimeInterval(-7200), authorTypename: "Bot")
         var filter = RepositoryFilter()
         filter.toggleFavorite("org/favorite")
-        let automation = [failure, success, favoriteFailure, favoriteSuccess].automation
-        let ordered = filter.prioritizingFavorites(in: automation).prioritizingSuccessfulCI
-        #expect(ordered.map(\.number) == [2, 1, 4, 3])
+        let ordered = filter.prioritizingFavorites(in: [old, favorite, recent].automation)
+        #expect(ordered.map(\.number) == [3, 1, 2])
     }
 
     @Test("Las secciones salen en orden de prioridad")
@@ -226,7 +251,7 @@ struct GroupingTests {
             makePullRequest(number: 2, requestedFromMe: true),
             makePullRequest(number: 3, requestedFromMe: false)
         ]
-        #expect(queue.humanSections.map(\.bucket) == [.needsReview, .approvedAlready])
+        #expect(queue.reviewSections.map(\.bucket) == [.needsReview, .approvedAlready])
     }
 
     @Test("Dentro de una sección, lo más reciente va primero")
@@ -237,7 +262,7 @@ struct GroupingTests {
             updatedAt: .now.addingTimeInterval(-3600)
         )
         let nuevo = makePullRequest(number: 2, requestedFromMe: true)
-        #expect([viejo, nuevo].humanSections[0].items.map(\.number) == [2, 1])
+        #expect([viejo, nuevo].reviewSections[0].items.map(\.number) == [2, 1])
     }
 }
 

@@ -9,9 +9,8 @@ enum CheckState: String, Sendable {
     case expected = "EXPECTED"
     case unknown
 
-    /// Ojo: `statusCheckRollup` incluye checks **opcionales**, así que esto sirve
-    /// como badge informativo, no como filtro. Medido sobre datos reales, usarlo
-    /// para esconder PRs tapaba 40 de 63 — muchas seguían necesitando review.
+    /// Incluye checks opcionales: organiza la automatización y señala fallas,
+    /// pero no determina mergeabilidad ni oculta reviews de personas.
     var isRed: Bool { self == .failure || self == .error }
 }
 
