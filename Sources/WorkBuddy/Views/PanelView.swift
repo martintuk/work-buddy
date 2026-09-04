@@ -93,7 +93,9 @@ struct PanelView: View {
     private var footer: some View {
         HStack {
             if let lastUpdated = store.lastUpdated {
-                Text("Última actualización: \(lastUpdated.formatted(date: .omitted, time: .shortened))")
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text(LastUpdatedText.format(lastUpdated, relativeTo: context.date))
+                }
             } else {
                 Text("v\(Self.version)")
             }
