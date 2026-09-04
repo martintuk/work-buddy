@@ -12,7 +12,7 @@ struct QueueItemInteraction: ViewModifier {
         content
             .background(
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(isSelected ? Color.accentColor.opacity(0.20)
+                    .fill(isSelected ? Color.primary.opacity(0.14)
                           : isHovering ? Color.primary.opacity(0.07) : .clear)
             )
             .contentShape(.rect)
