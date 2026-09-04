@@ -75,21 +75,12 @@ struct ConfigurationView: View {
                 Text("Tus organizaciones de GitHub")
                     .font(.system(size: 12, weight: .semibold))
                 Spacer()
-                Button {
+                RefreshButton(
+                    isRefreshing: isLoadingOrganizations,
+                    label: "Actualizar lista de organizaciones"
+                ) {
                     organizationsRequest += 1
-                } label: {
-                    Image(systemName: "arrow.clockwise")
                 }
-                .buttonStyle(.borderless)
-                .help("Actualizar lista")
-                .accessibilityLabel("Actualizar lista de organizaciones")
-                .disabled(isLoadingOrganizations)
-            }
-
-            if isLoadingOrganizations {
-                ProgressView("Leyendo organizaciones de GitHub…")
-                    .controlSize(.small)
-                    .font(.system(size: 11))
             }
 
             if !listedOrganizations.isEmpty {

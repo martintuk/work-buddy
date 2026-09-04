@@ -62,16 +62,8 @@ struct PanelView: View {
             Text("Work Buddy")
                 .font(.system(size: 13, weight: .semibold))
             Spacer()
-            if case .loading = store.state {
-                ProgressView().controlSize(.small)
-            } else {
-                Button {
-                    store.refresh(force: true)
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .buttonStyle(.borderless)
-                .help("Actualizar")
+            RefreshButton(isRefreshing: isRefreshing, label: "Actualizar") {
+                store.refresh(force: true)
             }
 
             Button {
@@ -85,6 +77,11 @@ struct PanelView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+
+    private var isRefreshing: Bool {
+        if case .loading = store.state { return true }
+        return false
     }
 
     @ViewBuilder
