@@ -11,51 +11,31 @@ struct PullRequestRow: View {
     let behindBy: Int?
     let localFolder: URL?
     let editor: EditorStore
+    let requestEditorConfiguration: () -> Void
     let perform: (PullRequestAction) -> Void
 
     @State private var isHovering = false
-    @State private var showingEditorHint = false
     @State private var editorError: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ZStack(alignment: .topTrailing) {
-                // El cuerpo y el menú son hermanos, no anidados: un Menu adentro de
-                // un Button no recibe los clicks.
-                Button { perform(.open) } label: { details }
-                    .buttonStyle(.plain)
+        ZStack(alignment: .topTrailing) {
+            // El cuerpo y el menú son hermanos, no anidados: un Menu adentro de
+            // un Button no recibe los clicks.
+            Button { perform(.open) } label: { details }
+                .buttonStyle(.plain)
 
-                HStack(spacing: 4) {
-                    ItemNoteButton(
-                        itemID: .github(nodeID: pullRequest.id, host: pullRequest.url.host() ?? "github.com"),
-                        isRowHovering: isHovering
-                    )
-                    if isActing {
-                        ProgressView()
-                            .controlSize(.small)
-                            .frame(width: 18, height: 18)
-                    } else {
-                        actionMenu
-                    }
+            HStack(spacing: 4) {
+                ItemNoteButton(
+                    itemID: .github(nodeID: pullRequest.id, host: pullRequest.url.host() ?? "github.com"),
+                    isRowHovering: isHovering
+                )
+                if isActing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 18, height: 18)
+                } else {
+                    actionMenu
                 }
-            }
-
-            if showingEditorHint && editor.selectedURL == nil {
-                HStack(spacing: 8) {
-                    Text(L10n.text(.editorSelectInSettings))
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
-                    Button { showingEditorHint = false } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .buttonStyle(.borderless)
-                    .help(L10n.text(.commonCancel))
-                    .accessibilityLabel(L10n.text(.commonCancel))
-                }
-                .controlSize(.small)
-                .onExitCommand { showingEditorHint = false }
             }
         }
         .padding(.horizontal, 10)
@@ -157,7 +137,7 @@ struct PullRequestRow: View {
         if let localFolder {
             Button {
                 if editor.selectedURL == nil {
-                    showingEditorHint = true
+                    requestEditorConfiguration()
                 } else {
                     openLocalFolder()
                 }

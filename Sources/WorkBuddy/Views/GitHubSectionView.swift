@@ -8,6 +8,7 @@ struct GitHubSectionView: View {
     @AppStorage("appearance.showEmptySections") private var showEmptySections = true
     @AppStorage("github.collapsedSections") private var collapsedSectionIDs = ""
     @State private var pendingAction: PendingAction?
+    @State private var showingEditorHint = false
 
     /// Acción sobre un PR esperando confirmación.
     struct PendingAction: Identifiable {
@@ -106,12 +107,39 @@ struct GitHubSectionView: View {
             if let pendingAction {
                 confirmBar(pendingAction)
                 Divider()
+            } else if showingEditorHint && store.editor.selectedURL == nil {
+                editorConfigurationNotice
+                Divider()
             } else if let outcome = store.outcome {
                 outcomeBanner(outcome)
                 Divider()
             }
             content
         }
+        .onChange(of: store.editor.selectedURL) { _, selectedURL in
+            if selectedURL != nil { showingEditorHint = false }
+        }
+    }
+
+    private var editorConfigurationNotice: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "info.circle.fill")
+                .foregroundStyle(.orange)
+            Text(L10n.text(.editorSelectInSettings))
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+            Button { showingEditorHint = false } label: {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.borderless)
+            .help(L10n.text(.commonCancel))
+            .accessibilityLabel(L10n.text(.commonCancel))
+        }
+        .font(.system(size: 10))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Color.orange.opacity(0.16))
     }
 
     /// Confirmación inline en vez de un diálogo del sistema.
@@ -277,8 +305,14 @@ struct GitHubSectionView: View {
                 isActing: store.isActing(on: pullRequest),
                 behindBy: store.behindCount(for: pullRequest),
                 localFolder: store.localRepositories.folder(for: pullRequest.repository),
-                editor: store.editor
+                editor: store.editor,
+                requestEditorConfiguration: {
+                    pendingAction = nil
+                    store.dismissOutcome()
+                    showingEditorHint = true
+                }
             ) { action in
+                showingEditorHint = false
                 if action.needsConfirmation {
                     pendingAction = PendingAction(
                         pullRequest: pullRequest,
