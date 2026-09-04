@@ -9,6 +9,7 @@ struct PanelView: View {
     let jiraStore: JiraStore
     var onLanguageChange: () -> Void = {}
     var onPinChange: (Bool) -> Void = { _ in }
+    var repositoryPickerWindow: () -> NSWindow? = { nil }
 
     @State private var selectedCategory: Category = .github
     @State private var showingConfiguration = false
@@ -25,7 +26,7 @@ struct PanelView: View {
     var body: some View {
         Group {
             if showingRepositories {
-                RepositoryFilterView(store: store) { showingRepositories = false }
+                RepositoryFilterView(store: store, parentWindow: repositoryPickerWindow) { showingRepositories = false }
             } else {
                 panel
             }

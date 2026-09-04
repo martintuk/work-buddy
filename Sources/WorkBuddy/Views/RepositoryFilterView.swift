@@ -4,6 +4,7 @@ import SwiftUI
 /// Ocupa todo el panel para que la lista siga siendo cómoda con muchos repos.
 struct RepositoryFilterView: View {
     let store: ReviewQueueStore
+    var parentWindow: () -> NSWindow? = { nil }
     let close: () -> Void
 
     @State private var search = ""
@@ -77,15 +78,20 @@ struct RepositoryFilterView: View {
         panel.title = L10n.text(.repositoriesAssociateFolder, repository)
         panel.prompt = L10n.text(.repositoriesChooseFolder)
         panel.directoryURL = store.localRepositories.folder(for: repository)
-        // El popover flota por encima de las ventanas modales normales.
-        let parentLevel = NSApp.keyWindow?.level ?? .normal
-        panel.level = NSWindow.Level(rawValue: max(parentLevel.rawValue + 1, NSWindow.Level.modalPanel.rawValue))
         NSApp.activate(ignoringOtherApps: true)
-        guard panel.runModal() == .OK, let folder = panel.url else { return }
-        do {
-            try store.localRepositories.associate(folder, with: repository)
-        } catch {
-            showingFolderError = true
+        let completion: (NSApplication.ModalResponse) -> Void = { response in
+            guard response == .OK, let folder = panel.url else { return }
+            do {
+                try store.localRepositories.associate(folder, with: repository)
+            } catch {
+                showingFolderError = true
+            }
+        }
+        if let window = parentWindow() {
+            // Una sheet queda ligada al popover y AppKit la mantiene por delante.
+            panel.beginSheetModal(for: window, completionHandler: completion)
+        } else {
+            completion(panel.runModal())
         }
     }
 
