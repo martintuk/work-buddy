@@ -28,7 +28,19 @@ final class ReviewQueueStore {
     private(set) var dependabotPullRequests: [PullRequest] = []
     /// Candidatos a merge. Vienen de otra query porque pedirle a GitHub que
     /// calcule la mergeabilidad de toda la cola de review es caro.
-    private(set) var mergeCandidates: [PullRequest] = []
+    private var requestedMergeCandidates: [PullRequest] = []
+    private var teamDependabotPullRequests: [PullRequest] = []
+    var mergeCandidates: [PullRequest] {
+        (requestedMergeCandidates + teamDependabotPullRequests).uniquedByID()
+    }
+    private(set) var teamDependabotFailure: LocalizedMessage?
+    private(set) var isLoadingTeamDependabot = false
+    private var forceTeamDiscovery = false
+
+    func retryTeamDependabot() {
+        forceTeamDiscovery = true
+        refresh(force: true)
+    }
     /// PRs propios; se consultan aparte aunque no esperen review ni puedan mergearse.
     private(set) var fixCandidates: [PullRequest] = []
     private(set) var replyCandidates: [PullRequest] = []
@@ -74,10 +86,11 @@ final class ReviewQueueStore {
     // La lógica vive en Domain/PullRequestQueuePolicy.swift y se puede probar
     // sin instanciar el store.
 
-    /// La cola de review completa: personas y dependabot. No hace falta
-    /// deduplicar porque los filtros de las dos queries son complementarios
-    /// exactos (`-author:app/dependabot` contra `author:app/dependabot`).
-    private var reviewQueue: [PullRequest] { pullRequests + dependabotPullRequests }
+    /// La cola completa, incluyendo Dependabot por ownership. Esa ampliación
+    /// puede solaparse con los pedidos de review, por eso deduplicamos por id.
+    private var reviewQueue: [PullRequest] {
+        (pullRequests + dependabotPullRequests + teamDependabotPullRequests).uniquedByID()
+    }
 
     /// Todo lo visible sale de acá: los ignorados se filtran una sola vez, así
     /// no hay forma de que el badge cuente algo que el panel no muestra.
@@ -275,10 +288,13 @@ final class ReviewQueueStore {
     }
 
     /// Valida, guarda y aplica el alcance sin tener que reiniciar la app.
-    func updateConfiguration(organizations: Set<String>, machineAccounts: String) throws {
+    func updateConfiguration(organizations: Set<String>, machineAccounts: String,
+                             teamDependabotEnabled: Bool? = nil, dependabotTeams: Set<String>? = nil) throws {
         let updated = try AppConfiguration(
             organizations: organizations,
-            machineAccountsText: machineAccounts
+            machineAccountsText: machineAccounts,
+            teamDependabotEnabled: teamDependabotEnabled ?? configuration.teamDependabotEnabled,
+            dependabotTeams: dependabotTeams ?? configuration.dependabotTeams
         )
         guard updated != configuration else { return }
 
@@ -292,7 +308,10 @@ final class ReviewQueueStore {
         // No dejamos datos del alcance anterior visibles mientras carga el nuevo.
         pullRequests = []
         dependabotPullRequests = []
-        mergeCandidates = []
+        requestedMergeCandidates = []
+        teamDependabotPullRequests = []
+        teamDependabotFailure = nil
+        isLoadingTeamDependabot = false
         fixCandidates = []
         replyCandidates = []
         waitingReplyCandidates = []
@@ -362,6 +381,9 @@ final class ReviewQueueStore {
 
         let requestedConfiguration = configuration
         let requestedRevision = configurationRevision
+        let requestedTeamDiscovery = forceTeamDiscovery
+        forceTeamDiscovery = false
+        isLoadingTeamDependabot = !requestedConfiguration.effectiveDependabotTeams.isEmpty
 
         // Sin `weak self`: el store vive todo lo que vive la app.
         inFlight = Task {
@@ -369,6 +391,9 @@ final class ReviewQueueStore {
                 try await GH.preflight()
 
                 // Las consultas de review, merge y CI propia son independientes.
+                async let teamQueue = TeamDependabot.load(
+                    configuration: requestedConfiguration, force: requestedTeamDiscovery
+                )
                 async let reviewQueue = ReviewQueue.fetch(configuration: requestedConfiguration)
                 async let mergeQueue = MergeQueue.fetch(configuration: requestedConfiguration)
                 async let fixQueue = FixQueue.fetch(configuration: requestedConfiguration)
@@ -384,7 +409,7 @@ final class ReviewQueueStore {
                 let fetchedMergeCandidates = try? await mergeQueue
                 guard requestedRevision == configurationRevision else { return }
                 if let fetchedMergeCandidates {
-                    mergeCandidates = fetchedMergeCandidates
+                    requestedMergeCandidates = fetchedMergeCandidates
                 }
 
                 // Una falla de esta consulta conserva el último resultado conocido,
@@ -394,12 +419,6 @@ final class ReviewQueueStore {
                 if let fetchedFixCandidates {
                     fixCandidates = fetchedFixCandidates
                 }
-
-                // No sembrar ni reemplazar la base de merge si su consulta falló.
-                if fetchedMergeCandidates != nil {
-                    await notifier.send(notificationTracker.process(readyToMerge, in: .merge))
-                }
-                guard requestedRevision == configurationRevision else { return }
 
                 // La lista propia ya está disponible. Una falla de hilos conserva
                 // la última clasificación sin impedir que se actualice la CI.
@@ -426,11 +445,28 @@ final class ReviewQueueStore {
                 onChange?()
                 let fetchedDependabot = try? await DependabotQueue.fetch(configuration: requestedConfiguration)
                 guard requestedRevision == configurationRevision else { return }
+                let fetchedTeamQueue = await teamQueue
+                guard requestedRevision == configurationRevision else { return }
+                isLoadingTeamDependabot = false
+                teamDependabotFailure = fetchedTeamQueue.error.map {
+                    LocalizedMessage(L10n.text(.errorTeamDiscovery, $0))
+                }
+                if let prs = fetchedTeamQueue.pullRequests {
+                    teamDependabotPullRequests = prs
+                }
+                // Esperar las dos fuentes evita notificar el backlog de equipos
+                // como nuevo al completar el primer descubrimiento.
+                if fetchedMergeCandidates != nil && fetchedTeamQueue.pullRequests != nil {
+                    await notifier.send(notificationTracker.process(readyToMerge, in: .merge))
+                    guard requestedRevision == configurationRevision else { return }
+                }
                 if let fetchedDependabot {
                     dependabotPullRequests = fetchedDependabot
                     // Review incluye bots: esperar ambas consultas evita sembrar
                     // una base parcial y notificar el backlog en la primera carga.
-                    await notifier.send(notificationTracker.process(awaitingYourReview, in: .review))
+                    if fetchedTeamQueue.pullRequests != nil {
+                        await notifier.send(notificationTracker.process(awaitingYourReview, in: .review))
+                    }
                     guard requestedRevision == configurationRevision else { return }
                 }
                 // Recién con todas las colas consultadas podemos mostrar un
@@ -445,6 +481,7 @@ final class ReviewQueueStore {
             }
             guard requestedRevision == configurationRevision else { return }
             inFlight = nil
+            isLoadingTeamDependabot = false
             onChange?()
             if hasPendingRefresh {
                 hasPendingRefresh = false

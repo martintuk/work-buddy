@@ -8,6 +8,22 @@ import Testing
 /// Las dos quedaron acá como casos fijos.
 @Suite("Clasificación de PRs")
 struct ReviewBucketTests {
+    @Test("Dependabot descubierto por ownership se clasifica sin pedido y sin duplicados")
+    func teamDependabotWithoutReviewRequest() {
+        let pending = makePullRequest(authorLogin: "dependabot", authorTypename: "Bot")
+        let failed = makePullRequest(number: 2, checks: .failure, authorLogin: "dependabot", authorTypename: "Bot")
+        let mergeable = makePullRequest(number: 3, reviewDecision: .approved,
+                                       authorLogin: "dependabot", authorTypename: "Bot",
+                                       mergeable: .mergeable, mergeStateStatus: .clean)
+        let queue = [pending, pending, failed, mergeable].uniquedByID()
+        let merges = [mergeable, mergeable].uniquedByID()
+        let visible = queue.excludingMergeableAutomation(in: merges)
+        #expect(visible.awaitingYourReview.map(\.id) == [pending.id])
+        #expect(visible.automation.map(\.id) == [failed.id])
+        #expect(merges.readyToMerge.map(\.id) == [mergeable.id])
+        #expect(visible.excluding([pending.id]).awaitingYourReview.isEmpty)
+    }
+
     // MARK: - Regresiones encontradas contra la API real
 
     @Test("Approvals que GitHub no acepta no marcan el PR como cubierto")

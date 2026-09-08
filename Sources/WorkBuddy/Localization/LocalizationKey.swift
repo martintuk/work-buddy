@@ -25,6 +25,12 @@ extension L10n {
         case settingsRefreshOrganizations
         case settingsSavedOrganization
         case settingsNoOrganizations
+        case settingsTeamDependabot
+        case settingsTeamDependabotHelp
+        case settingsRefreshTeams
+        case settingsNoTeams
+        case errorTeam
+        case errorTeamDiscovery
 
         // MARK: - Editor
         case settingsEditor

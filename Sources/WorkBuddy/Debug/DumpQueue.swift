@@ -15,18 +15,24 @@ enum DumpQueue {
             // acá van en paralelo porque sólo interesa el resultado.
             async let reviewQueue = ReviewQueue.fetch(configuration: configuration)
             async let dependabotQueue = DependabotQueue.fetch(configuration: configuration)
+            async let teamQueue = TeamDependabot.load(configuration: configuration)
             async let mergeQueue = MergeQueue.fetch(configuration: configuration)
             async let conversationCandidates = ConversationCandidates.fetch(configuration: configuration)
             async let fixQueue = FixQueue.fetch(configuration: configuration)
 
             let humans = try await reviewQueue
             let dependabot = try await dependabotQueue
-            let mergeCandidates = try await mergeQueue
+            let teamResult = await teamQueue
+            if let error = teamResult.error {
+                FileHandle.standardError.write(Data("Dependabot de equipos: \(error)\n".utf8))
+            }
+            let teamPRs = teamResult.pullRequests ?? []
+            let mergeCandidates = (try await mergeQueue + teamPRs).uniquedByID()
             let fixCandidates = try await fixQueue
             let others = try await conversationCandidates
             let viewer = try await Viewer.fetch()
             let replies = try await ReplyQueue.fetch(for: fixCandidates + others, me: viewer.login)
-            let pullRequests = humans + dependabot
+            let pullRequests = (humans + dependabot + teamPRs).uniquedByID()
             let elapsed = Date().timeIntervalSince(start)
 
             // Aplicamos la lista de ignorados igual que el panel, así el volcado
@@ -53,8 +59,8 @@ enum DumpQueue {
             let badge = Set(awaiting.map(\.id)).union(readyToMerge.map(\.id))
                 .union(needingCIFix.map(\.id)).union(needingReply.map(\.id)).count
 
-            print("\(pullRequests.count) PRs con review pedido — \(format(elapsed))")
-            print("  personas: \(humans.count)  |  dependabot: \(dependabot.count)")
+            print("\(pullRequests.count) PRs en la cola — \(format(elapsed))")
+            print("  personas: \(humans.count)  |  dependabot: \(dependabot.count)  |  dependabot de equipos: \(teamPRs.count)")
             print("visibles → reviews: \(reviews.count)"
                 + "  |  automatización: \(bots.count)"
                 + "  |  ignorados: \(ignored.count)")

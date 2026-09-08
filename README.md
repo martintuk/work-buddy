@@ -6,6 +6,18 @@ accionar sin abrir el navegador.
 La cola incluye pedidos de review personales y a tus equipos. Las categorías
 separan la acción pendiente de los PRs aprobados y la automatización.
 
+En **Configuración**, **Incluir Dependabot de mis equipos** permite seleccionar
+los equipos de trabajo con checkboxes, sin mantener una lista de repositorios.
+La app consulta sus repos y lee CODEOWNERS en la rama principal: incluye aquellos
+cuya última regla general `*` menciona al usuario o a los equipos seleccionados.
+Las menciones sólo por carpeta no amplían el alcance. Esta es una señal de
+responsabilidad general, no una evaluación de las reglas para cada archivo del PR.
+El descubrimiento se guarda por cuenta y equipos durante 24 horas; un fallo
+conserva la última lista válida y permite reintentar desde Configuración.
+Los PRs abiertos de Dependabot de esos repos se suman a las búsquedas actuales,
+sin exigir un pedido de review, y se deduplican en las secciones existentes.
+La opción empieza desactivada y respeta el filtro de organizaciones.
+
 **Qué muestra el panel**, de arriba hacia abajo:
 
 | Sección | Qué junta |

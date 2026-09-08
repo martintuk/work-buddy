@@ -7,6 +7,7 @@ struct ConfigurationView: View {
     private enum Field: Hashable {
         case organization
         case machineAccounts
+        case teams
     }
 
     @AppStorage("appearance.showEmptySections") private var showEmptySections = true
@@ -15,6 +16,12 @@ struct ConfigurationView: View {
     @State private var isLoadingOrganizations = false
     @State private var organizationsError: (any Error)?
     @State private var organizationsRequest = 0
+    @State private var teamDependabotEnabled = false
+    @State private var selectedTeams: Set<String> = []
+    @State private var availableTeams: [String] = []
+    @State private var isLoadingTeams = false
+    @State private var teamsError: (any Error)?
+    @State private var teamsRequest = 0
     @State private var machineAccounts = ""
     @State private var configurationErrors: [Field: any Error] = [:]
     @FocusState private var focusedField: Field?
@@ -65,6 +72,8 @@ struct ConfigurationView: View {
 
                 organizationsSelector
 
+                teamDependabotSelector
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text(L10n.text(.settingsMachineAccounts))
                         .font(.system(size: 12, weight: .semibold))
@@ -84,6 +93,8 @@ struct ConfigurationView: View {
         .onAppear {
             selectedOrganizations = store.configuration.organizations
             machineAccounts = store.configuration.machineAccountsText
+            teamDependabotEnabled = store.configuration.teamDependabotEnabled
+            selectedTeams = store.configuration.dependabotTeams
         }
         .onChange(of: focusedField) { previousField, _ in
             if let previousField {
@@ -167,6 +178,104 @@ struct ConfigurationView: View {
         .task(id: organizationsRequest) { await loadOrganizations() }
     }
 
+    private var listedTeams: [String] {
+        Set(availableTeams).union(selectedTeams).filter {
+            selectedOrganizations.isEmpty || selectedOrganizations.contains(String($0.split(separator: "/")[0]))
+        }.sorted()
+    }
+
+    private var teamDependabotSelector: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(L10n.text(.settingsTeamDependabot))
+                    .font(.system(size: 12, weight: .semibold))
+                Spacer()
+                Toggle(L10n.text(.settingsTeamDependabot), isOn: Binding(
+                    get: { teamDependabotEnabled },
+                    set: { teamDependabotEnabled = $0; saveConfiguration(field: .teams) }
+                ))
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+            }
+            Text(L10n.text(.settingsTeamDependabotHelp))
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+
+            if teamDependabotEnabled {
+                HStack(alignment: .top, spacing: 8) {
+                    if !listedTeams.isEmpty {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 10) {
+                                ForEach(listedTeams, id: \.self) { team in
+                                    Toggle(team, isOn: Binding(
+                                        get: { selectedTeams.contains(team) },
+                                        set: { selected in
+                                            if selected { selectedTeams.insert(team) }
+                                            else { selectedTeams.remove(team) }
+                                            saveConfiguration(field: .teams)
+                                        }
+                                    ))
+                                    .toggleStyle(.checkbox)
+                                    .font(.system(size: 11))
+                                    .help(team)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(10)
+                        }
+                        .frame(height: min(CGFloat(listedTeams.count) * 28 + 10, 170))
+                        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+                    } else if !isLoadingTeams && teamsError == nil {
+                        Text(L10n.text(.settingsNoTeams))
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                    RefreshButton(
+                        isRefreshing: isLoadingTeams || store.isLoadingTeamDependabot,
+                        label: L10n.text(.settingsRefreshTeams)
+                    ) {
+                        teamsRequest += 1
+                        store.retryTeamDependabot()
+                    }
+                }
+                .task(id: teamsRequest) { await loadTeams() }
+                if let teamsError {
+                    Label(teamsError.localizedDescription, systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.red)
+                    Button(L10n.text(.commonRetry)) { teamsRequest += 1 }
+                        .controlSize(.small)
+                        .disabled(isLoadingTeams)
+                }
+                if let failure = store.teamDependabotFailure {
+                    Label(failure.text, systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.red)
+                    Button(L10n.text(.commonRetry)) { store.retryTeamDependabot() }
+                        .controlSize(.small)
+                        .disabled(store.isLoadingTeamDependabot)
+                }
+            }
+            configurationError(for: .teams)
+        }
+    }
+
+    private func loadTeams() async {
+        isLoadingTeams = true
+        teamsError = nil
+        defer { isLoadingTeams = false }
+        do {
+            let teams = try await GitHubTeams.fetch()
+            try Task.checkCancellation()
+            availableTeams = teams
+        } catch {
+            guard !Task.isCancelled else { return }
+            teamsError = error
+        }
+    }
+
     private func loadOrganizations() async {
         isLoadingOrganizations = true
         organizationsError = nil
@@ -199,7 +308,11 @@ struct ConfigurationView: View {
                 organizations: field == .organization
                     ? selectedOrganizations : store.configuration.organizations,
                 machineAccounts: field == .machineAccounts
-                    ? machineAccounts : store.configuration.machineAccountsText
+                    ? machineAccounts : store.configuration.machineAccountsText,
+                teamDependabotEnabled: field == .teams
+                    ? teamDependabotEnabled : store.configuration.teamDependabotEnabled,
+                dependabotTeams: field == .teams
+                    ? selectedTeams : store.configuration.dependabotTeams
             )
             configurationErrors[field] = nil
         } catch {

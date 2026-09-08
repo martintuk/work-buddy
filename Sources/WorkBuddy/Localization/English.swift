@@ -26,6 +26,13 @@ extension L10n {
         case .settingsSavedOrganization: "Saved · unavailable in the list"
         case .settingsNoOrganizations: "GitHub returned no organizations for this gh session."
 
+        case .settingsTeamDependabot: "Include Dependabot from my teams"
+        case .settingsTeamDependabotHelp: "Includes Dependabot PRs without a review request in repositories owned by the selected teams."
+        case .settingsRefreshTeams: "Refresh team list"
+        case .settingsNoTeams: "No teams available."
+        case .errorTeam: "Invalid GitHub team: %@"
+        case .errorTeamDiscovery: "Could not refresh Dependabot from teams: %@"
+
         // MARK: - Editor
         case .settingsEditor: "Editor"
         case .editorChoose: "Choose editor…"

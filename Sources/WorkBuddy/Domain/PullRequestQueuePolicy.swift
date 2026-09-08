@@ -29,6 +29,11 @@ enum PullRequestQueuePolicy {
 /// Viven acá y no en el store para que sean funciones puras sobre un array:
 /// se pueden testear sin instanciar nada ni abrir un seam de test.
 extension [PullRequest] {
+    func uniquedByID() -> [PullRequest] {
+        var seen = Set<String>()
+        return filter { seen.insert($0.id).inserted }
+    }
+
     /// Saca los PRs con estos ids. Se compone antes de agrupar, así el filtro de
     /// ignorados vale también para el contador del badge.
     func excluding(_ ids: Set<String>) -> [PullRequest] {

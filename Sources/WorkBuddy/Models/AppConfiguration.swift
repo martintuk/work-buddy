@@ -9,11 +9,14 @@ struct AppConfiguration: Equatable, Sendable {
     enum ValidationError: LocalizedError {
         case invalidOrganization(String)
         case invalidMachineAccount(String)
+        case invalidTeam(String)
 
         var errorDescription: String? {
             switch self {
             case .invalidOrganization(let value):
                 L10n.text(.errorOrganization, value)
+            case .invalidTeam(let value):
+                L10n.text(.errorTeam, value)
             case .invalidMachineAccount(let value):
                 L10n.text(.errorMachineAccount, value)
             }
@@ -24,12 +27,23 @@ struct AppConfiguration: Equatable, Sendable {
         static let organization = "configuration.organization" // Preferencia anterior.
         static let organizations = "configuration.organizations"
         static let machineAccounts = "configuration.machineAccounts"
+        static let teamDependabotEnabled = "configuration.teamDependabotEnabled"
+        static let dependabotTeams = "configuration.dependabotTeams"
     }
 
     static let empty = AppConfiguration(organizations: [], machineAccounts: [])
 
     let organizations: Set<String>
     let machineAccounts: Set<String>
+    var teamDependabotEnabled = false
+    private(set) var dependabotTeams: Set<String> = []
+
+    var effectiveDependabotTeams: [String] {
+        guard teamDependabotEnabled else { return [] }
+        return dependabotTeams.filter {
+            organizations.isEmpty || organizations.contains(String($0.split(separator: "/")[0]))
+        }.sorted()
+    }
 
     var machineAccountsText: String { machineAccounts.sorted().joined(separator: ", ") }
 
@@ -38,7 +52,18 @@ struct AppConfiguration: Equatable, Sendable {
         self.machineAccounts = machineAccounts
     }
 
-    init(organizations: Set<String>, machineAccountsText: String) throws {
+    init(organizations: Set<String>, machineAccountsText: String,
+         teamDependabotEnabled: Bool = false, dependabotTeams: Set<String> = []) throws {
+        self.teamDependabotEnabled = teamDependabotEnabled
+        for raw in dependabotTeams {
+            let team = Self.strippingAt(raw).lowercased()
+            let parts = team.split(separator: "/", omittingEmptySubsequences: false)
+            guard parts.count == 2, Self.isValidGitHubLogin(String(parts[0])),
+                  parts[1].range(of: #"^[a-z0-9][a-z0-9_-]*$"#, options: .regularExpression) != nil else {
+                throw ValidationError.invalidTeam(raw)
+            }
+            self.dependabotTeams.insert(team)
+        }
         var normalized: Set<String> = []
         for value in organizations {
             let organization = Self.strippingAt(value)
@@ -74,6 +99,8 @@ struct AppConfiguration: Equatable, Sendable {
     }
 
     func persist(defaults: UserDefaults = .standard) {
+        defaults.set(teamDependabotEnabled, forKey: Key.teamDependabotEnabled)
+        defaults.set(dependabotTeams.sorted(), forKey: Key.dependabotTeams)
         defaults.set(organizations.sorted(), forKey: Key.organizations)
         defaults.removeObject(forKey: Key.organization)
         defaults.set(machineAccounts.sorted(), forKey: Key.machineAccounts)
@@ -95,7 +122,9 @@ struct AppConfiguration: Equatable, Sendable {
         // no debe impedir que la aplicación arranque.
         return (try? AppConfiguration(
             organizations: Set(storedOrganizations),
-            machineAccountsText: storedAccounts.joined(separator: ",")
+            machineAccountsText: storedAccounts.joined(separator: ","),
+            teamDependabotEnabled: defaults.bool(forKey: Key.teamDependabotEnabled),
+            dependabotTeams: Set(defaults.stringArray(forKey: Key.dependabotTeams) ?? [])
         )) ?? .empty
     }
 
