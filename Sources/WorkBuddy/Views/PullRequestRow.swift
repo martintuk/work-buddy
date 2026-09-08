@@ -100,16 +100,20 @@ struct PullRequestRow: View {
         if pullRequest.checks.isRed {
             Badge(text: L10n.text(.prCI), color: .red)
         }
-        if pullRequest.approvals > 0 {
-            Badge(text: "\(pullRequest.approvals)✓", color: .green)
-        }
-        if pullRequest.awaitingOtherApproval {
-            Image(systemName: "person.badge.clock")
-                .foregroundStyle(.secondary)
-                .help(L10n.text(.prAwaitingOtherApproval))
-                .accessibilityLabel(L10n.text(.prAwaitingOtherApproval))
+        if pullRequest.approvals > 0 || pullRequest.awaitingOtherApproval {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(pullRequest.awaitingOtherApproval ? Color.orange : Color.green)
+                .help(approvalHelp)
+                .accessibilityLabel(approvalHelp)
         }
         behindBadge
+    }
+
+    private var approvalHelp: String {
+        let count = L10n.text(.prApprovalCount, String(pullRequest.approvals))
+        return pullRequest.awaitingOtherApproval
+            ? "\(count). \(L10n.text(.prAwaitingOtherApproval))"
+            : count
     }
 
     /// Mostramos sólo atraso confirmado. Mientras se calcula o si no se pudo

@@ -148,6 +148,7 @@ extension L10n {
         case .githubReply: "Para responder"
         case .githubWaiting: "Esperando respuesta"
         case .githubAutomation: "Automatización"
+        case .prApprovalCount: "Aprobaciones: %@"
         case .prAwaitingOtherApproval: "Ya aprobaste; falta otra aprobación"
         case .githubAutomationHelp: "PRs con fallas de CI o que ya aprobaste y esperan otra aprobación.\nLos listos para review o merge están en sus secciones."
         case .githubIgnored: "Ignorados"
