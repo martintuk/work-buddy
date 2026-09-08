@@ -26,7 +26,7 @@ La opción empieza desactivada y respeta el filtro de organizaciones.
 | **Para Fixear** | Sólo PRs de tu autoría con CI fallida o en error, incluidos drafts |
 | **Para revisar** | Pedido a vos o a tus equipos, sin aprobación tuya vigente ni aprobación agregada de GitHub |
 | **Ya aprobados** | `reviewDecision = APPROVED`, sin aprobación tuya vigente: tu review es opcional |
-| **Automatización** _(colapsada)_ | Bots y cuentas de máquina con CI fallida o en error, salvo los que ya están en Para mergear; favoritos y actividad reciente |
+| **Automatización** _(colapsada)_ | Bots y cuentas de máquina con CI fallida o en error, o que ya aprobaste y esperan otra aprobación, salvo los que ya están en Para mergear; favoritos y actividad reciente |
 | **Ignorados** _(colapsada)_ | Los que archivaste a mano |
 
 El badge del icono cuenta lo accionable: lo que espera tu review más lo que podés
@@ -35,7 +35,8 @@ Los pedidos a equipos cuentan igual que los personales;
 la antigüedad y haber comentado antes no cambian la categoría. Tu aprobación
 personal vigente excluye el PR de ambas categorías de review, aunque siga
 pedido al equipo. Si se descarta o pedís cambios después, puede volver a aparecer.
-La automatización sin fallas de CI se agrupa en Para revisar o Ya aprobados,
+La automatización que ya aprobaste y sigue en `REVIEW_REQUIRED` queda en
+Automatización, sin contar en el badge. El resto sin fallas de CI se agrupa en Para revisar o Ya aprobados,
 según sus reviews. CI pendiente o desconocida conserva su indicador. Los bots
 en Para revisar cuentan en el badge y notifican; los listos para mergear aparecen
 sólo en Para mergear.

@@ -147,6 +147,7 @@ extension L10n {
         case githubReply
         case githubWaiting
         case githubAutomation
+        case prAwaitingOtherApproval
         case githubAutomationHelp
         case githubIgnored
         case githubReview

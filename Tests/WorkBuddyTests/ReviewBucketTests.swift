@@ -218,7 +218,7 @@ struct GroupingTests {
         #expect([bot].reviewSections.map(\.bucket) ==
                 (personal ? [] : [global ? .approvedAlready : .needsReview]))
         #expect([bot].awaitingYourReview.isEmpty == (personal || global))
-        #expect([bot].automation.isEmpty)
+        #expect([bot].automation.isEmpty == !(personal && !global))
     }
 
     @Test("Los bots listos para mergear no se duplican aunque review no traiga mergeabilidad",

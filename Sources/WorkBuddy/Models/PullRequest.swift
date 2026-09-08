@@ -102,6 +102,11 @@ struct PullRequest: Identifiable, Sendable {
     /// Tu última decisión de review es APPROVED y no fue descartada.
     let approvedByMe: Bool
 
+    /// Tu parte está resuelta, pero GitHub todavía requiere otra aprobación.
+    var awaitingOtherApproval: Bool {
+        author.isBot && approvedByMe && reviewDecision == .reviewRequired
+    }
+
     /// GitHub habilitaría el botón de merge ahora mismo.
     ///
     /// Es el veredicto de GitHub y no una reconstrucción nuestra: `BLOCKED` ya

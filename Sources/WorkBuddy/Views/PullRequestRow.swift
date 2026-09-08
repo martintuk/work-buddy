@@ -103,6 +103,12 @@ struct PullRequestRow: View {
         if pullRequest.approvals > 0 {
             Badge(text: "\(pullRequest.approvals)✓", color: .green)
         }
+        if pullRequest.awaitingOtherApproval {
+            Image(systemName: "person.badge.clock")
+                .foregroundStyle(.secondary)
+                .help(L10n.text(.prAwaitingOtherApproval))
+                .accessibilityLabel(L10n.text(.prAwaitingOtherApproval))
+        }
         behindBadge
     }
 

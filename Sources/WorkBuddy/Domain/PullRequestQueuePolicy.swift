@@ -54,9 +54,9 @@ extension [PullRequest] {
         }
     }
 
-    /// Bots y cuentas de máquina con CI fallida, por actividad reciente.
+    /// Bots con CI fallida o aprobados por vos que esperan otra aprobación.
     var automation: [PullRequest] {
-        filter { $0.author.isBot && $0.checks.isRed }
+        filter { $0.author.isBot && ($0.checks.isRed || $0.awaitingOtherApproval) }
             .sorted { $0.updatedAt > $1.updatedAt }
     }
 
