@@ -108,7 +108,11 @@ struct ConfigurationView: View {
     }
 
     private var listedOrganizations: [String] {
-        Set(availableOrganizations).union(selectedOrganizations).sorted()
+        Set(availableOrganizations).union(selectedOrganizations).sorted { lhs, rhs in
+            let lhsSelected = selectedOrganizations.contains(lhs)
+            let rhsSelected = selectedOrganizations.contains(rhs)
+            return lhsSelected == rhsSelected ? lhs < rhs : lhsSelected
+        }
     }
 
     private var organizationsSelector: some View {
@@ -181,7 +185,11 @@ struct ConfigurationView: View {
     private var listedTeams: [String] {
         Set(availableTeams).union(selectedTeams).filter {
             selectedOrganizations.isEmpty || selectedOrganizations.contains(String($0.split(separator: "/")[0]))
-        }.sorted()
+        }.sorted { lhs, rhs in
+            let lhsSelected = selectedTeams.contains(lhs)
+            let rhsSelected = selectedTeams.contains(rhs)
+            return lhsSelected == rhsSelected ? lhs < rhs : lhsSelected
+        }
     }
 
     private var teamDependabotSelector: some View {
