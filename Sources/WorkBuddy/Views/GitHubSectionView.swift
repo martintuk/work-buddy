@@ -346,7 +346,11 @@ struct GitHubSectionView: View {
         let sections = store.reviewSections
         let merge = store.readyToMerge
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+            // En macOS 26, las actualizaciones de esta cola pueden dejar al
+            // LazyVStack con headers fijos recalculando posiciones sin terminar
+            // (LazySubviewPlacements), bloqueando el hilo principal. La pila
+            // eager evita ese ciclo; los encabezados se desplazan con las filas.
+            VStack(alignment: .leading, spacing: 0) {
                 if !hasVisiblePullRequests && (!showEmptySections || store.hasRepositoryFilteredResults) {
                     centered {
                         ContentUnavailableView {
