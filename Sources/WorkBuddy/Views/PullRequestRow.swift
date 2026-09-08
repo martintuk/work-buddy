@@ -170,27 +170,14 @@ struct PullRequestRow: View {
 
         Divider()
 
-        // Sólo ofrecemos lo que puede funcionar. Un botón que sólo puede
-        // fallar entrena a ignorar los errores.
-        if pullRequest.canRequestDependabotRebase(behindBy: behindBy) {
-            button(.dependabotRebase)
-        }
-        if pullRequest.canApprove {
-            button(.approve)
-        }
-        if pullRequest.canRebase(behindBy: behindBy) {
-            button(.rebase)
-        }
-        // `canMerge` es false cuando no tenemos datos de merge, que es el caso
-        // de la cola de review: la acción aparece sólo en "Para
-        // mergear". El método no se elige acá: lo define el repo.
-        if pullRequest.canMerge {
-            button(.merge)
+        // Una colección dinámica identifica las inserciones y bajas de acciones
+        // cuando cambia el PR, tanto en Menu como en el menú contextual.
+        let writeActions = pullRequest.availableWriteActions(behindBy: behindBy)
+        ForEach(writeActions) { action in
+            button(action)
         }
 
-        if pullRequest.canApprove || pullRequest.canMerge
-            || pullRequest.canRebase(behindBy: behindBy)
-            || pullRequest.canRequestDependabotRebase(behindBy: behindBy) {
+        if !writeActions.isEmpty {
             Divider()
         }
         button(isIgnored ? .restore : .ignore)

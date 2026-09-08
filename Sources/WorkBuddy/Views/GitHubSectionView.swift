@@ -8,7 +8,7 @@ struct GitHubSectionView: View {
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage("appearance.showEmptySections") private var showEmptySections = true
     @AppStorage("github.collapsedSections") private var collapsedSectionIDs = ""
-    @State private var pendingAction: PendingAction?
+    @State private var pendingAction: PendingPullRequestAction?
     @State private var configurationHint: ConfigurationHint?
     @State private var selectedPullRequestID: String?
 
@@ -16,13 +16,6 @@ struct GitHubSectionView: View {
         case editor
         case agent
         case folder(String)
-    }
-
-    /// Acción sobre un PR esperando confirmación.
-    struct PendingAction: Identifiable {
-        let pullRequest: PullRequest
-        let action: PullRequestAction
-        var id: String { "\(pullRequest.id)-\(action.id)" }
     }
 
     /// Una identidad estable conserva el plegado cuando se actualiza la cola.
@@ -123,8 +116,9 @@ struct GitHubSectionView: View {
             } else if let error = store.projectOpener.error {
                 projectError(error, dismiss: store.projectOpener.dismissNotice)
                 Divider()
-            } else if let pendingAction {
-                confirmBar(pendingAction)
+            } else if let pendingAction, store.isAvailable(pendingAction),
+                      let pullRequest = store.currentPullRequest(id: pendingAction.pullRequestID) {
+                confirmBar(pendingAction, pullRequest: pullRequest)
                 Divider()
             } else if let message = configurationHintMessage {
                 configurationNotice(message)
@@ -140,6 +134,9 @@ struct GitHubSectionView: View {
         }
         .onChange(of: store.agentCLI.isConfigured) { _, isConfigured in
             if isConfigured, case .agent = configurationHint { configurationHint = nil }
+        }
+        .onChange(of: pendingAction.map { store.isAvailable($0) } ?? false) { _, available in
+            if !available { pendingAction = nil }
         }
     }
 
@@ -227,11 +224,11 @@ struct GitHubSectionView: View {
     /// Un `.confirmationDialog` dentro de un `NSPopover` tiene que negociar el
     /// foco con la ventana del panel, y el panel se cierra justamente cuando
     /// pierde el foco. Inline no hay nada que negociar.
-    private func confirmBar(_ pending: PendingAction) -> some View {
+    private func confirmBar(_ pending: PendingPullRequestAction, pullRequest: PullRequest) -> some View {
         HStack(spacing: 8) {
             Image(systemName: pending.action.systemImage)
             VStack(alignment: .leading, spacing: 1) {
-                Text(confirmationTitle(for: pending))
+                Text(confirmationTitle(for: pending, pullRequest: pullRequest))
                     .font(.system(size: 10, weight: .semibold))
                 if let detail = confirmationDetail(for: pending) {
                     Text(detail)
@@ -244,7 +241,11 @@ struct GitHubSectionView: View {
             Button(L10n.text(.commonCancel)) { pendingAction = nil }
                 .controlSize(.small)
             Button(L10n.text(.commonConfirm)) {
-                store.perform(pending.action, on: pending.pullRequest)
+                guard store.isAvailable(pending) else {
+                    pendingAction = nil
+                    return
+                }
+                store.perform(pending.action, onID: pending.pullRequestID)
                 pendingAction = nil
             }
             .controlSize(.small)
@@ -255,23 +256,23 @@ struct GitHubSectionView: View {
         .background(Color.accentColor.opacity(0.10))
     }
 
-    private func confirmationTitle(for pending: PendingAction) -> String {
-        let repository = pending.pullRequest.shortRepository
-        let number = String(pending.pullRequest.number)
+    private func confirmationTitle(for pending: PendingPullRequestAction, pullRequest: PullRequest) -> String {
+        let repository = pullRequest.shortRepository
+        let number = String(pullRequest.number)
         if pending.action == .dependabotRebase {
             return L10n.text(.confirmDependabot, repository, number)
         }
         return L10n.text(.confirmAction, pending.action.title, repository, number)
     }
 
-    private func confirmationDetail(for pending: PendingAction) -> String? {
+    private func confirmationDetail(for pending: PendingPullRequestAction) -> String? {
         switch pending.action {
         case .dependabotRebase:
             L10n.text(.githubDependabotWarning)
         case .merge:
             // El método sale del repo: lo mostramos para que sepas qué va a
             // pasar, no para que elijas.
-            pending.pullRequest.defaultMergeMethod?.title ?? L10n.text(.githubUnknownMergeMethod)
+            pending.mergeMethod?.title ?? L10n.text(.githubUnknownMergeMethod)
         default:
             nil
         }
@@ -440,12 +441,11 @@ struct GitHubSectionView: View {
                 configurationHint = nil
                 store.projectOpener.dismissNotice()
                 if action.needsConfirmation {
-                    pendingAction = PendingAction(
-                        pullRequest: pullRequest,
-                        action: action
-                    )
+                    guard let current = store.currentPullRequest(id: pullRequest.id) else { return }
+                    let pending = PendingPullRequestAction(action: action, pullRequest: current)
+                    pendingAction = store.isAvailable(pending) ? pending : nil
                 } else {
-                    store.perform(action, on: pullRequest)
+                    store.perform(action, onID: pullRequest.id)
                 }
             }
             .padding(.top, QueueLayout.rowSpacing)

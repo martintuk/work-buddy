@@ -84,6 +84,58 @@ struct GitHubWriteTests {
 
 @Suite("Disponibilidad de acciones")
 struct ActionAvailabilityTests {
+    @Test("Las acciones cambian al promover y volver a bloquear el mismo PR")
+    func accionesDuranteTransiciones() {
+        let id = "PR_239"
+        let review = makePullRequest(id: id, defaultMergeMethod: .squash)
+        let ready = makePullRequest(id: id, mergeable: .mergeable, mergeStateStatus: .clean)
+        let blocked = makePullRequest(id: id, mergeable: .mergeable, mergeStateStatus: .blocked)
+
+        #expect(!review.availableWriteActions(behindBy: nil).contains(.merge))
+        #expect(ready.availableWriteActions(behindBy: nil).contains(.merge))
+        #expect(!blocked.availableWriteActions(behindBy: nil).contains(.merge))
+        #expect(!ready.availableWriteActions(behindBy: nil).contains(.rebase))
+        #expect(ready.availableWriteActions(behindBy: 2).contains(.rebase))
+        #expect(!ready.availableWriteActions(behindBy: 0).contains(.rebase))
+    }
+
+    @Test("Una confirmación de merge deja de valer si el PR se bloquea o desaparece")
+    func confirmacionContraDatosActuales() {
+        let ready = makePullRequest(id: "PR_239", mergeable: .mergeable, mergeStateStatus: .clean)
+        let pending = PendingPullRequestAction(action: .merge, pullRequest: ready)
+        #expect(pending.isAvailable(for: ready, behindBy: nil))
+
+        for state in [MergeStateStatus.blocked, .behind, .unknown, .dirty] {
+            let updated = makePullRequest(id: ready.id, mergeable: .mergeable, mergeStateStatus: state)
+            #expect(!pending.isAvailable(for: updated, behindBy: nil))
+        }
+        #expect(!pending.isAvailable(for: nil, behindBy: nil))
+        #expect(!pending.isAvailable(for: makePullRequest(id: "another", mergeable: .mergeable,
+                                                         mergeStateStatus: .clean), behindBy: nil))
+    }
+
+    @Test("Cambiar el método de merge requiere una nueva confirmación")
+    func noCambiarMetodoConfirmado() {
+        let ready = makePullRequest(id: "PR_239", mergeable: .mergeable, mergeStateStatus: .clean)
+        let pending = PendingPullRequestAction(action: .merge, pullRequest: ready)
+        for method: MergeMethod? in [.merge, .rebase, nil] {
+            let updated = makePullRequest(id: ready.id, mergeable: .mergeable,
+                                          mergeStateStatus: .clean, defaultMergeMethod: method)
+            #expect(!pending.isAvailable(for: updated, behindBy: nil))
+        }
+    }
+
+    @Test("Una confirmación de rebase usa el atraso actual", arguments: [false, true])
+    func noRebaseConComparacionVieja(dependabot: Bool) {
+        let pr = makePullRequest(author: Author(login: dependabot ? "dependabot" : "alice",
+                                               typename: dependabot ? "Bot" : "User"))
+        let pending = PendingPullRequestAction(action: dependabot ? .dependabotRebase : .rebase,
+                                               pullRequest: pr)
+        #expect(pending.isAvailable(for: pr, behindBy: 3))
+        #expect(!pending.isAvailable(for: pr, behindBy: 0))
+        #expect(!pending.isAvailable(for: pr, behindBy: nil))
+    }
+
     @Test("Rebase requiere atraso medido y excluye sólo a Dependabot")
     func disponibilidadDeRebase() {
         for author in [
@@ -190,6 +242,7 @@ struct ActionAvailabilityTests {
 // MARK: - Helper
 
 private func makePullRequest(
+    id: String = "PR_\(UUID().uuidString)",
     author: Author? = nil,
     authoredByMe: Bool = false,
     mergeable: MergeableState? = nil,
@@ -198,7 +251,7 @@ private func makePullRequest(
     isDraft: Bool = false
 ) -> PullRequest {
     PullRequest(
-        id: "PR_\(UUID().uuidString)",
+        id: id,
         number: 1,
         title: "un cambio",
         url: URL(string: "https://github.com/org/repo/pull/1")!,

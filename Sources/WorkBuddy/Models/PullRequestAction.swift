@@ -56,3 +56,35 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
         }
     }
 }
+
+extension PullRequest {
+    /// La misma disponibilidad para los dos menús y para ejecutar una escritura.
+    func availableWriteActions(behindBy: Int?) -> [PullRequestAction] {
+        var actions: [PullRequestAction] = []
+        if canRequestDependabotRebase(behindBy: behindBy) { actions.append(.dependabotRebase) }
+        if canApprove { actions.append(.approve) }
+        if canRebase(behindBy: behindBy) { actions.append(.rebase) }
+        if canMerge { actions.append(.merge) }
+        return actions
+    }
+}
+
+/// Guarda la intención, no una copia del PR que puede quedar vieja durante un refresh.
+struct PendingPullRequestAction {
+    let pullRequestID: PullRequest.ID
+    let action: PullRequestAction
+    /// Si cambia el método mostrado, hace falta una nueva confirmación.
+    let mergeMethod: MergeMethod?
+
+    init(action: PullRequestAction, pullRequest: PullRequest) {
+        pullRequestID = pullRequest.id
+        self.action = action
+        mergeMethod = action == .merge ? pullRequest.defaultMergeMethod : nil
+    }
+
+    func isAvailable(for pullRequest: PullRequest?, behindBy: Int?) -> Bool {
+        guard let pullRequest, pullRequest.id == pullRequestID,
+              pullRequest.availableWriteActions(behindBy: behindBy).contains(action) else { return false }
+        return action != .merge || mergeMethod == pullRequest.defaultMergeMethod
+    }
+}

@@ -207,7 +207,14 @@ final class ReviewQueueStore {
         onChange?()
     }
 
-    func perform(_ action: PullRequestAction, on pullRequest: PullRequest) {
+    func perform(_ action: PullRequestAction, onID pullRequestID: PullRequest.ID) {
+        // Los callbacks y las confirmaciones pueden sobrevivir a un refresh.
+        // Resolver por ID evita escribir usando el objeto que capturó la fila.
+        guard let pullRequest = currentPullRequest(id: pullRequestID) else { return }
+        if action.writesToGitHub {
+            guard pullRequest.availableWriteActions(behindBy: behindCount(for: pullRequest))
+                .contains(action) else { return }
+        }
         switch action {
         case .open:
             NSWorkspace.shared.open(pullRequest.url)
@@ -275,8 +282,19 @@ final class ReviewQueueStore {
     /// Todo lo conocido, sin duplicados: la cola de review y la de merge sí se
     /// solapan (un PR aprobado por vos está en las dos).
     private var allKnown: [PullRequest] {
-        var seen: Set<String> = []
-        return (reviewQueue + mergeCandidates + fixCandidates + replyCandidates + waitingReplyCandidates).filter { seen.insert($0.id).inserted }
+        // Review es una consulta parcial: no debe tapar los datos de merge,
+        // incluidos los estados BLOCKED/UNKNOWN recibidos en el último refresh.
+        (mergeCandidates + reviewQueue + fixCandidates + replyCandidates + waitingReplyCandidates).uniquedByID()
+    }
+
+    func currentPullRequest(id: PullRequest.ID) -> PullRequest? {
+        allKnown.first { $0.id == id }
+    }
+
+    func isAvailable(_ pending: PendingPullRequestAction) -> Bool {
+        !inFlightActions.contains(pending.pullRequestID)
+            && pending.isAvailable(for: currentPullRequest(id: pending.pullRequestID),
+                                   behindBy: behindCounts[pending.pullRequestID])
     }
 
     func isActing(on pullRequest: PullRequest) -> Bool {
