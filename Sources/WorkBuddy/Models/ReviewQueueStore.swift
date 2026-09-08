@@ -355,6 +355,17 @@ final class ReviewQueueStore {
                 _ = try await GH.run(operation.arguments)
 
                 switch operation {
+                case .merge:
+                    // Sacamos el PR del snapshot local apenas GitHub confirma.
+                    // Sin exclusión persistente: cada consulta puede traerlo de nuevo.
+                    pullRequests.removeAll { $0.id == pullRequest.id }
+                    dependabotPullRequests.removeAll { $0.id == pullRequest.id }
+                    requestedMergeCandidates.removeAll { $0.id == pullRequest.id }
+                    teamDependabotPullRequests.removeAll { $0.id == pullRequest.id }
+                    fixCandidates.removeAll { $0.id == pullRequest.id }
+                    replyCandidates.removeAll { $0.id == pullRequest.id }
+                    waitingReplyCandidates.removeAll { $0.id == pullRequest.id }
+                    behindCounts.removeValue(forKey: pullRequest.id)
                 case .rebase, .dependabotRebase:
                     // La comparación anterior ya no describe la rama actual.
                     // No ofrecemos otro rebase hasta volver a medir el atraso.

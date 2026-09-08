@@ -19,12 +19,15 @@ Hoy `CI✗`, `draft`, `N✓` y `↓N` son badges independientes que hay que leer
 combinar mentalmente. No son excluyentes entre sí, así que la pregunta real —*qué
 falta para que esto se pueda mergear*— no la responde ninguno solo.
 
-### Mantener la fila visible después de actuar
+### Mantener la fila visible después de aprobar
 
-Aprobar te saca de los review requests y mergear cierra el PR: en los dos casos
-la fila desaparece en el refresh siguiente y el único rastro es el banner, que se
+Aprobar te saca de los review requests: la fila desaparece en el refresh
+siguiente y el único rastro es el banner, que se
 puede cerrar. Un estado "recién hecho" de ~15 min haría que la confirmación no se
 esfume.
+
+Para merge, decidimos quitar el PR del snapshot local apenas GitHub confirma
+el éxito. No se guarda una exclusión: el próximo update puede volver a traerlo.
 
 ---
 
