@@ -384,8 +384,9 @@ struct GitHubSectionView: View {
         }
     }
 
-    private func rows(_ items: [PullRequest]) -> some View {
-        ForEach(items) { pullRequest in
+    private func rows(_ items: [PullRequest], in section: QueueSection) -> some View {
+        ForEach(items.map { QueueSectionItem(section: section.persistenceID, item: $0) }) { entry in
+            let pullRequest = entry.item
             PullRequestRow(
                 pullRequest: pullRequest,
                 isSelected: selectedPullRequestID == pullRequest.id,
@@ -476,7 +477,7 @@ struct GitHubSectionView: View {
                             .background(section.tint.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
                             .padding(.top, QueueLayout.rowSpacing)
                     }
-                    rows(items)
+                    rows(items, in: section)
                 }
             } header: {
                 QueueSectionHeader(
