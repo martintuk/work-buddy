@@ -102,18 +102,33 @@ struct PullRequestRow: View {
         }
         if pullRequest.approvals > 0 || pullRequest.awaitingOtherApproval {
             Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(pullRequest.awaitingOtherApproval ? Color.orange : Color.green)
+                .foregroundStyle(approvalColor)
                 .help(approvalHelp)
                 .accessibilityLabel(approvalHelp)
         }
         behindBadge
     }
 
+    // El color refleja el veredicto global, independientemente del autor,
+    // de quién aprobó y de la sección donde aparece el PR.
+    private var approvalColor: Color {
+        switch pullRequest.reviewDecision {
+        case .approved: .green
+        case .reviewRequired: .orange
+        case .changesRequested: .red
+        case nil: .secondary
+        }
+    }
+
     private var approvalHelp: String {
         let count = L10n.text(.prApprovalCount, String(pullRequest.approvals))
-        return pullRequest.awaitingOtherApproval
-            ? "\(count). \(L10n.text(.prAwaitingOtherApproval))"
-            : count
+        let status: L10n.Key = switch pullRequest.reviewDecision {
+        case .approved: .prApprovalsSatisfied
+        case .reviewRequired: .prApprovalsRequired
+        case .changesRequested: .prChangesRequested
+        case nil: .prApprovalStatusUnknown
+        }
+        return "\(count). \(L10n.text(status))"
     }
 
     /// Mostramos sólo atraso confirmado. Mientras se calcula o si no se pudo

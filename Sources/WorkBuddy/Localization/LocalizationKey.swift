@@ -148,7 +148,10 @@ extension L10n {
         case githubWaiting
         case githubAutomation
         case prApprovalCount
-        case prAwaitingOtherApproval
+        case prApprovalsSatisfied
+        case prApprovalsRequired
+        case prChangesRequested
+        case prApprovalStatusUnknown
         case githubAutomationHelp
         case githubIgnored
         case githubReview
