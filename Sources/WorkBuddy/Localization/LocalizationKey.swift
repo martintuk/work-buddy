@@ -18,6 +18,8 @@ extension L10n {
         case settingsLanguage
         case settingsEmptySections
         case settingsEmptySectionsHelp
+        case settingsAutoConfirmActions
+        case settingsAutoConfirmActionsHelp
         case settingsMachineAccounts
         case settingsMachineAccountsPlaceholder
         case settingsMachineAccountsHelp

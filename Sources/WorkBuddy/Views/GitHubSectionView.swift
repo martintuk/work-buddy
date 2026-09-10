@@ -7,6 +7,7 @@ struct GitHubSectionView: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage("appearance.showEmptySections") private var showEmptySections = true
+    @AppStorage("actions.autoConfirm") private var autoConfirmActions = false
     @AppStorage("github.collapsedSections") private var collapsedSectionIDs = ""
     @State private var pendingAction: PendingPullRequestAction?
     @State private var configurationHint: ConfigurationHint?
@@ -445,11 +446,12 @@ struct GitHubSectionView: View {
             ) { action in
                 configurationHint = nil
                 store.projectOpener.dismissNotice()
-                if action.needsConfirmation {
+                if action.needsConfirmation && !autoConfirmActions {
                     guard let current = store.currentPullRequest(id: pullRequest.id) else { return }
                     let pending = PendingPullRequestAction(action: action, pullRequest: current)
                     pendingAction = store.isAvailable(pending) ? pending : nil
                 } else {
+                    pendingAction = nil
                     store.perform(action, onID: pullRequest.id)
                 }
             }

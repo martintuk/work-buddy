@@ -18,6 +18,8 @@ extension L10n {
         case .settingsLanguage: "Idioma"
         case .settingsEmptySections: "Mostrar secciones vacías"
         case .settingsEmptySectionsHelp: "Mostrar u ocultar las secciones sin elementos"
+        case .settingsAutoConfirmActions: "Auto-confirmar acciones"
+        case .settingsAutoConfirmActionsHelp: "Aprobar, rebasear y mergear PRs al seleccionar la acción, sin pedir confirmación"
         case .settingsMachineAccounts: "Cuentas de automatización"
         case .settingsMachineAccountsPlaceholder: "ci-bot, release-bot"
         case .settingsMachineAccountsHelp: "Logins que GitHub identifica como User aunque sean cuentas de máquina. Separalos con comas o espacios."

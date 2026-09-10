@@ -18,6 +18,8 @@ extension L10n {
         case .settingsLanguage: "Language"
         case .settingsEmptySections: "Show empty sections"
         case .settingsEmptySectionsHelp: "Show or hide sections with no items"
+        case .settingsAutoConfirmActions: "Auto-confirm actions"
+        case .settingsAutoConfirmActionsHelp: "Approve, rebase, and merge PRs when selecting the action, without asking for confirmation"
         case .settingsMachineAccounts: "Automation accounts"
         case .settingsMachineAccountsPlaceholder: "ci-bot, release-bot"
         case .settingsMachineAccountsHelp: "Logins that GitHub identifies as User even though they are machine accounts. Separate them with commas or spaces."

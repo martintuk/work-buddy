@@ -11,6 +11,7 @@ struct ConfigurationView: View {
     }
 
     @AppStorage("appearance.showEmptySections") private var showEmptySections = true
+    @AppStorage("actions.autoConfirm") private var autoConfirmActions = false
     @State private var selectedOrganizations: Set<String> = []
     @State private var availableOrganizations: [String] = []
     @State private var isLoadingOrganizations = false
@@ -55,6 +56,18 @@ struct ConfigurationView: View {
                         .labelsHidden()
                         .toggleStyle(.switch)
                         .help(L10n.text(.settingsEmptySectionsHelp))
+                }
+                .controlSize(.small)
+
+                HStack(spacing: 8) {
+                    Text(L10n.text(.settingsAutoConfirmActions))
+                        .font(.system(size: 12, weight: .semibold))
+                    Spacer()
+                    Toggle(L10n.text(.settingsAutoConfirmActions), isOn: $autoConfirmActions)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .help(L10n.text(.settingsAutoConfirmActionsHelp))
+                        .accessibilityLabel(L10n.text(.settingsAutoConfirmActions))
                 }
                 .controlSize(.small)
 
