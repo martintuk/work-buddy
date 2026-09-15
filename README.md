@@ -62,7 +62,7 @@ Refresca cada 5 minutos y notifica lo nuevo que te bloquea.
 
 La sección **Jira** reutiliza la sesión del CLI oficial de Atlassian. Si no hay
 una sesión activa, muestra `acli jira auth login` para copiar y ejecutar en
-Terminal; work-buddy no solicita ni almacena credenciales. **Esperan mi SHR**
+Terminal; work-buddy no solicita ni almacena credenciales. **My Stakeholder Reviews**
 muestra los tickets cuyo campo `Stakeholder` contiene la cuenta activa y cuyo
 estado es `Stakeholder Review`. **Creados recientemente** muestra los últimos
 10 tickets creados por la cuenta activa.
