@@ -128,7 +128,7 @@ extension L10n {
         case .jiraMissingCLI: "ACLI no está instalado"
         case .jiraInstallCLI: "Instalalo fuera de work-buddy y volvé a verificar."
         case .jiraLoadFailed: "No pude consultar Jira"
-        case .jiraAwaitingSHR: "My Stakeholder Reviews"
+        case .jiraAwaitingSHR: "Esperan mi SHR"
         case .jiraRecentlyCreated: "Creados recientemente"
         case .jiraTickets: "tickets"
         case .jiraConnect: "Conectá Jira desde Terminal"
