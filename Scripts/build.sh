@@ -12,6 +12,15 @@ BUNDLE="$ROOT/build/$APP_NAME.app"
 
 cd "$ROOT"
 
+# Desde el SDK 27, @State es un macro cuyo plugin (SwiftUIMacros) solo viene con
+# Xcode. Si las Command Line Tools no lo traen, compilamos contra el SDK 26.
+DEVELOPER_DIR_PATH="$(xcode-select -p)"
+LEGACY_SDK="$DEVELOPER_DIR_PATH/SDKs/MacOSX26.sdk"
+if [[ -z "${SDKROOT:-}" && -d "$LEGACY_SDK" ]] \
+    && ! find "$DEVELOPER_DIR_PATH" -name libSwiftUIMacros.dylib -print -quit 2>/dev/null | grep -q .; then
+    export SDKROOT="$LEGACY_SDK"
+fi
+
 # El log de compilación va a stderr para que stdout sea solo la ruta del bundle.
 swift build -c "$CONFIG" >&2
 BIN="$(swift build -c "$CONFIG" --show-bin-path)/$EXECUTABLE"
