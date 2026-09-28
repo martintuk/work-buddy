@@ -46,7 +46,7 @@ enum ReplyQueue {
 
         func attention(authoredByMe: Bool, me: String, hasNewerComments: Bool = false) -> Attention {
             guard !isResolved else { return .none }
-            let published = comments.nodes.filter { $0.state == "PUBLISHED" }
+            let published = comments.nodes.filter { $0.state == "SUBMITTED" }
             if authoredByMe, let last = published.last {
                 return last.viewerDidAuthor ? .none : .needsReply
             }
@@ -172,7 +172,7 @@ enum ReplyQueue {
                                                     previous: page.threadID == nil ? nil : page.cursor)
                         pending.append(Page(prID: page.prID, threadID: thread.id, cursor: cursor,
                                             hasNewerComments: page.hasNewerComments
-                                                || thread.comments.nodes.contains { $0.state == "PUBLISHED" }))
+                                                || thread.comments.nodes.contains { $0.state == "SUBMITTED" }))
                     }
                 }
             }

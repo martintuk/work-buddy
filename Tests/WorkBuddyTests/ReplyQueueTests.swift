@@ -200,7 +200,7 @@ struct ReplyQueueTests {
         }
     }
 
-    private func comment(mine: Bool = false, html: String = "Un comentario", state: String = "PUBLISHED") -> [String: Any] {
+    private func comment(mine: Bool = false, html: String = "Un comentario", state: String = "SUBMITTED") -> [String: Any] {
         ["viewerDidAuthor": mine, "bodyHTML": html, "state": state]
     }
 
