@@ -27,10 +27,10 @@ struct ReplyQueueTests {
         #expect(value.attention(authoredByMe: false, me: "me") == .waitingForReply)
     }
 
-    @Test("Una respuesta ajena termina la espera sin reactivar una mención antigua")
+    @Test("Una respuesta ajena a mi comentario requiere respuesta aunque no me mencione")
     func answeredByOther() throws {
-        let value = try decode(thread(comments: [comment(html: mention), comment(mine: true), comment()]))
-        #expect(value.attention(authoredByMe: false, me: "me") == .none)
+        let value = try decode(thread(comments: [comment(mine: true), comment()]))
+        #expect(value.attention(authoredByMe: false, me: "me") == .needsReply)
     }
 
     @Test("Una nueva mención después de mi respuesta vuelve a requerir atención")
@@ -110,7 +110,7 @@ struct ReplyQueueTests {
         #expect(result.waitingForReply.isEmpty)
     }
 
-    @Test("Mi comentario en una página antigua no cuenta como espera si ya hubo respuestas")
+    @Test("Mi comentario en una página antigua seguido de respuestas requiere respuesta")
     func olderOwnComment() async throws {
         var calls = 0
         let result = try await ReplyQueue.fetch(for: [pullRequest(1, author: "other")], me: "me") { _ in
@@ -120,7 +120,7 @@ struct ReplyQueueTests {
             }
             return try response(["pr0": thread(comments: [comment(mine: true)])])
         }
-        #expect(result.needingReply.isEmpty)
+        #expect(result.needingReply.count == 1)
         #expect(result.waitingForReply.isEmpty)
     }
 

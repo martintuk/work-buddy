@@ -1,7 +1,7 @@
 import Foundation
 
 /// Consulta hilos en lotes. En PRs ajenos recorre hacia atrás hasta encontrar una
-/// mención pendiente o nuestra respuesta; las páginas se piden sólo si hacen falta.
+/// mención o un comentario propio seguido de respuestas; las páginas se piden sólo si hacen falta.
 enum ReplyQueue {
     struct Result {
         let needingReply: [PullRequest]
@@ -54,9 +54,9 @@ enum ReplyQueue {
                 if !hasNewerComments, published.last?.viewerDidAuthor == true {
                     return .waitingForReply
                 }
-                for comment in published.reversed() {
-                    if comment.viewerDidAuthor { return .none }
-                    if comment.mentions(me) { return .needsReply }
+                // Si el último no es mío, cualquier comentario propio ya tuvo respuesta.
+                if published.contains(where: { $0.viewerDidAuthor || $0.mentions(me) }) {
+                    return .needsReply
                 }
             }
             return comments.pageInfo.hasPreviousPage == true ? .olderComments : .none
