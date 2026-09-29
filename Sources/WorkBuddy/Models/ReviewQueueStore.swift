@@ -445,6 +445,12 @@ final class ReviewQueueStore {
                     pullRequests = fetched
                     recordPublication(.review, count: fetched.count, firstContent: &firstContent)
 
+                    // Con review disponible, Dependabot puede avanzar mientras
+                    // esperamos merge y conversaciones: no depende de sus resultados.
+                    async let dependabotQueue = Diagnostics.measure(.dependabot) {
+                        try await DependabotQueue.fetch(configuration: requestedConfiguration, viewer: viewer)
+                    }
+
                     // Los candidatos a merge son secundarios: si esa query falla,
                     // mostramos la cola de review igual en vez de dejar el panel en
                     // estado de error.
@@ -483,15 +489,9 @@ final class ReviewQueueStore {
                     }
                     guard requestedRevision == configurationRevision else { return }
 
-                    // Segunda fase: lo caro, después de que el panel se dibujó.
-                    // Dependabot son 50 PRs (~9s) y comparar ramas ~4s por cada 20.
-                    // Va en este orden porque los "N atrás" de dependabot son el
-                    // dato que decide si hace falta un rebase, así que necesitamos
-                    // la lista antes de medir.
+                    // Reunimos ambas fuentes antes de notificar y medir ramas.
                     onChange?()
-                    let fetchedDependabot = try? await Diagnostics.measure(.dependabot) {
-                        try await DependabotQueue.fetch(configuration: requestedConfiguration, viewer: viewer)
-                    }
+                    let fetchedDependabot = try? await dependabotQueue
                     guard requestedRevision == configurationRevision else { return }
                     let fetchedTeamQueue = await teamQueue
                     guard requestedRevision == configurationRevision else { return }
