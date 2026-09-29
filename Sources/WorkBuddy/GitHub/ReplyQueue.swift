@@ -96,6 +96,7 @@ enum ReplyQueue {
         var seen = Set<String>()
         let candidates = pullRequests.filter { seen.insert($0.id).inserted }
         let ownIDs = Set(candidates.filter(\.authoredByMe).map(\.id))
+        Diagnostics.record(.counts, metrics: [.candidates: candidates.count])
         var pending = candidates.map { Page(prID: $0.id, threadID: nil, cursor: nil) }
         var needingReply = Set<String>()
         var waitingForReply = Set<String>()
@@ -104,6 +105,7 @@ enum ReplyQueue {
             try Task.checkCancellation()
             // Máximo 10 x 50 x 20 comentarios por request inicial.
             let batch = Array(pending.prefix(10))
+            Diagnostics.record(.counts, metrics: [.batchSize: batch.count, .pages: 1])
             pending.removeFirst(batch.count)
             var variables: [String] = []
             var fields: [String] = []

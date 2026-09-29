@@ -416,106 +416,143 @@ final class ReviewQueueStore {
 
         // Sin `weak self`: el store vive todo lo que vive la app.
         inFlight = Task {
-            do {
-                try await GH.preflight()
+            await Diagnostics.refresh(.github, forced: force) {
+                var firstContent = false
+                do {
+                    try await Diagnostics.measure(.preflight) { try await GH.preflight() }
 
-                // Las consultas de review, merge y CI propia son independientes.
-                async let teamQueue = TeamDependabot.load(
-                    configuration: requestedConfiguration, force: requestedTeamDiscovery
-                )
-                async let reviewQueue = ReviewQueue.fetch(configuration: requestedConfiguration)
-                async let mergeQueue = MergeQueue.fetch(configuration: requestedConfiguration)
-                async let fixQueue = FixQueue.fetch(configuration: requestedConfiguration)
-                async let conversationCandidates = ConversationCandidates.fetch(configuration: requestedConfiguration)
+                    // Las consultas de review, merge y CI propia son independientes.
+                    async let teamQueue = Diagnostics.measure(.teamDependabot) {
+                        await TeamDependabot.load(configuration: requestedConfiguration, force: requestedTeamDiscovery)
+                    }
+                    async let reviewQueue = Diagnostics.measure(.review) {
+                        try await ReviewQueue.fetch(configuration: requestedConfiguration)
+                    }
+                    async let mergeQueue = Diagnostics.measure(.merge) {
+                        try await MergeQueue.fetch(configuration: requestedConfiguration)
+                    }
+                    async let fixQueue = Diagnostics.measure(.own) {
+                        try await FixQueue.fetch(configuration: requestedConfiguration)
+                    }
+                    async let conversationCandidates = Diagnostics.measure(.conversationCandidates) {
+                        try await ConversationCandidates.fetch(configuration: requestedConfiguration)
+                    }
 
-                let fetched = try await reviewQueue
-                guard requestedRevision == configurationRevision else { return }
-                pullRequests = fetched
+                    let fetched = try await reviewQueue
+                    guard requestedRevision == configurationRevision else { return }
+                    pullRequests = fetched
+                    recordPublication(.review, count: fetched.count, firstContent: &firstContent)
 
-                // Los candidatos a merge son secundarios: si esa query falla,
-                // mostramos la cola de review igual en vez de dejar el panel en
-                // estado de error.
-                let fetchedMergeCandidates = try? await mergeQueue
-                guard requestedRevision == configurationRevision else { return }
-                if let fetchedMergeCandidates {
-                    requestedMergeCandidates = fetchedMergeCandidates
-                }
+                    // Los candidatos a merge son secundarios: si esa query falla,
+                    // mostramos la cola de review igual en vez de dejar el panel en
+                    // estado de error.
+                    let fetchedMergeCandidates = try? await mergeQueue
+                    guard requestedRevision == configurationRevision else { return }
+                    if let fetchedMergeCandidates {
+                        requestedMergeCandidates = fetchedMergeCandidates
+                        recordPublication(.merge, count: fetchedMergeCandidates.count, firstContent: &firstContent)
+                    }
 
-                // Una falla de esta consulta conserva el último resultado conocido,
-                // igual que la cola de merge, sin descartar las otras secciones.
-                let fetchedFixCandidates = try? await fixQueue
-                guard requestedRevision == configurationRevision else { return }
-                if let fetchedFixCandidates {
-                    fixCandidates = fetchedFixCandidates
-                }
+                    // Una falla de esta consulta conserva el último resultado conocido,
+                    // igual que la cola de merge, sin descartar las otras secciones.
+                    let fetchedFixCandidates = try? await fixQueue
+                    guard requestedRevision == configurationRevision else { return }
+                    if let fetchedFixCandidates {
+                        fixCandidates = fetchedFixCandidates
+                        recordPublication(.own, count: fetchedFixCandidates.count, firstContent: &firstContent)
+                    }
 
-                // La lista propia ya está disponible. Una falla de hilos conserva
-                // la última clasificación sin impedir que se actualice la CI.
-                onChange?()
-                if let fetchedFixCandidates {
-                    do {
-                        let others = try await conversationCandidates
-                        let viewer = try await Viewer.fetch()
-                        let replies = try await ReplyQueue.fetch(for: fetchedFixCandidates + others, me: viewer.login)
+                    // La lista propia ya está disponible. Una falla de hilos conserva
+                    // la última clasificación sin impedir que se actualice la CI.
+                    onChange?()
+                    if let fetchedFixCandidates {
+                        do {
+                            let others = try await conversationCandidates
+                            let viewer = try await Viewer.fetch()
+                            let replies = try await Diagnostics.measure(.replies) {
+                                try await ReplyQueue.fetch(for: fetchedFixCandidates + others, me: viewer.login)
+                            }
+                            guard requestedRevision == configurationRevision else { return }
+                            replyCandidates = replies.needingReply
+                            waitingReplyCandidates = replies.waitingForReply
+                            recordPublication(.replies, count: replies.needingReply.count + replies.waitingForReply.count, firstContent: &firstContent)
+                        } catch {
+                            // Conservamos ambas categorías si no pudimos consultar todos los hilos.
+                        }
+                    }
+                    guard requestedRevision == configurationRevision else { return }
+
+                    // Segunda fase: lo caro, después de que el panel se dibujó.
+                    // Dependabot son 50 PRs (~9s) y comparar ramas ~4s por cada 20.
+                    // Va en este orden porque los "N atrás" de dependabot son el
+                    // dato que decide si hace falta un rebase, así que necesitamos
+                    // la lista antes de medir.
+                    onChange?()
+                    let fetchedDependabot = try? await Diagnostics.measure(.dependabot) {
+                        try await DependabotQueue.fetch(configuration: requestedConfiguration)
+                    }
+                    guard requestedRevision == configurationRevision else { return }
+                    let fetchedTeamQueue = await teamQueue
+                    guard requestedRevision == configurationRevision else { return }
+                    isLoadingTeamDependabot = false
+                    teamDependabotFailure = fetchedTeamQueue.error.map {
+                        LocalizedMessage(L10n.text(.errorTeamDiscovery, $0))
+                    }
+                    if let prs = fetchedTeamQueue.pullRequests {
+                        teamDependabotPullRequests = prs
+                        recordPublication(.teamDependabot, count: prs.count, firstContent: &firstContent)
+                    }
+                    // Esperar las dos fuentes evita notificar el backlog de equipos
+                    // como nuevo al completar el primer descubrimiento.
+                    if fetchedMergeCandidates != nil && fetchedTeamQueue.pullRequests != nil {
+                        await Diagnostics.measure(.notifications) {
+                            await notifier.send(notificationTracker.process(readyToMerge, in: .merge))
+                        }
                         guard requestedRevision == configurationRevision else { return }
-                        replyCandidates = replies.needingReply
-                        waitingReplyCandidates = replies.waitingForReply
-                    } catch {
-                        // Conservamos ambas categorías si no pudimos consultar todos los hilos.
                     }
+                    if let fetchedDependabot {
+                        dependabotPullRequests = fetchedDependabot
+                        recordPublication(.dependabot, count: fetchedDependabot.count, firstContent: &firstContent)
+                        // Review incluye bots: esperar ambas consultas evita sembrar
+                        // una base parcial y notificar el backlog en la primera carga.
+                        if fetchedTeamQueue.pullRequests != nil {
+                            await Diagnostics.measure(.notifications) {
+                                await notifier.send(notificationTracker.process(awaitingYourReview, in: .review))
+                            }
+                        }
+                        guard requestedRevision == configurationRevision else { return }
+                    }
+                    // Recién con todas las colas consultadas podemos mostrar un
+                    // estado vacío. Medir ramas después no agrega ni quita PRs.
+                    lastUpdated = .now
+                    state = .loaded
+                    Diagnostics.record(.queuesLoaded)
+                    onChange?()
+                    behindCounts = await Diagnostics.measure(.behind) { await BehindCount.fetch(for: allKnown) }
+                } catch {
+                    guard requestedRevision == configurationRevision else { return }
+                    Diagnostics.record(.failed, error: error)
+                    state = .failed(LocalizedMessage(error.localizedDescription))
                 }
                 guard requestedRevision == configurationRevision else { return }
-
-                // Segunda fase: lo caro, después de que el panel se dibujó.
-                // Dependabot son 50 PRs (~9s) y comparar ramas ~4s por cada 20.
-                // Va en este orden porque los "N atrás" de dependabot son el
-                // dato que decide si hace falta un rebase, así que necesitamos
-                // la lista antes de medir.
-                onChange?()
-                let fetchedDependabot = try? await DependabotQueue.fetch(configuration: requestedConfiguration)
-                guard requestedRevision == configurationRevision else { return }
-                let fetchedTeamQueue = await teamQueue
-                guard requestedRevision == configurationRevision else { return }
+                inFlight = nil
                 isLoadingTeamDependabot = false
-                teamDependabotFailure = fetchedTeamQueue.error.map {
-                    LocalizedMessage(L10n.text(.errorTeamDiscovery, $0))
-                }
-                if let prs = fetchedTeamQueue.pullRequests {
-                    teamDependabotPullRequests = prs
-                }
-                // Esperar las dos fuentes evita notificar el backlog de equipos
-                // como nuevo al completar el primer descubrimiento.
-                if fetchedMergeCandidates != nil && fetchedTeamQueue.pullRequests != nil {
-                    await notifier.send(notificationTracker.process(readyToMerge, in: .merge))
-                    guard requestedRevision == configurationRevision else { return }
-                }
-                if let fetchedDependabot {
-                    dependabotPullRequests = fetchedDependabot
-                    // Review incluye bots: esperar ambas consultas evita sembrar
-                    // una base parcial y notificar el backlog en la primera carga.
-                    if fetchedTeamQueue.pullRequests != nil {
-                        await notifier.send(notificationTracker.process(awaitingYourReview, in: .review))
-                    }
-                    guard requestedRevision == configurationRevision else { return }
-                }
-                // Recién con todas las colas consultadas podemos mostrar un
-                // estado vacío. Medir ramas después no agrega ni quita PRs.
-                lastUpdated = .now
-                state = .loaded
                 onChange?()
-                behindCounts = await BehindCount.fetch(for: allKnown)
-            } catch {
-                guard requestedRevision == configurationRevision else { return }
-                state = .failed(LocalizedMessage(error.localizedDescription))
+                if hasPendingRefresh {
+                    hasPendingRefresh = false
+                    refresh(force: true)
+                }
             }
-            guard requestedRevision == configurationRevision else { return }
-            inFlight = nil
-            isLoadingTeamDependabot = false
-            onChange?()
-            if hasPendingRefresh {
-                hasPendingRefresh = false
-                refresh(force: true)
-            }
+        }
+    }
+
+    private func recordPublication(_ phase: Diagnostics.Phase, count: Int, firstContent: inout Bool) {
+        Diagnostics.record(.published, phase: phase, metrics: [.items: count])
+        if !firstContent,
+           !reviewSections.isEmpty || !readyToMerge.isEmpty || !needingCIFix.isEmpty
+            || !needingReply.isEmpty || !waitingForReply.isEmpty || !automation.isEmpty || !ignored.isEmpty {
+            firstContent = true
+            Diagnostics.record(.firstContent)
         }
     }
 

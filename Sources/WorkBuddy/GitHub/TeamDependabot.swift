@@ -29,21 +29,26 @@ enum TeamDependabot {
 
     static func load(configuration: AppConfiguration, force: Bool = false) async -> QueueResult {
         guard !configuration.effectiveDependabotTeams.isEmpty else {
+            Diagnostics.record(.disabled)
             return QueueResult(pullRequests: [], error: nil)
         }
         do {
             // Permite marcar varias casillas sin arrancar un recorrido por cada click.
             try await Task.sleep(for: .milliseconds(500))
             let viewer = try await Viewer.fetch()
-            let discovery = try await TeamDependabotCache.shared.resolve(
-                teams: configuration.effectiveDependabotTeams, login: viewer.login, force: force
-            )
+            let discovery = try await Diagnostics.measure(.ownership) {
+                try await TeamDependabotCache.shared.resolve(
+                    teams: configuration.effectiveDependabotTeams, login: viewer.login, force: force
+                )
+            }
+            if discovery.error != nil { Diagnostics.record(.partial) }
             if discovery.error != nil && discovery.repositories.isEmpty {
                 return QueueResult(pullRequests: nil, error: discovery.error)
             }
             let prs = try await fetch(repositories: discovery.repositories, configuration: configuration)
             return QueueResult(pullRequests: prs, error: discovery.error)
         } catch {
+            Diagnostics.record(.failed, error: error)
             return QueueResult(pullRequests: nil, error: error.localizedDescription)
         }
     }
@@ -97,6 +102,7 @@ enum TeamDependabot {
             }
         }
         let identities = Set(teams.map { "@\($0)" } + ["@\(login)"])
+        Diagnostics.record(.counts, metrics: [.teams: teams.count, .repositories: repositories.count])
         var owned: [String] = []
         // Una lectura por repo resuelve las tres ubicaciones sin confundir un
         // 404 de permisos con un archivo ausente. Las respuestas parciales fallan.
@@ -154,10 +160,12 @@ enum TeamDependabot {
         var results: [PullRequest] = []
         for search in searches(repositories: repositories) {
             try Task.checkCancellation()
-            results += try await PullRequestSearch.fetch(
-                search: search, fields: PullRequestFields.withMergeState,
-                pageSize: 25, maxPages: 40, machineAccounts: configuration.machineAccounts
-            )
+            results += try await Diagnostics.measure(.teamSearch) {
+                try await PullRequestSearch.fetch(
+                    search: search, fields: PullRequestFields.withMergeState,
+                    pageSize: 25, maxPages: 40, machineAccounts: configuration.machineAccounts
+                )
+            }
         }
         return results.uniquedByID()
     }
@@ -191,8 +199,15 @@ actor TeamDependabotCache {
         let key = "teamDependabot.v1.\(login.lowercased()).\(teams.sorted().joined(separator: ","))"
         let cached = defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(Entry.self, from: $0) }
         if !force, let cached, now.timeIntervalSince(cached.updatedAt) < 86_400 {
+            Diagnostics.record(.cacheHit, metrics: [
+                .ageSeconds: max(0, Int(now.timeIntervalSince(cached.updatedAt))),
+                .repositories: cached.repositories.count
+            ])
             return Result(repositories: cached.repositories, error: nil)
         }
+        var metrics: [Diagnostics.Metric: Int] = [.forced: force ? 1 : 0, .teams: teams.count]
+        if let cached { metrics[.ageSeconds] = max(0, Int(now.timeIntervalSince(cached.updatedAt))) }
+        Diagnostics.record(.cacheMiss, metrics: metrics)
         do {
             let repositories = try await loader(teams, login)
             try Task.checkCancellation()
@@ -202,6 +217,7 @@ actor TeamDependabotCache {
             throw CancellationError()
         } catch {
             try Task.checkCancellation()
+            Diagnostics.record(.cacheFallback, metrics: [.repositories: cached?.repositories.count ?? 0], error: error)
             return Result(repositories: cached?.repositories ?? [], error: error.localizedDescription)
         }
     }

@@ -89,15 +89,22 @@ enum ACLI {
     }
 
     private static func execute(_ arguments: [String]) async throws -> CommandResult {
-        guard let executableURL else { throw Failure.notInstalled }
-        return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    continuation.resume(returning: try runBlocking(executableURL, arguments))
-                } catch {
-                    continuation.resume(throwing: error)
+        try await Diagnostics.measure(.acli) {
+            guard let executableURL else { throw Failure.notInstalled }
+            let result = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<CommandResult, Error>) in
+                DispatchQueue.global(qos: .userInitiated).async {
+                    do {
+                        continuation.resume(returning: try runBlocking(executableURL, arguments))
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
                 }
             }
+            Diagnostics.record(.counts, metrics: [.bytes: result.stdout.count])
+            if result.exitCode != 0 {
+                Diagnostics.record(.failed, error: Failure.commandFailed(exitCode: result.exitCode, output: result.combinedOutput))
+            }
+            return result
         }
     }
 

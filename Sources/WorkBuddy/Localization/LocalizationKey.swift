@@ -121,6 +121,7 @@ extension L10n {
 
         // MARK: - Menu
         case menuAbout
+        case menuExportDiagnostics
         case menuQuit
 
         // MARK: - Jira

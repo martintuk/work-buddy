@@ -78,6 +78,7 @@ enum GH {
     static func runRetrying(_ arguments: [String], attempts: Int = 4) async throws -> Data {
         var lastError: Error = Failure.noAttempts
         for attempt in 0 ..< attempts {
+            if attempt > 0 { Diagnostics.record(.retry, metrics: [.attempt: attempt + 1], error: lastError) }
             do {
                 return try await run(arguments)
             } catch let failure as Failure {
@@ -102,17 +103,21 @@ enum GH {
     /// Los argumentos van directo al proceso, sin pasar por un shell: no hay que
     /// escapar nada ni hay riesgo de inyección al interpolar valores.
     static func run(_ arguments: [String], in directory: URL? = nil) async throws -> Data {
-        guard let executableURL else { throw Failure.notInstalled }
-        return try await withCheckedThrowingContinuation { continuation in
-            // Process y Pipe no son Sendable, así que viven enteros dentro de
-            // runBlocking, fuera del contexto de concurrencia.
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    continuation.resume(returning: try runBlocking(executableURL, arguments, directory: directory))
-                } catch {
-                    continuation.resume(throwing: error)
+        try await Diagnostics.measure(.gh) {
+            guard let executableURL else { throw Failure.notInstalled }
+            let result = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
+                // Process y Pipe no son Sendable, así que viven enteros dentro de
+                // runBlocking, fuera del contexto de concurrencia.
+                DispatchQueue.global(qos: .userInitiated).async {
+                    do {
+                        continuation.resume(returning: try runBlocking(executableURL, arguments, directory: directory))
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
                 }
             }
+            Diagnostics.record(.counts, metrics: [.bytes: result.count])
+            return result
         }
     }
 

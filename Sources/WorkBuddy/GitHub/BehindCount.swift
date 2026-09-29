@@ -26,6 +26,7 @@ enum BehindCount {
         }
 
         for batch in comparable.chunked(into: batchSize) {
+            Diagnostics.record(.counts, metrics: [.batchSize: batch.count, .pages: 1])
             guard let data = try? await GH.runRetrying(
                 ["api", "graphql", "-f", "query=\(query(for: batch))"]
             ) else {
@@ -44,6 +45,8 @@ enum BehindCount {
                 }
             }
         }
+        Diagnostics.record(.counts, metrics: [.candidates: comparable.count, .items: results.count])
+        if results.count < comparable.count { Diagnostics.record(.partial) }
         return results
     }
 

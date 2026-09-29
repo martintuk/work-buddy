@@ -122,6 +122,7 @@ extension L10n {
 
         // MARK: - Menu
         case .menuAbout: "Acerca de work-buddy"
+        case .menuExportDiagnostics: "Exportar diagnóstico…"
         case .menuQuit: "Salir"
 
         // MARK: - Jira

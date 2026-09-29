@@ -147,6 +147,34 @@ clasificación en buckets, la agrupación, los argumentos de las escrituras y la
 forma de las queries de búsqueda. Cada caso que salió de un bug real tiene el PR
 concreto en un comentario.
 
+## Diagnosticar una carga lenta en otra máquina
+
+La app registra automáticamente las últimas **10 actualizaciones aceptadas en
+total**, identificando GitHub y Jira por separado y priorizando las que siguen
+en curso para no perder una consulta trabada mientras el otro servicio actualiza.
+No hace falta abrir Terminal
+ni activar debug. Click derecho en el icono → **Exportar diagnóstico…** guarda
+un `.txt` que se puede adjuntar para analizarlo. Exportalo mientras ocurre la
+demora o apenas termina; si la app se congeló, reiniciala y exportá enseguida.
+
+El archivo incluye versión y revisión del build, tiempos de cada fase y de
+publicación, cantidades de PRs/páginas/lotes, reintentos y aciertos/edad del caché
+de ownership. Las fases pendientes quedan registradas desde su inicio. Distingue
+las actualizaciones en curso de las interrumpidas por un cierre anterior.
+`firstContent` mide la primera publicación con contenido disponible para el panel,
+no el tiempo de renderizado de SwiftUI; `queuesLoaded` y `refreshEnded` distinguen
+las colas listas del trabajo posterior de comparación de ramas. Un ciclo terminado
+puede contener fallos parciales: hay que revisar sus eventos y categorías de error.
+
+No registra tokens, argumentos, queries, respuestas, mensajes de error crudos,
+nombres de repositorios/equipos/usuarios, IDs de PRs, títulos ni comentarios.
+No envía datos automáticamente. Los archivos locales están en
+`~/Library/Application Support/work-buddy/Diagnostics/`, limitados a 128 KiB
+por actualización y aproximadamente 1,25 MiB en total. Si una captura llega al
+límite incluye un evento `truncated`; no debe interpretarse como un registro completo.
+Las escrituras se hacen en una cola fuera del hilo de la interfaz. Este diagnóstico
+preserva el orden de consultas para poder comparar una carga antes de optimizarla.
+
 ## Probar sin GUI
 
 ```bash

@@ -169,11 +169,13 @@ struct Viewer: Decodable {
 
     /// Resuelve el login para filtrar la review personal en la consulta de PRs.
     static func fetch() async throws -> Viewer {
-        struct Payload: Decodable { let viewer: Viewer }
-        let data = try await GH.runRetrying([
-            "api", "graphql", "-f", "query=query { viewer { login } }"
-        ])
-        return try GraphQLResponse<Payload>.decode(data).viewer
+        try await Diagnostics.measure(.viewer) {
+            struct Payload: Decodable { let viewer: Viewer }
+            let data = try await GH.runRetrying([
+                "api", "graphql", "-f", "query=query { viewer { login } }"
+            ])
+            return try GraphQLResponse<Payload>.decode(data).viewer
+        }
     }
 }
 

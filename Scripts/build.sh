@@ -30,6 +30,12 @@ mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
 
 cp "$BIN" "$BUNDLE/Contents/MacOS/$EXECUTABLE"
 cp "$ROOT/Resources/Info.plist" "$BUNDLE/Contents/Info.plist"
+# Permite identificar la versión exacta instalada en otra máquina.
+REVISION="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+if [[ "$REVISION" != unknown ]] && [[ -n "$(git status --porcelain)" ]]; then
+    REVISION="$REVISION-dirty"
+fi
+/usr/libexec/PlistBuddy -c "Add :WorkBuddyRevision string $REVISION" "$BUNDLE/Contents/Info.plist"
 printf 'APPL????' > "$BUNDLE/Contents/PkgInfo"
 
 # Usamos una identidad Apple cuando está disponible: la firma ad-hoc puede

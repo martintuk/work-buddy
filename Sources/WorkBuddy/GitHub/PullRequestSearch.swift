@@ -50,6 +50,7 @@ enum PullRequestSearch {
 
             let data = try await GH.runRetrying(arguments)
             let payload = try GraphQLResponse<Payload>.decode(data)
+            Diagnostics.record(.counts, metrics: [.pages: 1, .items: payload.search.nodes.count])
             let me = payload.viewer.login
 
             results += payload.search.nodes.compactMap {

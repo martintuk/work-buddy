@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Dueño del icono en la barra de menú y del panel que se despliega al clickearlo.
 ///
@@ -234,6 +235,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
         let menu = NSMenu()
         menu.addItem(menuItem(title: L10n.text(.menuAbout), action: #selector(showAbout)))
+        menu.addItem(menuItem(title: L10n.text(.menuExportDiagnostics), action: #selector(exportDiagnostics)))
         menu.addItem(.separator())
         menu.addItem(menuItem(title: L10n.text(.menuQuit), action: #selector(quit), keyEquivalent: "q"))
 
@@ -251,6 +253,25 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     }
 
     // MARK: - Acciones del menú
+
+    @objc private func exportDiagnostics() {
+        NSApp.activate(ignoringOtherApps: true)
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.plainText]
+        panel.nameFieldStringValue = "work-buddy-diagnostic.txt"
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in
+                do {
+                    let data = try await DiagnosticLog.shared.exportData()
+                    try data.write(to: url, options: .atomic)
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                } catch {
+                    NSAlert(error: error).runModal()
+                }
+            }
+        }
+    }
 
     @objc private func showAbout() {
         NSApp.activate(ignoringOtherApps: true)
