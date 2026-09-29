@@ -164,6 +164,12 @@ struct PullRequestRow: View {
     private var actionMenuItems: some View {
         button(.open)
         Button {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(pullRequest.url.absoluteString, forType: .string)
+        } label: {
+            Label(L10n.text(.commonCopyLink), systemImage: "link")
+        }
+        Button {
             if localFolder == nil {
                 requestFolderConfiguration()
             } else if editor.selectedURL == nil {

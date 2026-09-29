@@ -5,6 +5,7 @@ extension L10n {
         case .commonBack: "Back"
         case .commonRetry: "Retry"
         case .commonClear: "Clear"
+        case .commonCopyLink: "Copy link"
         case .commonCancel: "Cancel"
         case .commonConfirm: "Confirm"
         case .commonNothingPending: "Nothing pending"

@@ -5,6 +5,7 @@ extension L10n {
         case commonBack
         case commonRetry
         case commonClear
+        case commonCopyLink
         case commonCancel
         case commonConfirm
         case commonNothingPending
