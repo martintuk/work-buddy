@@ -106,29 +106,12 @@ struct GitHubSectionView: View {
             .help(L10n.text(.repositoriesFilterHelp))
             Divider()
 
-            // La confirmación tapa el aviso: son el mismo lugar y nunca hacen
-            // falta las dos a la vez.
-            if let error = store.agentCLI.error {
-                projectError(error, dismiss: store.agentCLI.dismissError)
-                Divider()
-            } else if let warning = store.projectOpener.warning {
-                branchWarning(warning)
-                Divider()
-            } else if let error = store.projectOpener.error {
-                projectError(error, dismiss: store.projectOpener.dismissNotice)
-                Divider()
-            } else if let pendingAction, store.isAvailable(pendingAction),
-                      let pullRequest = store.currentPullRequest(id: pendingAction.pullRequestID) {
-                confirmBar(pendingAction, pullRequest: pullRequest)
-                Divider()
-            } else if let message = configurationHintMessage {
-                configurationNotice(message)
-                Divider()
-            } else if let outcome = store.outcome {
-                outcomeBanner(outcome)
-                Divider()
-            }
             content
+                .overlay(alignment: .top) {
+                    topNotice
+                        .padding(.horizontal, 10)
+                        .padding(.top, 8)
+                }
         }
         .onChange(of: store.editor.selectedURL) { _, selectedURL in
             if selectedURL != nil, case .editor = configurationHint { configurationHint = nil }
@@ -139,6 +122,32 @@ struct GitHubSectionView: View {
         .onChange(of: pendingAction.map { store.isAvailable($0) } ?? false) { _, available in
             if !available { pendingAction = nil }
         }
+    }
+
+    /// Los avisos flotan sobre la lista para no alterar su altura ni el scroll.
+    @ViewBuilder
+    private var topNotice: some View {
+        Group {
+            // La confirmación tapa el aviso: son el mismo lugar y nunca hacen
+            // falta las dos a la vez.
+            if let error = store.agentCLI.error {
+                projectError(error, dismiss: store.agentCLI.dismissError)
+            } else if let warning = store.projectOpener.warning {
+                branchWarning(warning)
+            } else if let error = store.projectOpener.error {
+                projectError(error, dismiss: store.projectOpener.dismissNotice)
+            } else if let pendingAction, store.isAvailable(pendingAction),
+                      let pullRequest = store.currentPullRequest(id: pendingAction.pullRequestID) {
+                confirmBar(pendingAction, pullRequest: pullRequest)
+            } else if let message = configurationHintMessage {
+                configurationNotice(message)
+            } else if let outcome = store.outcome {
+                outcomeBanner(outcome)
+            }
+        }
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .shadow(color: .black.opacity(0.12), radius: 5, y: 2)
     }
 
     private var configurationHintMessage: String? {
@@ -300,6 +309,8 @@ struct GitHubSectionView: View {
                 Image(systemName: "xmark")
             }
             .buttonStyle(.borderless)
+            .help(L10n.text(.commonCancel))
+            .accessibilityLabel(L10n.text(.commonCancel))
         }
         .font(.system(size: 10))
         .foregroundStyle(tint)
