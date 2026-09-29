@@ -420,22 +420,24 @@ final class ReviewQueueStore {
                 var firstContent = false
                 do {
                     try await Diagnostics.measure(.preflight) { try await GH.preflight() }
+                    // Una identidad por actualización, sin caché entre cuentas ni ciclos.
+                    let viewer = try await Viewer.fetch()
 
                     // Las consultas de review, merge y CI propia son independientes.
                     async let teamQueue = Diagnostics.measure(.teamDependabot) {
-                        await TeamDependabot.load(configuration: requestedConfiguration, force: requestedTeamDiscovery)
+                        await TeamDependabot.load(configuration: requestedConfiguration, viewer: viewer, force: requestedTeamDiscovery)
                     }
                     async let reviewQueue = Diagnostics.measure(.review) {
-                        try await ReviewQueue.fetch(configuration: requestedConfiguration)
+                        try await ReviewQueue.fetch(configuration: requestedConfiguration, viewer: viewer)
                     }
                     async let mergeQueue = Diagnostics.measure(.merge) {
-                        try await MergeQueue.fetch(configuration: requestedConfiguration)
+                        try await MergeQueue.fetch(configuration: requestedConfiguration, viewer: viewer)
                     }
                     async let fixQueue = Diagnostics.measure(.own) {
-                        try await FixQueue.fetch(configuration: requestedConfiguration)
+                        try await FixQueue.fetch(configuration: requestedConfiguration, viewer: viewer)
                     }
                     async let conversationCandidates = Diagnostics.measure(.conversationCandidates) {
-                        try await ConversationCandidates.fetch(configuration: requestedConfiguration)
+                        try await ConversationCandidates.fetch(configuration: requestedConfiguration, viewer: viewer)
                     }
 
                     let fetched = try await reviewQueue
@@ -468,7 +470,6 @@ final class ReviewQueueStore {
                     if let fetchedFixCandidates {
                         do {
                             let others = try await conversationCandidates
-                            let viewer = try await Viewer.fetch()
                             let replies = try await Diagnostics.measure(.replies) {
                                 try await ReplyQueue.fetch(for: fetchedFixCandidates + others, me: viewer.login)
                             }
@@ -489,7 +490,7 @@ final class ReviewQueueStore {
                     // la lista antes de medir.
                     onChange?()
                     let fetchedDependabot = try? await Diagnostics.measure(.dependabot) {
-                        try await DependabotQueue.fetch(configuration: requestedConfiguration)
+                        try await DependabotQueue.fetch(configuration: requestedConfiguration, viewer: viewer)
                     }
                     guard requestedRevision == configurationRevision else { return }
                     let fetchedTeamQueue = await teamQueue

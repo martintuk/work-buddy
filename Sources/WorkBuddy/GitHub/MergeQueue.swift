@@ -65,8 +65,7 @@ enum MergeQueue {
 
     /// Devuelve los candidatos ya deduplicados. Filtrar por "listo para mergear"
     /// es responsabilidad de `[PullRequest].readyToMerge`.
-    static func fetch(configuration: AppConfiguration = .empty) async throws -> [PullRequest] {
-        let viewer = try await Viewer.fetch()
+    static func fetch(configuration: AppConfiguration = .empty, viewer: Viewer) async throws -> [PullRequest] {
         let query = query(configuration: configuration)
         let data = try await GH.runRetrying([
             "api", "graphql", "-f", "query=\(query)", "-f", "reviewAuthor=\(viewer.login)"

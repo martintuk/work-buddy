@@ -27,7 +27,7 @@ enum TeamDependabot {
         let error: String?
     }
 
-    static func load(configuration: AppConfiguration, force: Bool = false) async -> QueueResult {
+    static func load(configuration: AppConfiguration, viewer: Viewer, force: Bool = false) async -> QueueResult {
         guard !configuration.effectiveDependabotTeams.isEmpty else {
             Diagnostics.record(.disabled)
             return QueueResult(pullRequests: [], error: nil)
@@ -35,7 +35,6 @@ enum TeamDependabot {
         do {
             // Permite marcar varias casillas sin arrancar un recorrido por cada click.
             try await Task.sleep(for: .milliseconds(500))
-            let viewer = try await Viewer.fetch()
             let discovery = try await Diagnostics.measure(.ownership) {
                 try await TeamDependabotCache.shared.resolve(
                     teams: configuration.effectiveDependabotTeams, login: viewer.login, force: force
@@ -45,7 +44,7 @@ enum TeamDependabot {
             if discovery.error != nil && discovery.repositories.isEmpty {
                 return QueueResult(pullRequests: nil, error: discovery.error)
             }
-            let prs = try await fetch(repositories: discovery.repositories, configuration: configuration)
+            let prs = try await fetch(repositories: discovery.repositories, configuration: configuration, viewer: viewer)
             return QueueResult(pullRequests: prs, error: discovery.error)
         } catch {
             Diagnostics.record(.failed, error: error)
@@ -156,12 +155,13 @@ enum TeamDependabot {
         return searches
     }
 
-    static func fetch(repositories: [String], configuration: AppConfiguration) async throws -> [PullRequest] {
+    static func fetch(repositories: [String], configuration: AppConfiguration, viewer: Viewer) async throws -> [PullRequest] {
         var results: [PullRequest] = []
         for search in searches(repositories: repositories) {
             try Task.checkCancellation()
             results += try await Diagnostics.measure(.teamSearch) {
                 try await PullRequestSearch.fetch(
+                    viewer: viewer,
                     search: search, fields: PullRequestFields.withMergeState,
                     pageSize: 25, maxPages: 40, machineAccounts: configuration.machineAccounts
                 )

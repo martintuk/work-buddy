@@ -164,7 +164,7 @@ struct SearchPage: Decodable {
     }
 }
 
-struct Viewer: Decodable {
+struct Viewer: Decodable, Sendable {
     let login: String
 
     /// Resuelve el login para filtrar la review personal en la consulta de PRs.

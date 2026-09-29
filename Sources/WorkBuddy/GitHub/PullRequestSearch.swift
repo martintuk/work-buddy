@@ -32,13 +32,13 @@ enum PullRequestSearch {
     }
 
     static func fetch(
+        viewer: Viewer,
         search: String,
         fields: String = PullRequestFields.base,
         pageSize: Int,
         maxPages: Int,
         machineAccounts: Set<String> = []
     ) async throws -> [PullRequest] {
-        let viewer = try await Viewer.fetch()
         let query = query(search: search, fields: fields, pageSize: pageSize)
         var results: [PullRequest] = []
         var cursor: String?

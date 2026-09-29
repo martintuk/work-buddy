@@ -9,16 +9,17 @@ enum DumpQueue {
             try await GH.preflight()
             let start = Date()
             let configuration = AppConfiguration.load()
+            let viewer = try await Viewer.fetch()
 
             // Las consultas de las cuatro colas son independientes. La app las escalona (primero
             // personas, después dependabot) para que el panel aparezca antes;
             // acá van en paralelo porque sólo interesa el resultado.
-            async let reviewQueue = ReviewQueue.fetch(configuration: configuration)
-            async let dependabotQueue = DependabotQueue.fetch(configuration: configuration)
-            async let teamQueue = TeamDependabot.load(configuration: configuration)
-            async let mergeQueue = MergeQueue.fetch(configuration: configuration)
-            async let conversationCandidates = ConversationCandidates.fetch(configuration: configuration)
-            async let fixQueue = FixQueue.fetch(configuration: configuration)
+            async let reviewQueue = ReviewQueue.fetch(configuration: configuration, viewer: viewer)
+            async let dependabotQueue = DependabotQueue.fetch(configuration: configuration, viewer: viewer)
+            async let teamQueue = TeamDependabot.load(configuration: configuration, viewer: viewer)
+            async let mergeQueue = MergeQueue.fetch(configuration: configuration, viewer: viewer)
+            async let conversationCandidates = ConversationCandidates.fetch(configuration: configuration, viewer: viewer)
+            async let fixQueue = FixQueue.fetch(configuration: configuration, viewer: viewer)
 
             let humans = try await reviewQueue
             let dependabot = try await dependabotQueue
@@ -30,7 +31,6 @@ enum DumpQueue {
             let mergeCandidates = (try await mergeQueue + teamPRs).uniquedByID()
             let fixCandidates = try await fixQueue
             let others = try await conversationCandidates
-            let viewer = try await Viewer.fetch()
             let replies = try await ReplyQueue.fetch(for: fixCandidates + others, me: viewer.login)
             let pullRequests = (humans + dependabot + teamPRs).uniquedByID()
             let elapsed = Date().timeIntervalSince(start)

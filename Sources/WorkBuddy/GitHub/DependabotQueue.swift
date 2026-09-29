@@ -34,8 +34,9 @@ enum DependabotQueue {
         configuration.scopedSearch(baseSearchQuery)
     }
 
-    static func fetch(configuration: AppConfiguration = .empty) async throws -> [PullRequest] {
+    static func fetch(configuration: AppConfiguration = .empty, viewer: Viewer) async throws -> [PullRequest] {
         try await PullRequestSearch.fetch(
+            viewer: viewer,
             search: searchQuery(configuration: configuration),
             pageSize: pageSize,
             maxPages: maxPages,
