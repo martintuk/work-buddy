@@ -15,6 +15,7 @@ enum Diagnostics {
     }
     enum Metric: String, Sendable {
         case items, candidates, batchSize, pages, bytes, attempt, repositories, teams, ageSeconds, forced
+        case concurrency, searches
     }
 
     struct Failure: Codable, Sendable {
@@ -29,7 +30,9 @@ enum Diagnostics {
             case GH.Failure.commandFailed(let code, let detail),
                  ACLI.Failure.commandFailed(let code, let detail):
                 exitCode = code
-                if let status = [401, 403, 429, 500, 502, 503, 504].first(where: {
+                if detail.localizedCaseInsensitiveContains("rate limit") {
+                    category = "rate_limited"
+                } else if let status = [401, 403, 429, 500, 502, 503, 504].first(where: {
                     detail.localizedCaseInsensitiveContains("HTTP \($0)")
                 }) {
                     category = "http_\(status)"
@@ -40,6 +43,8 @@ enum Diagnostics {
                 } else {
                     category = "command_failed"
                 }
+            case GH.Failure.badJSON(let detail) where detail.localizedCaseInsensitiveContains("rate limit"):
+                category = "rate_limited"
             case is GH.Failure, is ACLI.Failure: category = "invalid_response"
             default: category = "other"
             }

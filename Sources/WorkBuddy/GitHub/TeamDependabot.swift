@@ -155,19 +155,53 @@ enum TeamDependabot {
         return searches
     }
 
-    static func fetch(repositories: [String], configuration: AppConfiguration, viewer: Viewer) async throws -> [PullRequest] {
-        var results: [PullRequest] = []
-        for search in searches(repositories: repositories) {
+    /// Preferencia de diagnóstico, leída en cada carga para poder comparar máquinas.
+    static func searchConcurrency(defaults: UserDefaults = .standard) -> Int {
+        let value = defaults.object(forKey: "performance.teamSearchConcurrency") as? Int ?? 2
+        return max(1, min(8, value))
+    }
+
+    static func fetch(
+        repositories: [String], configuration: AppConfiguration, viewer: Viewer,
+        concurrency: Int = searchConcurrency(),
+        request: @escaping Request = { try await GH.runRetrying($0) }
+    ) async throws -> [PullRequest] {
+        let queries = searches(repositories: repositories)
+        let limit = max(1, min(8, concurrency))
+        Diagnostics.record(.counts, metrics: [.concurrency: limit, .searches: queries.count])
+
+        @Sendable func fetchSearch(_ index: Int) async throws -> (Int, [PullRequest]) {
             try Task.checkCancellation()
-            results += try await Diagnostics.measure(.teamSearch) {
+            let prs = try await Diagnostics.measure(.teamSearch) {
                 try await PullRequestSearch.fetch(
                     viewer: viewer,
-                    search: search, fields: PullRequestFields.withMergeState,
-                    pageSize: 25, maxPages: 40, machineAccounts: configuration.machineAccounts
+                    search: queries[index], fields: PullRequestFields.withMergeState,
+                    pageSize: 25, maxPages: 40, machineAccounts: configuration.machineAccounts,
+                    request: request
                 )
             }
+            return (index, prs)
         }
-        return results.uniquedByID()
+
+        return try await withThrowingTaskGroup(of: (Int, [PullRequest]).self) { group in
+            var results = Array(repeating: [PullRequest](), count: queries.count)
+            var next = min(limit, queries.count)
+            for index in 0..<next {
+                group.addTask { try await fetchSearch(index) }
+            }
+            while let (index, prs) = try await group.next() {
+                try Task.checkCancellation()
+                results[index] = prs
+                if next < queries.count {
+                    let index = next
+                    group.addTask { try await fetchSearch(index) }
+                    next += 1
+                }
+            }
+            // Conserva el orden y la precedencia al deduplicar, aunque las
+            // respuestas lleguen en otro orden. Un fallo descarta el conjunto.
+            return results.flatMap { $0 }.uniquedByID()
+        }
     }
 }
 

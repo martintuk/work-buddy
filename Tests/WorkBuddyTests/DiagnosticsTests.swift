@@ -224,6 +224,8 @@ struct DiagnosticsTests {
         let sentinel = "PRIVATE-SENTINEL-token-repository-user"
         let failures: [any Error] = [
             GH.Failure.commandFailed(exitCode: 23, stderr: "HTTP 502 \(sentinel)"),
+            GH.Failure.commandFailed(exitCode: 1, stderr: "API rate limit exceeded \(sentinel)"),
+            GH.Failure.badJSON("GraphQL: secondary rate limit \(sentinel)"),
             GH.Failure.notAuthenticated(sentinel),
             GH.Failure.badJSON(sentinel),
             GH.Failure.missingThreads(sentinel),
@@ -245,9 +247,9 @@ struct DiagnosticsTests {
         let exported = try DiagnosticExport(await log.exportData())
         #expect(!exported.text.contains(sentinel))
         #expect(Set(exported.records.compactMap { $0.failure?.category }) == [
-            "http_502", "not_authenticated", "invalid_response", "http_403", "other"
+            "http_502", "rate_limited", "not_authenticated", "invalid_response", "http_403", "other"
         ])
-        #expect(Set(exported.records.compactMap { $0.failure?.exitCode }) == [17, 23])
+        #expect(Set(exported.records.compactMap { $0.failure?.exitCode }) == [1, 17, 23])
         #expect(exported.records.filter { $0.kind == .phaseEnded && $0.failure != nil }.count == failures.count)
     }
 

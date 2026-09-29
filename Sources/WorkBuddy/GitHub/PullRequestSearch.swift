@@ -37,18 +37,20 @@ enum PullRequestSearch {
         fields: String = PullRequestFields.base,
         pageSize: Int,
         maxPages: Int,
-        machineAccounts: Set<String> = []
+        machineAccounts: Set<String> = [],
+        request: @Sendable ([String]) async throws -> Data = { try await GH.runRetrying($0) }
     ) async throws -> [PullRequest] {
         let query = query(search: search, fields: fields, pageSize: pageSize)
         var results: [PullRequest] = []
         var cursor: String?
 
         for _ in 0 ..< maxPages {
+            try Task.checkCancellation()
             var arguments = ["api", "graphql", "-f", "query=\(query)",
                              "-f", "reviewAuthor=\(viewer.login)"]
             if let cursor { arguments += ["-F", "cursor=\(cursor)"] }
 
-            let data = try await GH.runRetrying(arguments)
+            let data = try await request(arguments)
             let payload = try GraphQLResponse<Payload>.decode(data)
             Diagnostics.record(.counts, metrics: [.pages: 1, .items: payload.search.nodes.count])
             let me = payload.viewer.login
