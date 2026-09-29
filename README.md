@@ -175,6 +175,26 @@ por actualización y aproximadamente 1,25 MiB en total. Si una captura llega al
 límite incluye un evento `truncated`; no debe interpretarse como un registro completo.
 Las escrituras se hacen en una cola fuera del hilo de la interfaz.
 
+El mismo archivo incluye las últimas **10 aperturas del panel**, en un historial
+separado (`Diagnostics/Panels/`, hasta 16 KiB por apertura). Abrir y cerrar el panel
+no expulsa las cargas de GitHub/Jira. Cada apertura registra:
+
+- `panelOpen`: desde que se atiende la apertura hasta `popoverDidShow` de AppKit.
+  Es una señal de ventana mostrada, no una medición del primer frame del compositor.
+- `panelRefresh`, `panelLayout` y `panelShow`: trabajo síncrono antes de mostrarla.
+- `opening` y `hasSnapshot`: número de apertura en esta sesión y si GitHub ya tenía
+  una carga completa en memoria. Permiten comparar primera apertura y reaperturas.
+- `mainThreadDelayed`: retrasos del run loop principal de al menos 100 ms respecto
+  de una sonda cada 250 ms, sólo mientras el panel está abierto. Al cerrar se guardan
+  cantidad y máximo. El reloj excluye el tiempo con la máquina dormida. Es una muestra
+  de capacidad de respuesta, no un medidor de FPS ni una prueba de ausencia de tirones.
+
+Para diagnosticar falta de fluidez, abrí/cerrá el panel varias veces y usá la lista
+mientras se actualiza. Después cerralo y exportá el diagnóstico como siempre.
+Las colas publican cada resultado al terminar su consulta; el estado de carga y las
+notificaciones esperan las fuentes necesarias. Una consulta secundaria fallida
+conserva sus últimos datos y una carga cancelada no publica respuestas tardías.
+
 ### Ajustar búsquedas simultáneas de equipos
 
 Las búsquedas de PRs de Dependabot en repos de equipos usan **2 grupos simultáneos**

@@ -16,6 +16,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private let popover: NSPopover
     private let store = ReviewQueueStore()
     private let jiraStore = JiraStore()
+    private let panelDiagnostics = PanelDiagnostics()
     private lazy var syncScheduler = SyncScheduler { [store, jiraStore] in
         store.refresh(force: true)
         jiraStore.refresh()
@@ -109,8 +110,13 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     // Incluye el cierre automático de NSPopover (.transient), que no pasa
     // necesariamente por closePanel(). Se usa siempre el último contador.
     func popoverDidClose(_ notification: Notification) {
+        panelDiagnostics.end()
         stopObservingFocusLoss()
         updateBadge()
+    }
+
+    func popoverDidShow(_ notification: Notification) {
+        panelDiagnostics.shown()
     }
 
     func popoverShouldClose(_ popover: NSPopover) -> Bool {
@@ -166,13 +172,18 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private func showPanel() {
         guard let button = statusItem.button else { return }
 
-        store.refresh() // no-op si la data es reciente
+        panelDiagnostics.begin(hasSnapshot: store.lastUpdated != nil)
+        panelDiagnostics.measure(.panelRefresh) { store.refresh() } // no-op si la data es reciente
         // Resolver el contenido y el ancla antes de calcular la primera posición.
         // El refresh puede cambiar el ancho del badge mientras el panel está cerrado.
-        button.window?.contentView?.layoutSubtreeIfNeeded()
-        popover.contentViewController?.view.layoutSubtreeIfNeeded()
-        popover.contentSize = PanelView.preferredSize
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        panelDiagnostics.measure(.panelLayout) {
+            button.window?.contentView?.layoutSubtreeIfNeeded()
+            popover.contentViewController?.view.layoutSubtreeIfNeeded()
+            popover.contentSize = PanelView.preferredSize
+        }
+        panelDiagnostics.measure(.panelShow) {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        }
 
         // Al ser una app .accessory el panel no recibe foco de teclado por su
         // cuenta; sin esto los campos de texto que agreguemos no van a andar.
@@ -263,7 +274,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             guard response == .OK, let url = panel.url else { return }
             Task { @MainActor in
                 do {
-                    let data = try await DiagnosticLog.shared.exportData()
+                    let data = try await DiagnosticLog.exportReport()
                     try data.write(to: url, options: .atomic)
                     NSWorkspace.shared.activateFileViewerSelecting([url])
                 } catch {

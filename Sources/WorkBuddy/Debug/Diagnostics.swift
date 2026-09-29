@@ -2,20 +2,23 @@ import Foundation
 
 /// Sólo valores enumerados y cantidades: nunca argumentos, respuestas ni errores crudos.
 enum Diagnostics {
-    enum Service: String, Codable, Sendable { case github, jira }
+    enum Service: String, Codable, Sendable { case github, jira, panel }
     enum Phase: String, Codable, Sendable {
         case preflight, viewer, review, merge, own, conversationCandidates, replies
         case dependabot, teamDependabot, ownership, teamSearch, behind, notifications
         case gh, jiraAuth, jiraSHR, jiraRecent, acli
+        case panelOpen, panelRefresh, panelLayout, panelShow, panelResponsiveness
     }
     enum Kind: String, Codable, Sendable {
         case refreshStarted, refreshEnded, cancelled, failed, phaseStarted, phaseEnded
         case published, firstContent, queuesLoaded, counts, retry
         case cacheHit, cacheMiss, cacheFallback, disabled, signedOut, unavailable, partial, truncated
+        case mainThreadDelayed
     }
     enum Metric: String, Sendable {
         case items, candidates, batchSize, pages, bytes, attempt, repositories, teams, ageSeconds, forced
         case concurrency, searches
+        case opening, hasSnapshot, delays, maxDelayMs
     }
 
     struct Failure: Codable, Sendable {
@@ -98,7 +101,7 @@ enum Diagnostics {
         context.log.record(kind, context: context, metrics: metrics, failure: error.map(Failure.init))
     }
 
-    private static func milliseconds(_ duration: Duration) -> Double {
+    static func milliseconds(_ duration: Duration) -> Double {
         Double(duration.components.seconds) * 1_000 + Double(duration.components.attoseconds) / 1e15
     }
 
@@ -111,6 +114,17 @@ final class DiagnosticLog: @unchecked Sendable {
     static let shared = DiagnosticLog(directory: FileManager.default.urls(
         for: .applicationSupportDirectory, in: .userDomainMask
     )[0].appendingPathComponent("work-buddy/Diagnostics", isDirectory: true))
+    // Abrir el panel no debe expulsar las últimas cargas de GitHub/Jira.
+    static let panels = DiagnosticLog(directory: shared.directory.appendingPathComponent("Panels", isDirectory: true),
+                                      maxCycles: 10, maxBytesPerCycle: 16_384)
+
+    static func exportReport(sync: DiagnosticLog = .shared, panels: DiagnosticLog = .panels) async throws -> Data {
+        var data = try await sync.exportData()
+        data.append(Data("\nPanel diagnostics (separate retention)\n".utf8))
+        do { data.append(try await panels.exportData()) }
+        catch { data.append(Data("Panel diagnostics unavailable (storage error)\n".utf8)) }
+        return data
+    }
 
     private struct Metadata: Codable, Sendable {
         var schema = 1
@@ -237,8 +251,12 @@ final class DiagnosticLog: @unchecked Sendable {
     }
 
     private func files() throws -> [URL] {
-        try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
-            .filter { $0.pathExtension == "jsonl" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        do {
+            return try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+                .filter { $0.pathExtension == "jsonl" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return [] // Todavía no hubo muestras, por ejemplo antes de abrir el panel.
+        }
     }
 
     private func encode<T: Encodable>(_ value: T) throws -> Data {

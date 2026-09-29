@@ -288,7 +288,7 @@ struct DiagnosticsTests {
     }
 }
 
-private struct DiagnosticExport {
+struct DiagnosticExport {
     struct Record: Decodable {
         struct Metadata: Decodable { let service: Diagnostics.Service }
         struct Failure: Decodable { let category: String; let exitCode: Int32? }
