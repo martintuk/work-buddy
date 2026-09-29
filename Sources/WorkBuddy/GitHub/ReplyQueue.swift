@@ -3,7 +3,7 @@ import Foundation
 /// Consulta hilos en lotes. En PRs ajenos recorre hacia atrás hasta encontrar una
 /// mención o un comentario propio seguido de respuestas; las páginas se piden sólo si hacen falta.
 enum ReplyQueue {
-    struct Result {
+    struct Result: Sendable {
         let needingReply: [PullRequest]
         let waitingForReply: [PullRequest]
     }

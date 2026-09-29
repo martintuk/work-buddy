@@ -423,105 +423,27 @@ final class ReviewQueueStore {
                     // Una identidad por actualización, sin caché entre cuentas ni ciclos.
                     let viewer = try await Viewer.fetch()
 
-                    // Las consultas de review, merge y CI propia son independientes.
-                    async let teamQueue = Diagnostics.measure(.teamDependabot) {
-                        await TeamDependabot.load(configuration: requestedConfiguration, viewer: viewer, force: requestedTeamDiscovery)
+                    let completed = try await GitHubQueueRefresh.load(queries: .live(
+                        configuration: requestedConfiguration, viewer: viewer,
+                        forceTeamDiscovery: requestedTeamDiscovery
+                    )) { update in
+                        guard requestedRevision == self.configurationRevision, !Task.isCancelled else { return }
+                        self.publish(update, firstContent: &firstContent)
                     }
-                    async let reviewQueue = Diagnostics.measure(.review) {
-                        try await ReviewQueue.fetch(configuration: requestedConfiguration, viewer: viewer)
-                    }
-                    async let mergeQueue = Diagnostics.measure(.merge) {
-                        try await MergeQueue.fetch(configuration: requestedConfiguration, viewer: viewer)
-                    }
-                    async let fixQueue = Diagnostics.measure(.own) {
-                        try await FixQueue.fetch(configuration: requestedConfiguration, viewer: viewer)
-                    }
-                    async let conversationCandidates = Diagnostics.measure(.conversationCandidates) {
-                        try await ConversationCandidates.fetch(configuration: requestedConfiguration, viewer: viewer)
-                    }
-
-                    let fetched = try await reviewQueue
-                    guard requestedRevision == configurationRevision else { return }
-                    pullRequests = fetched
-                    recordPublication(.review, count: fetched.count, firstContent: &firstContent)
-
-                    // Con review disponible, Dependabot puede avanzar mientras
-                    // esperamos merge y conversaciones: no depende de sus resultados.
-                    async let dependabotQueue = Diagnostics.measure(.dependabot) {
-                        try await DependabotQueue.fetch(configuration: requestedConfiguration, viewer: viewer)
-                    }
-
-                    // Los candidatos a merge son secundarios: si esa query falla,
-                    // mostramos la cola de review igual en vez de dejar el panel en
-                    // estado de error.
-                    let fetchedMergeCandidates = try? await mergeQueue
-                    guard requestedRevision == configurationRevision else { return }
-                    if let fetchedMergeCandidates {
-                        requestedMergeCandidates = fetchedMergeCandidates
-                        recordPublication(.merge, count: fetchedMergeCandidates.count, firstContent: &firstContent)
-                    }
-
-                    // Una falla de esta consulta conserva el último resultado conocido,
-                    // igual que la cola de merge, sin descartar las otras secciones.
-                    let fetchedFixCandidates = try? await fixQueue
-                    guard requestedRevision == configurationRevision else { return }
-                    if let fetchedFixCandidates {
-                        fixCandidates = fetchedFixCandidates
-                        recordPublication(.own, count: fetchedFixCandidates.count, firstContent: &firstContent)
-                    }
-
-                    // La lista propia ya está disponible. Una falla de hilos conserva
-                    // la última clasificación sin impedir que se actualice la CI.
-                    onChange?()
-                    if let fetchedFixCandidates {
-                        do {
-                            let others = try await conversationCandidates
-                            let replies = try await Diagnostics.measure(.replies) {
-                                try await ReplyQueue.fetch(for: fetchedFixCandidates + others, me: viewer.login)
-                            }
-                            guard requestedRevision == configurationRevision else { return }
-                            replyCandidates = replies.needingReply
-                            waitingReplyCandidates = replies.waitingForReply
-                            recordPublication(.replies, count: replies.needingReply.count + replies.waitingForReply.count, firstContent: &firstContent)
-                        } catch {
-                            // Conservamos ambas categorías si no pudimos consultar todos los hilos.
-                        }
-                    }
-                    guard requestedRevision == configurationRevision else { return }
-
-                    // Reunimos ambas fuentes antes de notificar y medir ramas.
-                    onChange?()
-                    let fetchedDependabot = try? await dependabotQueue
-                    guard requestedRevision == configurationRevision else { return }
-                    let fetchedTeamQueue = await teamQueue
-                    guard requestedRevision == configurationRevision else { return }
-                    isLoadingTeamDependabot = false
-                    teamDependabotFailure = fetchedTeamQueue.error.map {
-                        LocalizedMessage(L10n.text(.errorTeamDiscovery, $0))
-                    }
-                    if let prs = fetchedTeamQueue.pullRequests {
-                        teamDependabotPullRequests = prs
-                        recordPublication(.teamDependabot, count: prs.count, firstContent: &firstContent)
-                    }
-                    // Esperar las dos fuentes evita notificar el backlog de equipos
-                    // como nuevo al completar el primer descubrimiento.
-                    if fetchedMergeCandidates != nil && fetchedTeamQueue.pullRequests != nil {
+                    guard requestedRevision == configurationRevision, !Task.isCancelled else { return }
+                    // Publicar es independiente; las notificaciones esperan las
+                    // fuentes completas para no tratar un backlog como novedades.
+                    if completed.canNotifyMerge {
                         await Diagnostics.measure(.notifications) {
                             await notifier.send(notificationTracker.process(readyToMerge, in: .merge))
                         }
-                        guard requestedRevision == configurationRevision else { return }
+                        guard requestedRevision == configurationRevision, !Task.isCancelled else { return }
                     }
-                    if let fetchedDependabot {
-                        dependabotPullRequests = fetchedDependabot
-                        recordPublication(.dependabot, count: fetchedDependabot.count, firstContent: &firstContent)
-                        // Review incluye bots: esperar ambas consultas evita sembrar
-                        // una base parcial y notificar el backlog en la primera carga.
-                        if fetchedTeamQueue.pullRequests != nil {
-                            await Diagnostics.measure(.notifications) {
-                                await notifier.send(notificationTracker.process(awaitingYourReview, in: .review))
-                            }
+                    if completed.canNotifyReview {
+                        await Diagnostics.measure(.notifications) {
+                            await notifier.send(notificationTracker.process(awaitingYourReview, in: .review))
                         }
-                        guard requestedRevision == configurationRevision else { return }
+                        guard requestedRevision == configurationRevision, !Task.isCancelled else { return }
                     }
                     // Recién con todas las colas consultadas podemos mostrar un
                     // estado vacío. Medir ramas después no agrega ni quita PRs.
@@ -529,7 +451,9 @@ final class ReviewQueueStore {
                     state = .loaded
                     Diagnostics.record(.queuesLoaded)
                     onChange?()
-                    behindCounts = await Diagnostics.measure(.behind) { await BehindCount.fetch(for: allKnown) }
+                    let counts = await Diagnostics.measure(.behind) { await BehindCount.fetch(for: allKnown) }
+                    guard requestedRevision == configurationRevision, !Task.isCancelled else { return }
+                    behindCounts = counts
                 } catch {
                     guard requestedRevision == configurationRevision else { return }
                     Diagnostics.record(.failed, error: error)
@@ -545,6 +469,43 @@ final class ReviewQueueStore {
                 }
             }
         }
+    }
+
+    private func publish(_ update: GitHubQueueRefresh.Update, firstContent: inout Bool) {
+        let phase: Diagnostics.Phase
+        let count: Int
+        switch update {
+        case .review(let prs):
+            pullRequests = prs
+            phase = .review
+            count = prs.count
+        case .merge(let prs):
+            requestedMergeCandidates = prs
+            phase = .merge
+            count = prs.count
+        case .own(let prs):
+            fixCandidates = prs
+            phase = .own
+            count = prs.count
+        case .dependabot(let prs):
+            dependabotPullRequests = prs
+            phase = .dependabot
+            count = prs.count
+        case .team(let result):
+            isLoadingTeamDependabot = false
+            teamDependabotFailure = result.error.map { LocalizedMessage(L10n.text(.errorTeamDiscovery, $0)) }
+            guard let prs = result.pullRequests else { onChange?(); return }
+            teamDependabotPullRequests = prs
+            phase = .teamDependabot
+            count = prs.count
+        case .replies(let replies):
+            replyCandidates = replies.needingReply
+            waitingReplyCandidates = replies.waitingForReply
+            phase = .replies
+            count = replies.needingReply.count + replies.waitingForReply.count
+        }
+        recordPublication(phase, count: count, firstContent: &firstContent)
+        onChange?()
     }
 
     private func recordPublication(_ phase: Diagnostics.Phase, count: Int, firstContent: inout Bool) {
