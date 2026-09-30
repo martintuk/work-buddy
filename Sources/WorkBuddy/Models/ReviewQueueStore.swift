@@ -23,6 +23,8 @@ final class ReviewQueueStore {
     let editor = EditorStore()
     let agentCLI = AgentCLIStore()
     let projectOpener = ProjectOpener()
+    let approvalBatch = DependabotApprovalBatch()
+    private(set) var viewerLogin: String?
     private(set) var pullRequests: [PullRequest] = []
     /// PRs de dependabot en la cola de review, agrupados según su CI.
     /// Los que están para mergear llegan por `mergeCandidates`.
@@ -127,6 +129,59 @@ final class ReviewQueueStore {
     }
 
     var awaitingYourReview: [PullRequest] { visible.awaitingYourReview }
+
+    var dependabotApprovalCandidates: [PullRequest] {
+        awaitingYourReview.filter { $0.canBatchApproveDependabot && !isActing(on: $0) }
+    }
+
+    func openApprovalBatch() {
+        if approvalBatch.isRunning || approvalBatch.phase == .finished {
+            approvalBatch.isPresented = true
+        } else if let viewerLogin {
+            approvalBatch.prepare(dependabotApprovalCandidates, viewer: viewerLogin)
+        }
+    }
+
+    func startApprovalBatch() {
+        guard approvalBatch.phase == .selecting, !approvalBatch.selectedIDs.isEmpty else { return }
+        let ids = approvalBatch.selectedIDs
+        guard ids.isDisjoint(with: inFlightActions) else { return }
+        let revision = configurationRevision
+        inFlightActions.formUnion(ids)
+        onChange?()
+        approvalBatch.start(
+            read: { try await DependabotApprovalCheck.fetch($0, viewer: $1) },
+            approve: { pr in
+                guard let commitID = pr.headRefOID else { throw GH.Failure.badJSON("Missing head commit") }
+                _ = try await GH.run(GitHubWrite.approveCommit(
+                    repository: pr.repository, number: pr.number, commitID: commitID
+                ).arguments)
+            },
+            isAllowed: { [self] pr in
+                revision == configurationRevision
+                    && filtered(reviewQueue).excluding(ignoreList.ids).contains { $0.id == pr.id }
+            },
+            didApprove: { [self] pr in
+                // No dejamos aprobado un commit nuevo publicado durante la request.
+                let matches: (PullRequest) -> Bool = { $0.id == pr.id && $0.headRefOID == pr.headRefOID }
+                pullRequests.removeAll(where: matches)
+                dependabotPullRequests.removeAll(where: matches)
+                teamDependabotPullRequests.removeAll(where: matches)
+                requestedMergeCandidates.removeAll(where: matches)
+                onChange?()
+            },
+            didFinish: { [self] in
+                inFlightActions.subtract(ids)
+                onChange?()
+                refresh(force: true)
+            }
+        )
+    }
+
+    func prepareNewApprovalBatch() {
+        guard !approvalBatch.isRunning, let viewerLogin else { return }
+        approvalBatch.prepare(dependabotApprovalCandidates, viewer: viewerLogin)
+    }
 
     var readyToMerge: [PullRequest] {
         repositoryFilter.prioritizingFavorites(
@@ -341,6 +396,7 @@ final class ReviewQueueStore {
         configuration = updated
         configuration.persist()
         configurationRevision += 1
+        viewerLogin = nil
         inFlight?.cancel()
         inFlight = nil
         hasPendingRefresh = false
@@ -444,6 +500,8 @@ final class ReviewQueueStore {
                     try await Diagnostics.measure(.preflight) { try await GH.preflight() }
                     // Una identidad por actualización, sin caché entre cuentas ni ciclos.
                     let viewer = try await Viewer.fetch()
+                    guard requestedRevision == configurationRevision, !Task.isCancelled else { return }
+                    viewerLogin = viewer.login
 
                     let completed = try await GitHubQueueRefresh.load(queries: .live(
                         configuration: requestedConfiguration, viewer: viewer,

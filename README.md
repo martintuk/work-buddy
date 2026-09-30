@@ -61,6 +61,24 @@ de actualizar, también cuando fallan. Si ya hay una consulta en curso, se hace
 otra al terminar. Ignorar y dejar de ignorar actualizan el panel y el badge
 localmente, sin volver a consultar GitHub.
 
+En **Para revisar**, el botón de checklist prepara un **lote de aprobaciones de
+Dependabot**, respetando los filtros y los PRs ignorados. Sólo incluye los que
+están listos para revisar y todavía necesitan tu aprobación. Podés desmarcar PRs,
+seleccionar todos, abrirlos en GitHub y confirmar una vez con **Aprobar N**.
+El lote conserva su selección durante las actualizaciones y al cerrar el panel.
+La lista muestra sólo repositorio y número, con el título completo en el tooltip.
+Si un PR deja de cumplir el criterio durante la preparación, se retira del lote;
+las actualizaciones no agregan candidatos nuevos a la selección.
+
+Antes de cada aprobación consulta GitHub de nuevo y verifica la cuenta, el commit,
+CI, ausencia de conflictos, draft y aprobación personal. Si el PR cambió, se cerró
+o dejó de cumplir las condiciones, lo omite. La aprobación se asocia al commit
+seleccionado; nunca aprueba un commit nuevo por accidente. Los resultados quedan
+por PR y las escrituras fallidas no se reintentan automáticamente. **Detener**
+termina una escritura en curso y omite los restantes. Al finalizar actualiza la
+cola; el merge sigue siendo una acción separada. El lote siempre necesita confirmación,
+incluso si las acciones individuales están configuradas sin confirmación.
+
 Refresca cada 5 minutos y notifica lo nuevo que te bloquea.
 
 La sección **Jira** reutiliza la sesión del CLI oficial de Atlassian. Si no hay

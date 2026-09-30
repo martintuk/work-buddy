@@ -7,7 +7,7 @@ enum PullRequestFields {
     /// a diferencia de `mergeable`, que sí.
     static let base = """
     id number title url isDraft updatedAt reviewDecision
-    baseRefName headRefName
+    baseRefName headRefName headRefOid
     repository { nameWithOwner viewerDefaultMergeMethod }
     author { login __typename }
     reviewRequests(first: 15) {
@@ -45,6 +45,7 @@ struct PullRequestNode: Decodable {
     /// Ramas base y del PR, para poder compararlas contra la compare API.
     let baseRefName: String?
     let headRefName: String?
+    let headRefOid: String?
     let mergeable: String?
     let mergeStateStatus: String?
     let repository: Repository?
@@ -144,7 +145,8 @@ struct PullRequestNode: Decodable {
             approvals: reviews.count { $0.state == "APPROVED" },
             approvedByMe: myReview?.nodes.compactMap { $0 }.last.map {
                 $0.author?.login.lowercased() == me.lowercased() && $0.state == "APPROVED"
-            } ?? false
+            } ?? false,
+            headRefOID: headRefOid
         )
     }
 }

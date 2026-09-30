@@ -84,15 +84,24 @@ struct GitHubSectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            filters
-            Divider()
+            if store.approvalBatch.isPresented {
+                DependabotApprovalBatchView(
+                    batch: store.approvalBatch,
+                    start: store.startApprovalBatch,
+                    close: { store.approvalBatch.isPresented = false },
+                    newBatch: { store.prepareNewApprovalBatch() }
+                )
+            } else {
+                filters
+                Divider()
 
-            content
-                .overlay(alignment: .top) {
-                    topNotice
-                        .padding(.horizontal, 10)
-                        .padding(.top, 8)
-                }
+                content
+                    .overlay(alignment: .top) {
+                        topNotice
+                            .padding(.horizontal, 10)
+                            .padding(.top, 8)
+                    }
+            }
         }
         .onChange(of: store.editor.selectedURL) { _, selectedURL in
             if selectedURL != nil, case .editor = configurationHint { configurationHint = nil }
@@ -102,6 +111,9 @@ struct GitHubSectionView: View {
         }
         .onChange(of: pendingAction.map { store.isAvailable($0) } ?? false) { _, available in
             if !available { pendingAction = nil }
+        }
+        .onChange(of: store.dependabotApprovalCandidates.map { "\($0.id):\($0.headRefOID ?? "")" }) { _, _ in
+            store.approvalBatch.reconcile(store.dependabotApprovalCandidates)
         }
     }
 
@@ -366,6 +378,7 @@ struct GitHubSectionView: View {
     private var hasVisiblePullRequests: Bool {
         !store.reviewSections.isEmpty || !store.readyToMerge.isEmpty || !store.needingCIFix.isEmpty
             || !store.needingReply.isEmpty || !store.waitingForReply.isEmpty || !store.automation.isEmpty || !store.ignored.isEmpty
+            || !store.approvalBatch.entries.isEmpty
     }
 
     @ViewBuilder
@@ -518,7 +531,8 @@ struct GitHubSectionView: View {
         subtitle: String? = nil,
         items: [PullRequest]
     ) -> some View {
-        if showEmptySections || !items.isEmpty {
+        if showEmptySections || !items.isEmpty
+            || (section == .review(.needsReview) && !store.approvalBatch.entries.isEmpty) {
             let collapsed = Set(collapsedSectionIDs.split(separator: ",").map(String.init))
             let isExpanded = !collapsed.contains(section.persistenceID)
             Section {
@@ -538,23 +552,54 @@ struct GitHubSectionView: View {
                     rows(items, in: section)
                 }
             } header: {
-                QueueSectionHeader(
-                    title: title,
-                    subtitle: subtitle,
-                    symbol: section.symbol,
-                    tint: section.tint,
-                    count: items.count,
-                    isExpanded: isExpanded,
-                    accessibilityItemName: L10n.text(.githubPullRequests)
-                ) {
-                    withAnimation(.easeInOut(duration: 0.18)) {
-                        var updated = collapsed
-                        if isExpanded {
-                            updated.insert(section.persistenceID)
-                        } else {
-                            updated.remove(section.persistenceID)
+                HStack(spacing: 5) {
+                    QueueSectionHeader(
+                        title: title,
+                        subtitle: subtitle,
+                        symbol: section.symbol,
+                        tint: section.tint,
+                        count: items.count,
+                        isExpanded: isExpanded,
+                        accessibilityItemName: L10n.text(.githubPullRequests)
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            var updated = collapsed
+                            if isExpanded {
+                                updated.insert(section.persistenceID)
+                            } else {
+                                updated.remove(section.persistenceID)
+                            }
+                            collapsedSectionIDs = updated.sorted().joined(separator: ",")
                         }
-                        collapsedSectionIDs = updated.sorted().joined(separator: ",")
+                    }
+                    if section == .review(.needsReview),
+                       !store.dependabotApprovalCandidates.isEmpty || !store.approvalBatch.entries.isEmpty {
+                        Button {
+                            pendingAction = nil
+                            configurationHint = nil
+                            store.dismissOutcome()
+                            store.openApprovalBatch()
+                        } label: {
+                            Group {
+                                if store.approvalBatch.isRunning {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Image(systemName: "checklist")
+                                        .font(.system(size: 14, weight: .medium))
+                                }
+                            }
+                            .foregroundStyle(Color.blue)
+                            .frame(width: 36, height: 46)
+                            .background(Color.blue.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 10).strokeBorder(Color.blue.opacity(0.2))
+                            }
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .help(L10n.text(store.approvalBatch.phase == .finished ? .batchViewResults : .batchOpen))
+                        .accessibilityLabel(L10n.text(store.approvalBatch.phase == .finished ? .batchViewResults : .batchOpen))
+                        .padding(.top, QueueLayout.sectionSpacing)
                     }
                 }
             }

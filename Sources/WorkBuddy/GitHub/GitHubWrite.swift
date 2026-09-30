@@ -37,6 +37,7 @@ enum MergeMethod: String, CaseIterable, Sendable {
 /// arbitraria de `gh`. Un PR por llamada, sin batching.
 enum GitHubWrite: Sendable {
     case approve(repository: String, number: Int)
+    case approveCommit(repository: String, number: Int, commitID: String)
     case rebase(repository: String, number: Int)
     case dependabotRebase(repository: String, number: Int)
     case merge(repository: String, number: Int, method: MergeMethod)
@@ -48,6 +49,12 @@ enum GitHubWrite: Sendable {
         // required reviewers.
         case .approve(let repository, let number):
             ["pr", "review", String(number), "--repo", repository, "--approve"]
+
+        // La review queda asociada al commit que se mostró y se verificó.
+        // Una actualización de Dependabot durante la request no amplía el lote.
+        case .approveCommit(let repository, let number, let commitID):
+            ["api", "repos/\(repository)/pulls/\(number)/reviews", "--method", "POST",
+             "-f", "event=APPROVE", "-f", "commit_id=\(commitID)"]
 
         // Actualiza la rama y mantiene el PR abierto. Sin --rebase, GitHub
         // crearía un commit de merge en vez de rebasear.
@@ -76,7 +83,7 @@ enum GitHubWrite: Sendable {
     /// Lo que la acción hizo, en pasado, para el aviso al usuario.
     var pastTense: String {
         switch self {
-        case .approve: L10n.text(.prApproved)
+        case .approve, .approveCommit: L10n.text(.prApproved)
         case .rebase: L10n.text(.prRebased)
         case .dependabotRebase: L10n.text(.prDependabotRequested)
         case .merge: L10n.text(.prMerged)
