@@ -74,6 +74,7 @@ struct PullRequestAutopilotBar: View {
                 .rotationEffect(.degrees(autopilot.isExpanded ? 180 : 0))
                 .frame(maxWidth: .infinity)
                 .frame(height: 6)
+                .padding(.top, 2)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
