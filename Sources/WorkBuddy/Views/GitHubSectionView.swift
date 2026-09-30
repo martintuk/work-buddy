@@ -493,7 +493,8 @@ struct GitHubSectionView: View {
                         return
                     }
                     Task { await store.agentCLI.open(folder, id: pullRequest.id) }
-                }
+                },
+                repositoryStore: store
             ) { action in
                 configurationHint = nil
                 store.projectOpener.dismissNotice()

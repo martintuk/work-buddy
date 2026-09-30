@@ -20,6 +20,7 @@ struct PullRequestRow: View {
     let canOpenProject: Bool
     let openProject: () -> Void
     let openAgent: () -> Void
+    let repositoryStore: ReviewQueueStore
     let perform: (PullRequestAction) -> Void
 
     @State private var isHovering = false
@@ -54,6 +55,18 @@ struct PullRequestRow: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
         }
+        // El label queda fuera de los gestos de la fila, igual que las acciones.
+        .overlayPreferenceValue(RepositoryLabelBounds.self) { anchor in
+            GeometryReader { geometry in
+                if let anchor {
+                    let bounds = geometry[anchor]
+                    RepositoryQuickFilterButton(repository: pullRequest.repository, store: repositoryStore)
+                        .font(.system(size: 10))
+                        .frame(width: bounds.width, height: bounds.height, alignment: .leading)
+                        .position(x: bounds.midX, y: bounds.midY)
+                }
+            }
+        }
         .contentShape(.rect)
         .background(RowMouseSelection(select: select))
         .contextMenu {
@@ -79,7 +92,11 @@ struct PullRequestRow: View {
 
     private var subtitle: some View {
         HStack(spacing: 5) {
-            Text("\(pullRequest.shortRepository) #\(String(pullRequest.number))")
+            Text(pullRequest.shortRepository)
+                .hidden()
+                .accessibilityHidden(true)
+                .anchorPreference(key: RepositoryLabelBounds.self, value: .bounds) { $0 }
+            Text("#\(String(pullRequest.number))")
                 .foregroundStyle(.secondary)
             Text("· \(pullRequest.author.login)")
                 .foregroundStyle(.tertiary)
@@ -205,6 +222,14 @@ struct PullRequestRow: View {
         button(isIgnored ? .restore : .ignore)
     }
 
+}
+
+private struct RepositoryLabelBounds: PreferenceKey {
+    static var defaultValue: Anchor<CGRect>? { nil }
+
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = nextValue() ?? value
+    }
 }
 
 /// Selecciona la fila al presionar cualquier botón del mouse, antes de que
