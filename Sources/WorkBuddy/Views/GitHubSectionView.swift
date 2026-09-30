@@ -84,26 +84,7 @@ struct GitHubSectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Button(action: showRepositories) {
-                HStack(spacing: 6) {
-                    Label(L10n.text(.repositoriesTitle), systemImage: store.repositoryFilter.isActive
-                        ? "line.3.horizontal.decrease.circle.fill"
-                        : "line.3.horizontal.decrease.circle")
-                        .foregroundStyle(store.repositoryFilter.isActive ? Color.accentColor : Color.primary)
-                    Spacer()
-                    Text(store.repositoryFilter.isActive ? L10n.text(.repositoriesFilterActive) : L10n.text(.repositoriesAll))
-                        .foregroundStyle(.secondary)
-                    Image(systemName: "chevron.right")
-                        .foregroundStyle(.secondary)
-                }
-                .font(.system(size: 11))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(Color.accentColor.opacity(store.repositoryFilter.isActive ? 0.08 : 0))
-                .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .help(L10n.text(.repositoriesFilterHelp))
+            filters
             Divider()
 
             content
@@ -122,6 +103,61 @@ struct GitHubSectionView: View {
         .onChange(of: pendingAction.map { store.isAvailable($0) } ?? false) { _, available in
             if !available { pendingAction = nil }
         }
+    }
+
+    private var filters: some View {
+        HStack(spacing: 8) {
+            Button(action: showRepositories) {
+                HStack(spacing: 5) {
+                    Label(L10n.text(.repositoriesTitle), systemImage: store.repositoryFilter.isActive
+                        ? "line.3.horizontal.decrease.circle.fill"
+                        : "line.3.horizontal.decrease.circle")
+                    Image(systemName: "chevron.right").font(.system(size: 8, weight: .semibold))
+                }
+                .padding(.horizontal, 8)
+                .frame(height: 26)
+                .background(Color.accentColor.opacity(store.repositoryFilter.isActive ? 0.12 : 0.05), in: Capsule())
+                .contentShape(.capsule)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(store.repositoryFilter.isActive ? Color.accentColor : Color.secondary)
+            .help(L10n.text(.repositoriesFilterHelp))
+            .accessibilityLabel(L10n.text(.repositoriesFilterHelp))
+            .accessibilityValue(L10n.text(store.repositoryFilter.isActive ? .repositoriesFilterActive : .repositoriesAll))
+
+            Spacer(minLength: 0)
+
+            Menu {
+                Picker(L10n.text(.githubAutomation), selection: Binding(
+                    get: { store.automationFilter },
+                    set: { store.setAutomationFilter($0) }
+                )) {
+                    ForEach(AutomationFilter.allCases, id: \.self) { filter in
+                        Text(filter.title).tag(filter)
+                    }
+                }
+                .pickerStyle(.inline)
+            } label: {
+                HStack(spacing: 5) {
+                    Label(store.automationFilter.isActive ? store.automationFilter.title : L10n.text(.githubAutomation),
+                          systemImage: store.automationFilter == .excludingAutomation ? "eye.slash" : "gearshape.2")
+                    Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
+                }
+                .padding(.horizontal, 8)
+                .frame(height: 26)
+                .background(Color.accentColor.opacity(store.automationFilter.isActive ? 0.12 : 0.05), in: Capsule())
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .foregroundStyle(store.automationFilter.isActive ? Color.accentColor : Color.secondary)
+            .help(L10n.text(.automationFilterHelp))
+            .accessibilityLabel(L10n.text(.automationFilterHelp))
+            .accessibilityValue(store.automationFilter.title)
+        }
+        .font(.system(size: 11))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
     }
 
     /// Los avisos flotan sobre la lista para no alterar su altura ni el scroll.
@@ -363,18 +399,16 @@ struct GitHubSectionView: View {
             // (LazySubviewPlacements), bloqueando el hilo principal. La pila
             // eager evita ese ciclo; los encabezados se desplazan con las filas.
             VStack(alignment: .leading, spacing: 0) {
-                if !hasVisiblePullRequests && (!showEmptySections || store.hasRepositoryFilteredResults) {
+                if !hasVisiblePullRequests && (!showEmptySections || store.hasFilteredResults) {
                     centered {
                         ContentUnavailableView {
-                            Label(store.hasRepositoryFilteredResults ? L10n.text(.repositoriesFilteredEmpty) : L10n.text(.commonNothingPending),
-                                  systemImage: store.hasRepositoryFilteredResults ? "line.3.horizontal.decrease.circle" : "checkmark.circle")
+                            Label(store.hasFilteredResults ? L10n.text(.repositoriesFilteredEmpty) : L10n.text(.commonNothingPending),
+                                  systemImage: store.hasFilteredResults ? "line.3.horizontal.decrease.circle" : "checkmark.circle")
                         } description: {
-                            Text(store.hasRepositoryFilteredResults
-                                ? L10n.text(.repositoriesHiddenResults)
-                                : L10n.text(.githubNoReviews))
+                            if !store.hasFilteredResults { Text(L10n.text(.githubNoReviews)) }
                         } actions: {
-                            if store.repositoryFilter.isActive {
-                                Button(L10n.text(.repositoriesShowAll)) { store.clearRepositoryFilter() }
+                            if store.hasActiveFilters {
+                                Button(L10n.text(.repositoriesShowAll)) { store.clearFilters() }
                             }
                         }
                     }

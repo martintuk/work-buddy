@@ -151,6 +151,10 @@ extension L10n {
         case githubReply
         case githubWaiting
         case githubAutomation
+        case automationFilterAll
+        case automationFilterHide
+        case automationFilterOnly
+        case automationFilterHelp
         case prApprovalCount
         case prApprovalsSatisfied
         case prApprovalsRequired

@@ -18,6 +18,7 @@ final class ReviewQueueStore {
     private(set) var state: State = .idle
     private(set) var configuration = AppConfiguration.load()
     private(set) var repositoryFilter = RepositoryFilter.load()
+    private(set) var automationFilter = AutomationFilter.load()
     let localRepositories = LocalRepositoryStore()
     let editor = EditorStore()
     let agentCLI = AgentCLIStore()
@@ -95,7 +96,7 @@ final class ReviewQueueStore {
     /// Todo lo visible sale de acá: los ignorados se filtran una sola vez, así
     /// no hay forma de que el badge cuente algo que el panel no muestra.
     private var visible: [PullRequest] {
-        repositoryFilter.apply(to: reviewQueue).excluding(ignoreList.ids)
+        filtered(reviewQueue).excluding(ignoreList.ids)
             .excludingMergeableAutomation(in: mergeCandidates)
     }
 
@@ -103,8 +104,16 @@ final class ReviewQueueStore {
         repositoryFilter.repositories(in: allKnown, including: localRepositories.repositories)
     }
 
-    var hasRepositoryFilteredResults: Bool {
-        allKnown.contains { !repositoryFilter.includes($0.repository) }
+    var hasActiveFilters: Bool {
+        repositoryFilter.isActive || automationFilter.isActive
+    }
+
+    var hasFilteredResults: Bool {
+        allKnown.contains { !repositoryFilter.includes($0.repository) || !automationFilter.includes($0) }
+    }
+
+    private func filtered(_ pullRequests: [PullRequest]) -> [PullRequest] {
+        automationFilter.apply(to: repositoryFilter.apply(to: pullRequests))
     }
 
     var reviewSections: [(bucket: ReviewBucket, items: [PullRequest])] {
@@ -121,25 +130,25 @@ final class ReviewQueueStore {
 
     var readyToMerge: [PullRequest] {
         repositoryFilter.prioritizingFavorites(
-            in: repositoryFilter.apply(to: mergeCandidates).excluding(ignoreList.ids).readyToMerge
+            in: filtered(mergeCandidates).excluding(ignoreList.ids).readyToMerge
         )
     }
 
     var needingCIFix: [PullRequest] {
         repositoryFilter.prioritizingFavorites(
-            in: repositoryFilter.apply(to: fixCandidates).excluding(ignoreList.ids).needingCIFix
+            in: filtered(fixCandidates).excluding(ignoreList.ids).needingCIFix
         )
     }
 
     var needingReply: [PullRequest] {
         repositoryFilter.prioritizingFavorites(
-            in: repositoryFilter.apply(to: replyCandidates).excluding(ignoreList.ids)
+            in: filtered(replyCandidates).excluding(ignoreList.ids)
         )
     }
 
     var waitingForReply: [PullRequest] {
         repositoryFilter.prioritizingFavorites(
-            in: repositoryFilter.apply(to: waitingReplyCandidates).excluding(ignoreList.ids)
+            in: filtered(waitingReplyCandidates).excluding(ignoreList.ids)
         )
     }
 
@@ -175,12 +184,25 @@ final class ReviewQueueStore {
     /// aparecen porque la query ya no los trae.
     var ignored: [PullRequest] {
         repositoryFilter.prioritizingFavorites(
-            in: repositoryFilter.apply(to: allKnown).only(ignoreList.ids)
+            in: filtered(allKnown).only(ignoreList.ids)
                 .sorted { $0.updatedAt > $1.updatedAt }
         )
     }
 
     // MARK: - Acciones
+
+    func setAutomationFilter(_ filter: AutomationFilter) {
+        guard automationFilter != filter else { return }
+        automationFilter = filter
+        automationFilter.persist()
+        onChange?()
+    }
+
+    func clearFilters() {
+        automationFilter = .all
+        automationFilter.persist()
+        clearRepositoryFilter()
+    }
 
     func toggleRepositoryFavorite(_ repository: String) {
         repositoryFilter.toggleFavorite(repository)
