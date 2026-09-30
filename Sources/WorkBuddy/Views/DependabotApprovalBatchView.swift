@@ -145,6 +145,8 @@ struct DependabotApprovalBatchView: View {
             switch entry.status {
             case .checking, .approving:
                 ProgressView().controlSize(.small)
+            case .waiting:
+                Image(systemName: "clock").foregroundStyle(.secondary)
             case .approved:
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
             case .skipped:

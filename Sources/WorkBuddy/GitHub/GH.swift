@@ -81,16 +81,30 @@ enum GH {
             if attempt > 0 { Diagnostics.record(.retry, metrics: [.attempt: attempt + 1], error: lastError) }
             do {
                 return try await run(arguments)
-            } catch let failure as Failure {
-                guard case .commandFailed(_, let stderr) = failure, isTransient(stderr) else {
-                    throw failure
+            } catch {
+                let transient: Bool
+                if case Failure.commandFailed(_, let stderr) = error {
+                    transient = isTransient(stderr)
+                } else if let failure = error as? GitHubAPIError {
+                    transient = [502, 503, 504].contains(failure.response.status)
+                } else {
+                    transient = false
                 }
-                lastError = failure
+                guard transient else { throw error }
+                lastError = error
                 // Backoff exponencial: 300ms, 600ms, 1.2s…
                 try? await Task.sleep(for: .milliseconds(300 << attempt))
             }
         }
         throw lastError
+    }
+
+    /// Sólo API: headers de respuesta para distinguir rate limits de permisos.
+    /// Las escrituras nunca usan el retry genérico de errores inciertos.
+    static func runAPI(_ arguments: [String], retryingRead: Bool = false) async throws -> Data {
+        let included = arguments + ["--include"]
+        let data = try await (retryingRead ? runRetrying(included) : run(included))
+        return try GitHubAPIResponse(data).body
     }
 
     private static func isTransient(_ stderr: String) -> Bool {
@@ -156,6 +170,10 @@ enum GH {
 
         guard process.terminationStatus == 0 else {
             let stderr = (try? String(contentsOf: errorURL, encoding: .utf8)) ?? ""
+            if arguments.first == "api", arguments.contains("--include"),
+               let response = try? GitHubAPIResponse(data), response.status >= 400 {
+                throw GitHubAPIError(response: response, detail: stderr.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
             throw Failure.commandFailed(
                 exitCode: process.terminationStatus,
                 stderr: stderr.trimmingCharacters(in: .whitespacesAndNewlines)

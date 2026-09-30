@@ -193,6 +193,254 @@ struct DependabotApprovalBatchTests {
         #expect(batch.failedCount == 1 && batch.approvedCount == 0)
     }
 
+    @Test("Espacia las aprobaciones un segundo y revalida después de esperar")
+    func approvalSpacing() async throws {
+        let clock = ApprovalClock()
+        let batch = DependabotApprovalBatch(approvals: clock.coordinator())
+        batch.prepare([pr(1), pr(2)], viewer: "me")
+        let reads = ApprovalCalls()
+        let writes = ApprovalCalls()
+        let started = batch.start(read: { pr, viewer in
+            await reads.record(pr.id, at: clock.date)
+            return .init(viewer: viewer, pullRequest: pr, isOpen: true)
+        }, approve: { pr in await writes.record(pr.id, at: clock.date) }, isAllowed: { _ in true })
+        await (try #require(started)).value
+        #expect(batch.approvedCount == 2)
+        #expect(await writes.times == [0, 1])
+        #expect(await reads.times == [0, 1])
+    }
+
+    @Test("Pausa el lote ante 429 o 422 por velocidad y revalida antes de reintentar", arguments: [429, 422])
+    func rateLimitRecovery(status: Int) async throws {
+        let clock = ApprovalClock()
+        let batch = DependabotApprovalBatch(approvals: clock.coordinator())
+        batch.prepare([pr(1), pr(2)], viewer: "me")
+        let reads = ApprovalCalls()
+        let writes = ApprovalCalls()
+        let limit = try rateLimit(headers: status == 429 ? "Retry-After: 5" : "", status: status)
+        let delay: TimeInterval = status == 429 ? 5 : 60
+        let started = batch.start(read: { pr, viewer in
+            await reads.record(pr.id, at: clock.date)
+            return .init(viewer: viewer, pullRequest: pr, isOpen: true)
+        }, approve: { pr in
+            await writes.record(pr.id, at: clock.date)
+            if await writes.ids.count == 1 { throw limit }
+        }, isAllowed: { _ in true })
+        await (try #require(started)).value
+        #expect(batch.approvedCount == 2 && batch.failedCount == 0)
+        #expect(await writes.ids == ["PR_1", "PR_1", "PR_2"])
+        #expect(await writes.times == [0, delay, delay + 1])
+        #expect(await reads.times == [0, delay, delay + 1])
+    }
+
+    @Test("No duplica una aprobación que aparece al revalidar")
+    func approvalAlreadyRegistered() async throws {
+        let clock = ApprovalClock()
+        let batch = DependabotApprovalBatch(approvals: clock.coordinator())
+        batch.prepare([pr(1)], viewer: "me")
+        let reads = BatchCalls()
+        let writes = BatchCalls()
+        let limit = try rateLimit(headers: "Retry-After: 2")
+        let alreadyApproved = pr(1, approved: true)
+        let started = batch.start(read: { pr, viewer in
+            await reads.record(pr.id)
+            let current = await reads.ids.count > 1 ? alreadyApproved : pr
+            return .init(viewer: viewer, pullRequest: current, isOpen: true)
+        }, approve: { pr in await writes.record(pr.id); throw limit }, isAllowed: { _ in true })
+        await (try #require(started)).value
+        #expect(await writes.ids.count == 1)
+        #expect(batch.approvedCount == 1 && batch.skippedCount == 0)
+    }
+
+    @Test("Omite el PR si cambió su commit o CI durante la espera", arguments: [false, true])
+    func changedDuringCooldown(changeCommit: Bool) async throws {
+        let clock = ApprovalClock()
+        let batch = DependabotApprovalBatch(approvals: clock.coordinator())
+        batch.prepare([pr(1)], viewer: "me")
+        let reads = BatchCalls()
+        let writes = BatchCalls()
+        let limit = try rateLimit(headers: "Retry-After: 2")
+        var updated = pr(1, checks: changeCommit ? .success : .pending)
+        if changeCommit { updated.headRefOID = "new" }
+        let changed = updated
+        let started = batch.start(read: { pr, viewer in
+            await reads.record(pr.id)
+            let current = await reads.ids.count > 1 ? changed : pr
+            return .init(viewer: viewer, pullRequest: current, isOpen: true)
+        }, approve: { pr in await writes.record(pr.id); throw limit }, isAllowed: { _ in true })
+        await (try #require(started)).value
+        #expect(await writes.ids.count == 1)
+        #expect(batch.skippedCount == 1 && batch.approvedCount == 0)
+        if case .skipped(let reason) = batch.entries[0].status {
+            #expect(reason == (changeCommit ? .changed : .notReady))
+        } else { Issue.record("Debe omitirlo después de la revalidación") }
+    }
+
+    @Test("Limita a tres intentos, omite el resto y conserva el cooldown para otra aprobación")
+    func persistentRateLimit() async throws {
+        let clock = ApprovalClock()
+        let coordinator = clock.coordinator()
+        let batch = DependabotApprovalBatch(approvals: coordinator)
+        batch.prepare([pr(1), pr(2)], viewer: "me")
+        let writes = ApprovalCalls()
+        let limit = try rateLimit()
+        let read: @Sendable (PullRequest, String) async throws -> DependabotApprovalCheck.Snapshot = { pr, viewer in
+            .init(viewer: viewer, pullRequest: pr, isOpen: true)
+        }
+        let started = batch.start(read: read, approve: { pr in
+            await writes.record(pr.id, at: clock.date)
+            throw limit
+        }, isAllowed: { _ in true })
+        await (try #require(started)).value
+        #expect(await writes.ids == ["PR_1", "PR_1", "PR_1"])
+        #expect(await writes.times == [0, 60, 180])
+        #expect(batch.failedCount == 1 && batch.skippedCount == 1)
+        if case .skipped(.rateLimited) = batch.entries[1].status {} else { Issue.record("Debe detener el resto del lote") }
+        _ = try await coordinator.perform(pr(3), viewer: "me", dependabotOnly: false, read: read,
+                                          approve: { pr in await writes.record(pr.id, at: clock.date) })
+        #expect(await writes.times == [0, 60, 180, 420])
+    }
+
+    @Test("Detener o cambiar alcance durante el cooldown impide nuevos intentos", arguments: [false, true])
+    func stopDuringCooldown(scopeChange: Bool) async throws {
+        let clock = ApprovalClock()
+        let gate = BatchGate()
+        let coordinator = GitHubApproval(now: { clock.date }, sleep: { seconds in
+            await gate.enter()
+            clock.advance(seconds)
+        })
+        let batch = DependabotApprovalBatch(approvals: coordinator)
+        batch.prepare([pr(1), pr(2)], viewer: "me")
+        var allowed = true
+        let writes = BatchCalls()
+        let limit = try rateLimit(headers: "Retry-After: 60")
+        let started = batch.start(read: { pr, viewer in .init(viewer: viewer, pullRequest: pr, isOpen: true) },
+                                  approve: { pr in await writes.record(pr.id); throw limit }, isAllowed: { _ in allowed })
+        let task = try #require(started)
+        await gate.waitUntilEntered()
+        if case .waiting(let seconds, let attempt) = batch.entries[0].status {
+            #expect(seconds == 60 && attempt == 2)
+        } else { Issue.record("Debe indicar la espera en el estado") }
+        if scopeChange { allowed = false } else { batch.stop() }
+        await gate.release()
+        await task.value
+        #expect(await writes.ids == ["PR_1"])
+        #expect(batch.skippedCount == 2)
+    }
+
+    @Test("También recupera un rate limit de la lectura antes de enviar la aprobación")
+    func limitedRead() async throws {
+        let clock = ApprovalClock()
+        let batch = DependabotApprovalBatch(approvals: clock.coordinator())
+        batch.prepare([pr(1)], viewer: "me")
+        let reads = BatchCalls()
+        let writes = ApprovalCalls()
+        let limit = try rateLimit(headers: "Retry-After: 4")
+        let started = batch.start(read: { pr, viewer in
+            await reads.record(pr.id)
+            if await reads.ids.count == 1 { throw limit }
+            return .init(viewer: viewer, pullRequest: pr, isOpen: true)
+        }, approve: { pr in await writes.record(pr.id, at: clock.date) }, isAllowed: { _ in true })
+        await (try #require(started)).value
+        #expect(await writes.times == [4])
+        #expect(batch.approvedCount == 1)
+    }
+
+    @Test("Errores de permisos, validación y transporte no se reintentan", arguments: [403, 422, 502])
+    func nonRetryable(status: Int) async throws {
+        let clock = ApprovalClock()
+        let batch = DependabotApprovalBatch(approvals: clock.coordinator())
+        batch.prepare([pr(1), pr(2)], viewer: "me")
+        let writes = BatchCalls()
+        let response = try GitHubAPIResponse(Data("HTTP/2.0 \(status) Error\n\n{\"message\":\"Request rejected\"}".utf8))
+        let failure = GitHubAPIError(response: response, detail: "Request rejected")
+        let started = batch.start(read: { pr, viewer in .init(viewer: viewer, pullRequest: pr, isOpen: true) },
+                                  approve: { pr in await writes.record(pr.id); throw failure }, isAllowed: { _ in true })
+        await (try #require(started)).value
+        #expect(await writes.ids == ["PR_1", "PR_2"])
+        #expect(batch.failedCount == 2 && batch.skippedCount == 0)
+    }
+
+    @Test("La aprobación individual comparte retries y valida sin imponer el criterio de Dependabot")
+    func individualApproval() async throws {
+        let clock = ApprovalClock()
+        let coordinator = clock.coordinator()
+        let person = pr(1, checks: .pending, mergeable: .unknown, author: "alice")
+        let writes = ApprovalCalls()
+        let limit = try rateLimit(headers: "Retry-After: 3")
+        let result = try await coordinator.perform(person, viewer: "me", dependabotOnly: false,
+            read: { pr, viewer in .init(viewer: viewer, pullRequest: pr, isOpen: true) },
+            approve: { pr in
+                await writes.record(pr.id, at: clock.date)
+                if await writes.ids.count == 1 { throw limit }
+            })
+        if case .approved = result {} else { Issue.record("Debe aprobar el PR individual") }
+        #expect(await writes.times == [0, 3])
+    }
+
+    @Test("Las aprobaciones individuales y los lotes que comparten cola no se ejecutan en paralelo")
+    func sharedQueue() async throws {
+        let clock = ApprovalClock()
+        let coordinator = clock.coordinator()
+        let batch = DependabotApprovalBatch(approvals: coordinator)
+        batch.prepare([pr(1)], viewer: "me")
+        let gate = BatchGate()
+        let reads = BatchCalls()
+        let writes = ApprovalCalls()
+        let started = batch.start(read: { pr, viewer in
+            await reads.record(pr.id)
+            await gate.enter()
+            return .init(viewer: viewer, pullRequest: pr, isOpen: true)
+        }, approve: { pr in await writes.record(pr.id, at: clock.date) }, isAllowed: { _ in true })
+        let task = try #require(started)
+        await gate.waitUntilEntered()
+        let individual = Task {
+            try await coordinator.perform(pr(2), viewer: "me", dependabotOnly: false,
+                read: { pr, viewer in
+                    await reads.record(pr.id)
+                    return .init(viewer: viewer, pullRequest: pr, isOpen: true)
+                }, approve: { pr in await writes.record(pr.id, at: clock.date) })
+        }
+        await Task.yield()
+        #expect(await reads.ids == ["PR_1"])
+        await gate.release()
+        await task.value
+        _ = try await individual.value
+        #expect(await writes.ids == ["PR_1", "PR_2"])
+        #expect(await writes.times == [0, 1])
+    }
+
+    @Test("Detener un lote encolado responde sin esperar a otra aprobación")
+    func stopQueuedBatch() async throws {
+        let clock = ApprovalClock()
+        let coordinator = clock.coordinator()
+        let gate = BatchGate()
+        let individual = Task {
+            try await coordinator.perform(pr(1), viewer: "me", dependabotOnly: false,
+                read: { pr, viewer in
+                    await gate.enter()
+                    return .init(viewer: viewer, pullRequest: pr, isOpen: true)
+                }, approve: { _ in })
+        }
+        await gate.waitUntilEntered()
+        let batch = DependabotApprovalBatch(approvals: coordinator)
+        batch.prepare([pr(2)], viewer: "me")
+        let started = batch.start(read: { _, _ in Issue.record("No debe leer un lote detenido"); throw GH.Failure.noAttempts },
+                                  approve: { _ in Issue.record("No debe escribir") }, isAllowed: { _ in true })
+        await Task.yield()
+        batch.stop()
+        await (try #require(started)).value
+        #expect(batch.skippedCount == 1)
+        await gate.release()
+        _ = try await individual.value
+    }
+
+    private func rateLimit(headers: String = "", status: Int = 429) throws -> GitHubAPIError {
+        let message = status == 422 ? "was submitted too quickly" : "secondary rate limit"
+        let response = try GitHubAPIResponse(Data("HTTP/2.0 \(status) Error\n\(headers)\n\n{\"message\":\"\(message)\"}".utf8))
+        return GitHubAPIError(response: response, detail: "secondary rate limit")
+    }
+
     /// Exportación opt-in para revisar la vista real sin ejecutar acciones en GitHub.
     @Test("Renderiza selección y resultados a 420 px en ambos idiomas y apariencias")
     func visualPreview() async throws {
@@ -225,6 +473,22 @@ struct DependabotApprovalBatchTests {
             for scheme in [ColorScheme.light, .dark] {
                 try render(batch, directory: directory, name: "result-\(language.rawValue)-\(scheme)", scheme: scheme)
             }
+
+            let cooldownGate = BatchGate()
+            let waiting = DependabotApprovalBatch(approvals: GitHubApproval(sleep: { _ in await cooldownGate.enter() }))
+            waiting.prepare([pr(1), pr(2)], viewer: "me")
+            let limit = try rateLimit(headers: "Retry-After: 60")
+            let waitingStarted = waiting.start(
+                read: { pr, viewer in .init(viewer: viewer, pullRequest: pr, isOpen: true) },
+                approve: { _ in throw limit }, isAllowed: { _ in true })
+            let waitingTask = try #require(waitingStarted)
+            await cooldownGate.waitUntilEntered()
+            for scheme in [ColorScheme.light, .dark] {
+                try render(waiting, directory: directory, name: "waiting-\(language.rawValue)-\(scheme)", scheme: scheme)
+            }
+            waiting.stop()
+            await cooldownGate.release()
+            await waitingTask.value
 
             let running = DependabotApprovalBatch()
             running.prepare((1...8).map { pr($0) }, viewer: "me")
@@ -298,5 +562,23 @@ private actor BatchGate {
     func release() {
         waiting?.resume()
         waiting = nil
+    }
+}
+
+@MainActor
+private final class ApprovalClock {
+    private(set) var date = Date(timeIntervalSince1970: 0)
+    func advance(_ seconds: TimeInterval) { date.addTimeInterval(seconds) }
+    func coordinator() -> GitHubApproval {
+        GitHubApproval(now: { self.date }, sleep: { self.advance($0) })
+    }
+}
+
+private actor ApprovalCalls {
+    private(set) var ids: [String] = []
+    private(set) var times: [TimeInterval] = []
+    func record(_ id: String, at date: Date) {
+        ids.append(id)
+        times.append(date.timeIntervalSince1970)
     }
 }

@@ -165,6 +165,8 @@ extension L10n {
         case batchEmpty
         case batchPending
         case batchChecking
+        case batchRateLimited
+        case batchRetryWaiting
         case batchApproving
         case batchApproved
         case batchApprovedCount

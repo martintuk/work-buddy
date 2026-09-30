@@ -74,8 +74,15 @@ Antes de cada aprobación consulta GitHub de nuevo y verifica la cuenta, el comm
 CI, ausencia de conflictos, draft y aprobación personal. Si el PR cambió, se cerró
 o dejó de cumplir las condiciones, lo omite. La aprobación se asocia al commit
 seleccionado; nunca aprueba un commit nuevo por accidente. Los resultados quedan
-por PR y las escrituras fallidas no se reintentan automáticamente. **Detener**
-termina una escritura en curso y omite los restantes. Al finalizar actualiza la
+por PR. Las aprobaciones individuales y por lote comparten una cola serial y
+esperan al menos un segundo entre escrituras. Ante un rate limit explícito de
+GitHub (incluido `422` con “was submitted too quickly”), respetan `Retry-After` o `X-RateLimit-Reset`; sin esos headers esperan
+60 segundos y aumentan la espera si se repite. Hay hasta tres intentos y se
+revalida el PR antes de cada uno, sin duplicar una aprobación ya registrada.
+Si el límite persiste, se omite el resto del lote. Errores de permisos, validación
+o transporte incierto no se reintentan. La espera aparece sólo como icono, con
+el detalle en el tooltip. **Detener** interrumpe la espera, termina una escritura
+en curso y omite los restantes. Al finalizar actualiza la
 cola; el merge sigue siendo una acción separada. El lote siempre necesita confirmación,
 incluso si las acciones individuales están configuradas sin confirmación.
 

@@ -23,7 +23,7 @@ final class ReviewQueueStore {
     let editor = EditorStore()
     let agentCLI = AgentCLIStore()
     let projectOpener = ProjectOpener()
-    let approvalBatch = DependabotApprovalBatch()
+    let approvalBatch = DependabotApprovalBatch(approvals: .shared)
     private(set) var viewerLogin: String?
     private(set) var pullRequests: [PullRequest] = []
     /// PRs de dependabot en la cola de review, agrupados según su CI.
@@ -153,7 +153,7 @@ final class ReviewQueueStore {
             read: { try await DependabotApprovalCheck.fetch($0, viewer: $1) },
             approve: { pr in
                 guard let commitID = pr.headRefOID else { throw GH.Failure.badJSON("Missing head commit") }
-                _ = try await GH.run(GitHubWrite.approveCommit(
+                _ = try await GH.runAPI(GitHubWrite.approveCommit(
                     repository: pr.repository, number: pr.number, commitID: commitID
                 ).arguments)
             },
@@ -425,12 +425,31 @@ final class ReviewQueueStore {
         outcome = nil
         onChange?()
 
+        let revision = configurationRevision
+        let viewer = viewerLogin
         Task {
             do {
-                // `GH.run` y no `runRetrying`: una escritura que falló a mitad de
-                // camino no es segura de repetir a ciegas. Un 502 después de que
-                // el merge entró reintentaría sobre un PR ya cerrado.
-                _ = try await GH.run(operation.arguments)
+                if case .approve = operation {
+                    guard let viewer else { throw GH.Failure.badJSON("Missing viewer") }
+                    let result = try await GitHubApproval.shared.perform(
+                        pullRequest, viewer: viewer, dependabotOnly: false,
+                        read: { try await DependabotApprovalCheck.fetch($0, viewer: $1) },
+                        approve: { pr in
+                            guard let commitID = pr.headRefOID else { throw GH.Failure.badJSON("Missing head commit") }
+                            _ = try await GH.runAPI(GitHubWrite.approveCommit(
+                                repository: pr.repository, number: pr.number, commitID: commitID
+                            ).arguments)
+                        },
+                        isAllowed: { [self] _ in revision == configurationRevision }
+                    )
+                    if case .skipped(let reason) = result, reason != .alreadyApproved {
+                        throw ApprovalSkipped(reason: reason)
+                    }
+                } else {
+                    // Las demás escrituras conservan un único intento: un error
+                    // de transporte puede llegar después de aplicar la acción.
+                    _ = try await GH.run(operation.arguments)
+                }
 
                 switch operation {
                 case .merge:

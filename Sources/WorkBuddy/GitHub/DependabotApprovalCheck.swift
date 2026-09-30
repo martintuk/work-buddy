@@ -10,7 +10,7 @@ enum DependabotApprovalCheck {
 
     static func fetch(
         _ pullRequest: PullRequest, viewer: String,
-        request: @Sendable ([String]) async throws -> Data = { try await GH.runRetrying($0) }
+        request: @Sendable ([String]) async throws -> Data = { try await GH.runAPI($0, retryingRead: true) }
     ) async throws -> Snapshot {
         struct Payload: Decodable {
             let viewer: Viewer

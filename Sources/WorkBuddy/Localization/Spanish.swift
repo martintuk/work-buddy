@@ -166,6 +166,8 @@ extension L10n {
         case .batchEmpty: "No hay Dependabot listos"
         case .batchPending: "Pendiente"
         case .batchChecking: "Verificando…"
+        case .batchRateLimited: "Omitido: GitHub sigue limitando las aprobaciones"
+        case .batchRetryWaiting: "Esperando a GitHub: %@ s · Intento %@ de 3"
         case .batchApproving: "Aprobando…"
         case .batchApproved: "Aprobado"
         case .batchApprovedCount: "%@ aprobados"
