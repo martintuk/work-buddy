@@ -14,6 +14,8 @@ struct PanelView: View {
     @State private var selectedCategory: Category = .github
     @State private var showingConfiguration = false
     @State private var showingRepositories = false
+    @State private var showingActivity = false
+    @State private var activityExpanded = false
     @State private var isPinned = false
 
     private enum Category: String, CaseIterable, Identifiable {
@@ -36,7 +38,15 @@ struct PanelView: View {
         VStack(spacing: 0) {
             header
 
-            if showingConfiguration {
+            if showingActivity {
+                ActivityView(activity: store.activity, isExpanded: $activityExpanded) { showingActivity = false }
+                    .frame(maxHeight: activityExpanded ? .infinity : 220)
+                if !activityExpanded { Divider() }
+            }
+
+            if showingActivity && activityExpanded {
+                // El historial ocupa el mismo panel, sin otra ventana flotante.
+            } else if showingConfiguration {
                 navigationHeader(title: L10n.text(.settingsTitle)) { showingConfiguration = false }
                 Divider()
                 ConfigurationView(store: store)
@@ -93,6 +103,28 @@ struct PanelView: View {
             RefreshButton(isRefreshing: isRefreshing, label: L10n.text(.panelRefresh)) { refresh() }
 
             Button {
+                showingActivity.toggle()
+                if showingActivity {
+                    showingConfiguration = false
+                    showingRepositories = false
+                }
+            } label: {
+                Image(systemName: "clock.arrow.circlepath")
+                    .foregroundStyle(showingActivity ? Color.accentColor : Color.secondary)
+                    .overlay(alignment: .topTrailing) {
+                        if !store.activity.unreadIDs.isEmpty {
+                            Circle().fill(store.activity.hasUnreadErrors ? Color.red : Color.accentColor)
+                                .frame(width: 6, height: 6).offset(x: 3, y: -2)
+                        }
+                    }
+            }
+            .buttonStyle(.borderless)
+            .help(L10n.text(showingActivity ? .activityClose : .activityTitle))
+            .accessibilityLabel(L10n.text(.activityTitle))
+            .accessibilityValue(L10n.text(.activityUnread, String(store.activity.unreadIDs.count)))
+
+            Button {
+                showingActivity = false
                 showingConfiguration.toggle()
             } label: {
                 Image(systemName: "gearshape")
@@ -119,9 +151,12 @@ struct PanelView: View {
     private var categoryContent: some View {
         switch selectedCategory {
         case .github:
-            GitHubSectionView(store: store) { showingRepositories = true }
+            GitHubSectionView(store: store, showActivity: { showingActivity = true }) {
+                showingActivity = false
+                showingRepositories = true
+            }
         case .jira:
-            JiraSectionView(store: jiraStore)
+            JiraSectionView(store: jiraStore, activity: store.activity)
         }
     }
 

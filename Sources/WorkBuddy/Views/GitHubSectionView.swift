@@ -3,9 +3,9 @@ import SwiftUI
 /// Cola de PRs de la sección GitHub.
 struct GitHubSectionView: View {
     let store: ReviewQueueStore
+    var showActivity: () -> Void = {}
     let showRepositories: () -> Void
 
-    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("appearance.showEmptySections") private var showEmptySections = true
     @AppStorage("actions.autoConfirm") private var autoConfirmActions = false
     @AppStorage("github.collapsedSections") private var collapsedSectionIDs = ""
@@ -93,9 +93,9 @@ struct GitHubSectionView: View {
                         .padding(.top, 8)
                 }
             if store.autopilot.isPresented {
-                PullRequestAutopilotBar(autopilot: store.autopilot, setEnabled: store.setAutopilotEnabled)
+                PullRequestAutopilotBar(autopilot: store.autopilot, setEnabled: store.setAutopilotEnabled, showActivity: showActivity)
             } else if store.batch.isSelecting {
-                PullRequestBatchBar(batch: store.batch) { action in
+                PullRequestBatchBar(batch: store.batch, showActivity: showActivity) { action in
                     pendingAction = nil
                     configurationHint = nil
                     store.startBatch(action)
@@ -150,7 +150,6 @@ struct GitHubSectionView: View {
             Button {
                 pendingAction = nil
                 configurationHint = nil
-                store.dismissOutcome()
                 store.toggleBatchSelection()
             } label: {
                 Image(systemName: store.batch.isSelecting ? "checkmark.square.fill" : "checkmark.square")
@@ -166,7 +165,6 @@ struct GitHubSectionView: View {
             Button {
                 pendingAction = nil
                 configurationHint = nil
-                store.dismissOutcome()
                 store.toggleAutopilot()
             } label: {
                 Image(systemName: store.autopilot.isPresented ? "bolt.fill" : "bolt")
@@ -213,19 +211,13 @@ struct GitHubSectionView: View {
         Group {
             // La confirmación tapa el aviso: son el mismo lugar y nunca hacen
             // falta las dos a la vez.
-            if let error = store.agentCLI.error {
-                projectError(error, dismiss: store.agentCLI.dismissError)
-            } else if let warning = store.projectOpener.warning {
+            if let warning = store.projectOpener.warning {
                 branchWarning(warning)
-            } else if let error = store.projectOpener.error {
-                projectError(error, dismiss: store.projectOpener.dismissNotice)
             } else if let pendingAction, store.isAvailable(pendingAction),
                       let pullRequest = store.currentPullRequest(id: pendingAction.pullRequestID) {
                 confirmBar(pendingAction, pullRequest: pullRequest)
             } else if let message = configurationHintMessage {
                 configurationNotice(message)
-            } else if let outcome = store.outcome {
-                outcomeBanner(outcome)
             }
         }
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
@@ -255,7 +247,7 @@ struct GitHubSectionView: View {
                 .help(warning.reason.localizedDescription)
             Spacer(minLength: 0)
             Button(L10n.text(.editorOpenProject)) {
-                Task { await store.projectOpener.openWithoutBranch { try await store.editor.open($0) } }
+                Task { await store.openProjectWithoutBranch() }
             }
             .controlSize(.small)
             .buttonStyle(.borderedProminent)
@@ -265,23 +257,6 @@ struct GitHubSectionView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .background(Color.orange.opacity(0.16))
-    }
-
-    private func projectError(_ error: Error, dismiss: @escaping () -> Void) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-            Text(error.localizedDescription).fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-            Button(action: dismiss) { Image(systemName: "xmark") }
-                .buttonStyle(.borderless)
-                .help(L10n.text(.commonCancel))
-                .accessibilityLabel(L10n.text(.commonCancel))
-        }
-        .font(.system(size: 10))
-        .foregroundStyle(.red)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(Color.red.opacity(0.08))
     }
 
     private var dismissProjectNoticeButton: some View {
@@ -369,37 +344,6 @@ struct GitHubSectionView: View {
         default:
             nil
         }
-    }
-
-    /// Aviso de la última escritura. Es la única señal de que funcionó: aprobar
-    /// saca el PR de tu cola y mergear lo cierra, así que la fila desaparece.
-    private func outcomeBanner(_ outcome: ReviewQueueStore.Outcome) -> some View {
-        let successColor = colorScheme == .dark
-            ? Color(red: 0.56, green: 0.69, blue: 0.60)
-            : Color(red: 0.30, green: 0.46, blue: 0.36)
-        let tint = outcome.isError ? Color.red : successColor
-
-        return HStack(spacing: 6) {
-            Image(systemName: outcome.isError
-                ? "exclamationmark.triangle.fill"
-                : "checkmark.circle.fill")
-            Text(outcome.text)
-                .lineLimit(3)
-            Spacer(minLength: 4)
-            Button {
-                store.dismissOutcome()
-            } label: {
-                Image(systemName: "xmark")
-            }
-            .buttonStyle(.borderless)
-            .help(L10n.text(.commonCancel))
-            .accessibilityLabel(L10n.text(.commonCancel))
-        }
-        .font(.system(size: 10))
-        .foregroundStyle(tint)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 7)
-        .background(tint.opacity(0.08))
     }
 
     // MARK: - Contenido
@@ -498,13 +442,11 @@ struct GitHubSectionView: View {
                 requestEditorConfiguration: {
                     pendingAction = nil
                     store.projectOpener.dismissNotice()
-                    store.dismissOutcome()
                     configurationHint = .editor
                 },
                 requestFolderConfiguration: {
                     pendingAction = nil
                     store.projectOpener.dismissNotice()
-                    store.dismissOutcome()
                     configurationHint = .folder(pullRequest.repository)
                 },
                 isOpeningProject: store.projectOpener.openingID == pullRequest.id || store.agentCLI.openingID == pullRequest.id,
@@ -513,11 +455,8 @@ struct GitHubSectionView: View {
                     guard let folder = store.localRepositories.folder(for: pullRequest.repository) else { return }
                     pendingAction = nil
                     configurationHint = nil
-                    store.dismissOutcome()
                     Task {
-                        await store.projectOpener.open(.init(pullRequest: pullRequest, folder: folder)) {
-                            try await store.editor.open($0)
-                        }
+                        await store.openProject(pullRequest, folder: folder)
                     }
                 },
                 openAgent: {
@@ -525,7 +464,6 @@ struct GitHubSectionView: View {
                     configurationHint = nil
                     store.projectOpener.dismissNotice()
                     store.agentCLI.dismissError()
-                    store.dismissOutcome()
                     guard let folder = store.localRepositories.folder(for: pullRequest.repository) else {
                         configurationHint = .folder(pullRequest.repository)
                         return
@@ -534,7 +472,7 @@ struct GitHubSectionView: View {
                         configurationHint = .agent
                         return
                     }
-                    Task { await store.agentCLI.open(folder, id: pullRequest.id) }
+                    Task { await store.openAgent(pullRequest, folder: folder) }
                 },
                 repositoryStore: store,
                 batchSelection: store.batch.isSelecting ? PullRequestBatchSelection(

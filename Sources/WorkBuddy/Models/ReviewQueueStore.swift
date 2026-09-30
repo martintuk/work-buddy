@@ -26,7 +26,13 @@ final class ReviewQueueStore {
     let batch: PullRequestBatch
     let autopilot = PullRequestAutopilot()
 
-    init(batch: PullRequestBatch = PullRequestBatch(runner: .shared)) { self.batch = batch }
+    let activity = ActivityLog()
+
+    init(batch: PullRequestBatch = PullRequestBatch(runner: .shared)) {
+        self.batch = batch
+        batch.onActivity = { [activity] in activity.record($0, source: .batch) }
+        autopilot.onActivity = { [activity] in activity.record($0, source: .autopilot) }
+    }
     private(set) var viewerLogin: String?
     private(set) var pullRequests: [PullRequest] = []
     /// PRs de dependabot en la cola de review, agrupados según su CI.
@@ -53,24 +59,11 @@ final class ReviewQueueStore {
     private(set) var waitingReplyCandidates: [PullRequest] = []
     private(set) var lastUpdated: Date?
 
-    /// Resultado de la última acción que escribió en GitHub.
-    struct Outcome {
-        private let message: LocalizedMessage
-        let isError: Bool
-        var text: String { message.text }
-
-        init(text: @autoclosure @escaping () -> String, isError: Bool) {
-            message = LocalizedMessage(text())
-            self.isError = isError
-        }
-    }
-
     /// `behindBy` por id de PR. Un id **ausente** es "no medido", que no es lo
     /// mismo que `0` = "al día": si los confundimos, el rebase pasa a ser una
     /// adivinanza.
     private(set) var behindCounts: [String: Int] = [:]
 
-    private(set) var outcome: Outcome?
     /// Ids de PRs con una escritura en curso.
     private(set) var inFlightActions: Set<String> = []
 
@@ -158,7 +151,6 @@ final class ReviewQueueStore {
         let revision = configurationRevision
         let machineAccounts = configuration.machineAccounts
         inFlightActions.formUnion(ids)
-        outcome = nil
         let task = batch.start(action,
             read: { try await PullRequestActionCheck.fetch($0, viewer: $1, action: action, machineAccounts: machineAccounts) },
             write: { try await GitHubActionRunner.submit($0, action: action) },
@@ -195,7 +187,6 @@ final class ReviewQueueStore {
         guard enabled else { autopilot.stop(); return }
         guard !batch.isRunning, let viewerLogin else { return }
         batch.exit()
-        outcome = nil
         let revision = configurationRevision
         let machineAccounts = configuration.machineAccounts
         autopilot.enable(batchCandidates, viewer: viewerLogin, operations: .init(
@@ -348,19 +339,21 @@ final class ReviewQueueStore {
         }
         switch action {
         case .open:
-            NSWorkspace.shared.open(pullRequest.url)
+            let opened = NSWorkspace.shared.open(pullRequest.url)
+            activity.record(action, on: pullRequest, status: opened ? .succeeded
+                : .failed(LocalizedMessage(L10n.text(.activityOpenFailed))))
         case .ignore:
             ignoreList.ignore(pullRequest)
+            activity.record(action, on: pullRequest)
         case .restore:
             ignoreList.restore(pullRequest)
+            activity.record(action, on: pullRequest)
         case .dependabotRebase:
             guard pullRequest.canRequestDependabotRebase(
                 behindBy: behindCount(for: pullRequest)
             ) else {
-                outcome = Outcome(
-                    text: L10n.text(.errorDependabotRebase, pullRequest.shortRepository),
-                    isError: true
-                )
+                activity.record(action, on: pullRequest,
+                    status: .failed(LocalizedMessage(L10n.text(.errorDependabotRebase, pullRequest.shortRepository))))
                 break
             }
             write(.dependabotRebase(
@@ -382,10 +375,8 @@ final class ReviewQueueStore {
             // El método lo define el repo. Si no lo sabemos no mergeamos: la
             // acción ni se ofrece, así que llegar acá sin método sería un bug.
             guard let method = pullRequest.defaultMergeMethod else {
-                outcome = Outcome(
-                    text: L10n.text(.errorMergeMethod, pullRequest.shortRepository),
-                    isError: true
-                )
+                activity.record(action, on: pullRequest,
+                    status: .failed(LocalizedMessage(L10n.text(.errorMergeMethod, pullRequest.shortRepository))))
                 break
             }
             write(.merge(
@@ -399,6 +390,53 @@ final class ReviewQueueStore {
         onChange?()
         if action == .open {
             refresh(force: true)
+        }
+    }
+
+    func openProject(_ pr: PullRequest, folder: URL) async {
+        guard !projectOpener.isOpening else { return }
+        let id = activity.record(title: LocalizedMessage(L10n.text(.editorOpen)),
+            target: "\(pr.repository) #\(pr.number)", detail: pr.title, url: pr.url,
+            symbol: "chevron.left.forwardslash.chevron.right", status: .running)
+        await projectOpener.open(.init(pullRequest: pr, folder: folder)) { try await self.editor.open($0) }
+        if let warning = projectOpener.warning {
+            activity.update(id, status: .skipped(LocalizedMessage(warning.text)))
+        } else if let error = projectOpener.error {
+            activity.update(id, status: .failed(LocalizedMessage(error.localizedDescription)))
+        } else {
+            activity.update(id, status: .succeeded)
+        }
+    }
+
+    func openProjectWithoutBranch() async {
+        guard !projectOpener.isOpening, let warning = projectOpener.warning else { return }
+        let request = warning.request
+        let id = activity.record(title: LocalizedMessage(L10n.text(.editorOpenProject)),
+            target: "\(request.repository) #\(request.url.lastPathComponent)", url: request.url,
+            symbol: "chevron.left.forwardslash.chevron.right", status: .running)
+        await projectOpener.openWithoutBranch { try await self.editor.open($0) }
+        if let error = projectOpener.error {
+            activity.update(id, status: .failed(LocalizedMessage(error.localizedDescription)))
+        } else {
+            activity.update(id, status: .succeeded)
+        }
+    }
+
+    func openAgent(_ pr: PullRequest, folder: URL) async {
+        guard !agentCLI.isOpening else { return }
+        let title = agentCLI.openTitle
+        let id = activity.record(title: LocalizedMessage(title), target: "\(pr.repository) #\(pr.number)",
+            detail: pr.title, url: pr.url, symbol: "terminal", status: .running)
+        await agentCLI.open(folder, id: pr.id) { [activity] result in
+            let status: ActivityLog.Status
+            switch result {
+            case .success: status = .succeeded
+            case .failure(let error): status = .failed(LocalizedMessage(error.localizedDescription))
+            }
+            // Una terminal personalizada puede fallar después de arrancar.
+            // Si se limpió el historial mientras tanto, volvemos a mostrar el error.
+            activity.record(id: id, title: LocalizedMessage(title), target: "\(pr.repository) #\(pr.number)",
+                detail: pr.title, url: pr.url, symbol: "terminal", status: status)
         }
     }
 
@@ -431,10 +469,6 @@ final class ReviewQueueStore {
 
     func isActing(on pullRequest: PullRequest) -> Bool {
         inFlightActions.contains(pullRequest.id)
-    }
-
-    func dismissOutcome() {
-        outcome = nil
     }
 
     /// Valida, guarda y aplica el alcance sin tener que reiniciar la app.
@@ -478,10 +512,10 @@ final class ReviewQueueStore {
     private func write(_ operation: GitHubWrite, on pullRequest: PullRequest) {
         // Una escritura por PR a la vez: el doble click no manda dos merges.
         guard inFlightActions.insert(pullRequest.id).inserted else { return }
-        outcome = nil
         reconcileBatch()
         onChange?()
 
+        let activityID = activity.record(operation.action, on: pullRequest, status: .running)
         let revision = configurationRevision
         let viewer = viewerLogin
         Task {
@@ -492,7 +526,15 @@ final class ReviewQueueStore {
                         pullRequest, viewer: viewer, batch: false,
                         read: { try await PullRequestActionCheck.fetch($0, viewer: $1) },
                         write: { try await GitHubActionRunner.submit($0, action: .approve) },
-                        isAllowed: { [self] _ in revision == configurationRevision }
+                        isAllowed: { [self] _ in revision == configurationRevision },
+                        progress: { [activity] progress in
+                            switch progress {
+                            case .checking: activity.update(activityID, status: .checking)
+                            case .executing: activity.update(activityID, status: .running)
+                            case .waiting(let seconds, let attempt):
+                                activity.update(activityID, status: .waiting(seconds: seconds, attempt: attempt))
+                            }
+                        }
                     )
                     if case .skipped(let reason) = result, reason != .alreadyApproved {
                         throw PullRequestActionSkipped(reason: reason)
@@ -523,17 +565,11 @@ final class ReviewQueueStore {
                     break
                 }
 
-                outcome = Outcome(
-                    text: "\(operation.pastTense): \(pullRequest.shortRepository) "
-                        + "#\(pullRequest.number)",
-                    isError: false
-                )
+                activity.update(activityID, status: .succeeded)
+            } catch let error as PullRequestActionSkipped {
+                activity.update(activityID, status: .skipped(LocalizedMessage(error.reason.text)))
             } catch {
-                outcome = Outcome(
-                    text: (error as? LocalizedError)?.errorDescription
-                        ?? error.localizedDescription,
-                    isError: true
-                )
+                activity.update(activityID, status: .failed(LocalizedMessage(error.localizedDescription)))
             }
             inFlightActions.remove(pullRequest.id)
             reconcileBatch()

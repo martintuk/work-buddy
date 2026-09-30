@@ -86,6 +86,15 @@ enum GitHubWrite: Sendable {
         }
     }
 
+    var action: PullRequestAction {
+        switch self {
+        case .approve, .approveCommit: .approve
+        case .rebase: .rebase
+        case .dependabotRebase: .dependabotRebase
+        case .merge, .mergeCommit: .merge
+        }
+    }
+
     /// Lo que la acción hizo, en pasado, para el aviso al usuario.
     var pastTense: String {
         switch self {

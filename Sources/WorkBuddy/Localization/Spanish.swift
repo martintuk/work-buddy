@@ -13,6 +13,21 @@ extension L10n {
         case .commonDisabled: "Desactivado"
         case .commonRefreshing: "Actualizando"
 
+        // MARK: - Activity
+        case .activityTitle: "Actividad"
+        case .activityClose: "Cerrar actividad"
+        case .activityExpand: "Ampliar actividad"
+        case .activityCollapse: "Reducir actividad"
+        case .activityClear: "Limpiar acciones finalizadas"
+        case .activityEmpty: "Sin actividad"
+        case .activityManual: "Manual"
+        case .activityBatch: "Lote"
+        case .activityRunning: "En curso"
+        case .activityCompleted: "Completada"
+        case .activityOpen: "Abrir elemento"
+        case .activityOpenFailed: "No se pudo abrir el enlace"
+        case .activityUnread: "%@ novedades"
+
         // MARK: - Settings
         case .settingsTitle: "Configuración"
         case .settingsClose: "Cerrar configuración"

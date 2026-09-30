@@ -32,6 +32,7 @@ final class PullRequestAutopilot {
     private var deferred: Set<String> = []
     private var operations: Operations?
     private var task: Task<Void, Never>?
+    var onActivity: (Entry) -> Void = { _ in }
     private let runner: GitHubActionRunner
 
     init(runner: GitHubActionRunner = .shared) { self.runner = runner }
@@ -94,6 +95,11 @@ final class PullRequestAutopilot {
         } : []
     }
 
+    private func setStatus(_ status: PullRequestBatch.Status) {
+        current?.status = status
+        if let current { onActivity(current) }
+    }
+
     private func pump() {
         guard isEnabled, task == nil, !queue.isEmpty, let operations else { return }
         let read = operations.read
@@ -106,6 +112,7 @@ final class PullRequestAutopilot {
                     continue
                 }
                 current = Entry(candidate: candidate, status: .checking)
+                if let current { onActivity(current) }
                 rebuildQueue()
                 var completed = false
                 do {
@@ -125,18 +132,18 @@ final class PullRequestAutopilot {
                         },
                         progress: { progress in
                             switch progress {
-                            case .checking: self.current?.status = .checking
-                            case .executing: self.current?.status = .executing(candidate.action)
-                            case .waiting(let seconds, let attempt): self.current?.status = .waiting(seconds: seconds, attempt: attempt)
+                            case .checking: self.setStatus(.checking)
+                            case .executing: self.setStatus(.executing(candidate.action))
+                            case .waiting(let seconds, let attempt): self.setStatus(.waiting(seconds: seconds, attempt: attempt))
                             }
                         })
                     switch result {
                     case .completed:
                         completed = true
                         handled.insert(candidate.fingerprint)
-                        current?.status = .completed(candidate.action)
+                        setStatus(.completed(candidate.action))
                     case .skipped(let reason):
-                        current?.status = .skipped(reason)
+                        setStatus(.skipped(reason))
                         switch reason {
                         case .alreadyApproved, .alreadyMerged, .closed: handled.insert(candidate.fingerprint)
                         case .stopped: break
@@ -149,7 +156,7 @@ final class PullRequestAutopilot {
                     }
                 } catch {
                     handled.insert(candidate.fingerprint)
-                    current?.status = .failed(LocalizedMessage(error.localizedDescription))
+                    setStatus(.failed(LocalizedMessage(error.localizedDescription)))
                     notice = LocalizedMessage(error.localizedDescription)
                     stop()
                 }

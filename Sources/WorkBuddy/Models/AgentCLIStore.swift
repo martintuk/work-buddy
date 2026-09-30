@@ -93,7 +93,8 @@ final class AgentCLIStore {
 
     func dismissError() { error = nil }
 
-    func open(_ folder: URL, id: String) async {
+    func open(_ folder: URL, id: String,
+              onResult: @escaping (Result<Void, Error>) -> Void = { _ in }) async {
         guard !isOpening else { return }
         openingID = id
         error = nil
@@ -105,11 +106,15 @@ final class AgentCLIStore {
                     template: customTerminalCommand, folder: folder, command: agent.command(custom: customCommand)
                 )
                 try launch.start()
+                onResult(.success(()))
                 // Algunos ejecutables de terminal permanecen abiertos toda la sesión: no bloquear el panel.
                 Task { [weak self] in
                     do {
                         _ = try await Task.detached(priority: .utility) { try launch.finish() }.value
-                    } catch { self?.error = error }
+                    } catch {
+                        self?.error = error
+                        onResult(.failure(error))
+                    }
                 }
                 return
             }
@@ -128,7 +133,11 @@ final class AgentCLIStore {
             _ = try await Task.detached(priority: .userInitiated) {
                 try AgentTerminalLauncher.execute(script)
             }.value
-        } catch { self.error = error }
+            onResult(.success(()))
+        } catch {
+            self.error = error
+            onResult(.failure(error))
+        }
     }
 }
 

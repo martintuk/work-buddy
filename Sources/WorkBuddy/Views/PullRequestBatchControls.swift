@@ -4,8 +4,8 @@ import SwiftUI
 /// Selección, acciones, progreso y resultados permanecen al pie de la lista.
 struct PullRequestBatchBar: View {
     let batch: PullRequestBatch
+    var showActivity: () -> Void = {}
     let start: (PullRequestBatchAction) -> Void
-    @State private var showingResults = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -32,7 +32,7 @@ struct PullRequestBatchBar: View {
                     Spacer(minLength: 0)
                     ForEach(PullRequestBatchAction.allCases, id: \.self) { action in
                         let count = batch.selected(action).count
-                        Button(action.buttonTitle(count)) { showingResults = false; start(action) }
+                        Button(action.buttonTitle(count)) { start(action) }
                             .buttonStyle(BatchActionButtonStyle())
                             .disabled(count == 0)
                     }
@@ -42,11 +42,10 @@ struct PullRequestBatchBar: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .queueControlSurface()
-        .popover(isPresented: $showingResults, arrowEdge: .top) { results }
     }
 
     private var resultsButton: some View {
-        Button { showingResults.toggle() } label: {
+        Button(action: showActivity) {
             HStack(spacing: 9) {
                 if batch.succeededCount > 0 {
                     Label(String(batch.succeededCount), systemImage: "checkmark.circle.fill").foregroundStyle(.green)
@@ -70,28 +69,6 @@ struct PullRequestBatchBar: View {
                              L10n.text(.batchFailedCount, String(batch.failedCount))].joined(separator: ", "))
     }
 
-    private var results: some View {
-        ScrollView {
-            VStack(spacing: 6) {
-                ForEach(batch.entries) { entry in
-                    HStack(spacing: 8) {
-                        Image(systemName: entry.candidate.action.symbol).foregroundStyle(.secondary).frame(width: 16)
-                            .help(entry.candidate.action.title)
-                        Text(entry.pullRequest.shortRepository).lineLimit(1).truncationMode(.middle)
-                        Text("#\(entry.pullRequest.number)").foregroundStyle(.secondary).fixedSize()
-                        Spacer(minLength: 0)
-                        BatchStatusIcon(status: entry.status).frame(width: 16)
-                    }
-                    .font(.system(size: 11, weight: .medium)).frame(height: 24)
-                    .help("\(entry.pullRequest.title)\n\(entry.status.text)")
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("\(entry.pullRequest.repository) #\(entry.pullRequest.number), \(entry.candidate.action.title), \(entry.status.text)")
-                }
-            }
-            .padding(12)
-        }
-        .frame(width: 300, height: min(280, CGFloat(batch.entries.count * 30 + 24)))
-    }
 }
 
 struct BatchStatusIcon: View {

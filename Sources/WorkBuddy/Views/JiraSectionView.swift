@@ -5,6 +5,7 @@ struct JiraSectionView: View {
     static let loginCommand = "acli jira auth login"
 
     let store: JiraStore
+    var activity: ActivityLog? = nil
 
     @AppStorage("appearance.showEmptySections") private var showEmptySections = true
     @State private var copiedLoginCommand = false
@@ -129,7 +130,10 @@ struct JiraSectionView: View {
             select: { selectedWorkItemID = workItem.id },
             open: {
                 guard let url = store.url(for: workItem) else { return }
-                NSWorkspace.shared.open(url)
+                let opened = NSWorkspace.shared.open(url)
+                activity?.record(title: LocalizedMessage(L10n.text(.activityOpen)), target: workItem.key,
+                    detail: workItem.title, url: url, symbol: "arrow.up.forward.square",
+                    status: opened ? .succeeded : .failed(LocalizedMessage(L10n.text(.activityOpenFailed))))
             }
         ))
         .help(L10n.text(.jiraOpen, workItem.key))

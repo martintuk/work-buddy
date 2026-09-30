@@ -4,7 +4,7 @@ import SwiftUI
 struct PullRequestAutopilotBar: View {
     let autopilot: PullRequestAutopilot
     let setEnabled: @MainActor (Bool) -> Void
-    @State private var showingResults = false
+    var showActivity: () -> Void = {}
     @State private var isHoveringHandle = false
 
     var body: some View {
@@ -18,7 +18,7 @@ struct PullRequestAutopilotBar: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .layoutPriority(-1)
                 if !autopilot.history.isEmpty {
-                    Button { showingResults.toggle() } label: {
+                    Button(action: showActivity) {
                         Image(systemName: autopilot.notice == nil ? "clock.arrow.circlepath" : "exclamationmark.circle.fill")
                             .foregroundStyle(autopilot.notice == nil ? Color.secondary : Color.red)
                     }
@@ -62,15 +62,6 @@ struct PullRequestAutopilotBar: View {
             }
         }
         .queueControlSurface()
-        .popover(isPresented: $showingResults, arrowEdge: .top) {
-            ScrollView {
-                VStack(spacing: 2) {
-                    ForEach(Array(autopilot.history.enumerated().reversed()), id: \.offset) { _, entry in
-                        queueRow(entry.candidate, status: entry.status)
-                    }
-                }.padding(12)
-            }.frame(width: 320, height: min(280, CGFloat(autopilot.history.count * 44 + 24)))
-        }
     }
 
     private var expansionHandle: some View {

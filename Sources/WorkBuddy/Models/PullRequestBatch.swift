@@ -34,6 +34,7 @@ final class PullRequestBatch {
     }
     struct Entry: Identifiable {
         let candidate: Candidate
+        let activityID = UUID()
         var status: Status = .pending
         var id: String { candidate.id }
         var pullRequest: PullRequest { candidate.pullRequest }
@@ -46,6 +47,7 @@ final class PullRequestBatch {
     private(set) var entries: [Entry] = []
     private(set) var stopRequested = false
     private(set) var viewer = ""
+    var onActivity: (Entry) -> Void = { _ in }
     private let runner: GitHubActionRunner
 
     init(runner: GitHubActionRunner = GitHubActionRunner()) { self.runner = runner }
@@ -111,6 +113,11 @@ final class PullRequestBatch {
 
     func stop() { if isRunning { stopRequested = true } }
 
+    private func setStatus(_ status: Status, at index: Int) {
+        entries[index].status = status
+        onActivity(entries[index])
+    }
+
     @discardableResult
     func start(
         _ action: PullRequestBatchAction,
@@ -124,6 +131,7 @@ final class PullRequestBatch {
         let targets = selected(action)
         guard !targets.isEmpty else { return nil }
         entries = targets.map { Entry(candidate: $0) }
+        entries.forEach(onActivity)
         selectedIDs.subtract(targets.map(\.id))
         stopRequested = false
         isRunning = true
@@ -133,7 +141,7 @@ final class PullRequestBatch {
             for index in entries.indices {
                 let original = entries[index].pullRequest
                 if rateLimited {
-                    entries[index].status = .skipped(.rateLimited)
+                    setStatus(.skipped(.rateLimited), at: index)
                     continue
                 }
                 do {
@@ -142,23 +150,23 @@ final class PullRequestBatch {
                         read: read, write: write, shouldStop: { self.stopRequested }, isAllowed: isAllowed,
                         progress: { progress in
                             switch progress {
-                            case .checking: self.entries[index].status = .checking
-                            case .executing: self.entries[index].status = .executing(action)
+                            case .checking: self.setStatus(.checking, at: index)
+                            case .executing: self.setStatus(.executing(action), at: index)
                             case .waiting(let seconds, let attempt):
-                                self.entries[index].status = .waiting(seconds: seconds, attempt: attempt)
+                                self.setStatus(.waiting(seconds: seconds, attempt: attempt), at: index)
                             }
                         }
                     )
                     switch result {
                     case .completed:
-                        entries[index].status = .completed(action)
+                        setStatus(.completed(action), at: index)
                         didComplete(original)
                     case .skipped(let reason):
-                        entries[index].status = .skipped(reason)
+                        setStatus(.skipped(reason), at: index)
                         if reason == .accountChanged { stopRequested = true }
                     }
                 } catch {
-                    entries[index].status = .failed(LocalizedMessage(error.localizedDescription))
+                    setStatus(.failed(LocalizedMessage(error.localizedDescription)), at: index)
                     rateLimited = (error as? GitHubAPIError)?.isRateLimited == true
                 }
             }

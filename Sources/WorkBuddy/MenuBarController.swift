@@ -32,6 +32,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         super.init()
 
         configureStatusItem()
+        store.activity.setPanelVisible(false)
         configurePopover()
 
         store.onChange = { [weak self] in self?.updateBadge() }
@@ -110,12 +111,14 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     // Incluye el cierre automático de NSPopover (.transient), que no pasa
     // necesariamente por closePanel(). Se usa siempre el último contador.
     func popoverDidClose(_ notification: Notification) {
+        store.activity.setPanelVisible(false)
         panelDiagnostics.end()
         stopObservingFocusLoss()
         updateBadge()
     }
 
     func popoverDidShow(_ notification: Notification) {
+        store.activity.setPanelVisible(true)
         panelDiagnostics.shown()
     }
 

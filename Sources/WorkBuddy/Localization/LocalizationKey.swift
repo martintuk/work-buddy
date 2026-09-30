@@ -13,6 +13,21 @@ extension L10n {
         case commonDisabled
         case commonRefreshing
 
+        // MARK: - Activity
+        case activityTitle
+        case activityClose
+        case activityExpand
+        case activityCollapse
+        case activityClear
+        case activityEmpty
+        case activityManual
+        case activityBatch
+        case activityRunning
+        case activityCompleted
+        case activityOpen
+        case activityOpenFailed
+        case activityUnread
+
         // MARK: - Settings
         case settingsTitle
         case settingsClose
