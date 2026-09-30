@@ -139,7 +139,7 @@ struct GitHubSectionView: View {
                 .pickerStyle(.inline)
             } label: {
                 HStack(spacing: 5) {
-                    Label(store.automationFilter.isActive ? store.automationFilter.title : L10n.text(.githubAutomation),
+                    Label(store.automationFilter.title,
                           systemImage: store.automationFilter == .excludingAutomation ? "eye.slash" : "gearshape.2")
                     Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
                 }
