@@ -10,6 +10,7 @@ struct PullRequestAutopilotBar: View {
     var body: some View {
         VStack(spacing: 0) {
             expansionHandle
+            Divider()
             HStack(spacing: 10) {
                 Text("Autopilot")
                     .font(.system(size: 11, weight: .medium))
@@ -40,7 +41,7 @@ struct PullRequestAutopilotBar: View {
                 .help(L10n.text(autopilot.isActive ? .batchStopHelp : .autopilotHelp))
                 .accessibilityLabel("\(L10n.text(autopilot.isActive ? .autopilotStop : .autopilotStart)) · \(L10n.text(.autopilotHelp))")
             }
-            .padding(.horizontal, 12).padding(.top, 2).padding(.bottom, 8)
+            .padding(.horizontal, 12).padding(.vertical, 8)
             if autopilot.isExpanded {
                 Divider()
                 VStack(spacing: 6) {
