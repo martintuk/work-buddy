@@ -61,11 +61,6 @@ struct PullRequestAutopilotBar: View {
                     .help(L10n.text(.autopilotQueue, String(autopilot.queue.count)))
                     .accessibilityLabel(L10n.text(.autopilotQueue, String(autopilot.queue.count)))
                     .accessibilityValue(L10n.text(autopilot.isExpanded ? .autopilotExpanded : .autopilotCollapsed))
-                    if !autopilot.isActive {
-                        Button { autopilot.close() } label: { Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)) }
-                            .buttonStyle(.plain).foregroundStyle(.secondary)
-                            .help(L10n.text(.autopilotClose)).accessibilityLabel(L10n.text(.autopilotClose))
-                    }
                 }
                 if let current = autopilot.current {
                     HStack(spacing: 8) {

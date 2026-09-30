@@ -167,7 +167,7 @@ struct GitHubSectionView: View {
                 pendingAction = nil
                 configurationHint = nil
                 store.dismissOutcome()
-                store.openAutopilot()
+                store.toggleAutopilot()
             } label: {
                 Image(systemName: store.autopilot.isPresented ? "bolt.fill" : "bolt")
                     .font(.system(size: 14, weight: .medium))
@@ -176,8 +176,9 @@ struct GitHubSectionView: View {
                     .background(Color.accentColor.opacity(store.autopilot.isPresented ? 0.12 : 0.05), in: RoundedRectangle(cornerRadius: 7))
             }
             .buttonStyle(.plain)
-            .disabled(store.batch.isRunning || store.viewerLogin == nil)
-            .help(L10n.text(.autopilotOpen)).accessibilityLabel(L10n.text(.autopilotOpen))
+            .disabled(store.batch.isRunning || store.autopilot.isActive || (!store.autopilot.isPresented && store.viewerLogin == nil))
+            .help(L10n.text(store.autopilot.isPresented ? .autopilotClose : .autopilotOpen))
+            .accessibilityLabel(L10n.text(store.autopilot.isPresented ? .autopilotClose : .autopilotOpen))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)

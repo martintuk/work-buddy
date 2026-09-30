@@ -185,12 +185,18 @@ struct PullRequestAutopilotTests {
         let store = ReviewQueueStore.preview(reviews: [fixture(1), fixture(2, author: "alice")], merges: [])
         store.toggleBatchSelection()
         store.batch.toggle("batch-1")
-        store.openAutopilot()
+        store.toggleAutopilot()
         #expect(!store.batch.isSelecting && store.batch.selectedIDs.isEmpty)
         #expect(store.autopilot.isPresented && !store.autopilot.isEnabled)
         #expect(store.autopilot.queue.map(\.id) == ["batch-1"])
+        store.toggleAutopilot()
+        #expect(!store.autopilot.isPresented && !store.batch.isSelecting)
+        store.toggleAutopilot()
+        #expect(store.autopilot.isPresented && !store.autopilot.isEnabled)
         store.toggleBatchSelection()
         #expect(store.batch.isSelecting && !store.autopilot.isPresented)
+        store.toggleBatchSelection()
+        #expect(!store.batch.isSelecting && !store.autopilot.isPresented)
     }
 }
 

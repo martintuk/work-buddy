@@ -139,7 +139,7 @@ final class ReviewQueueStore {
     }
 
     func toggleBatchSelection() {
-        guard !autopilot.isActive else { return }
+        guard !autopilot.isActive, !batch.isRunning else { return }
         autopilot.close()
         if batch.isSelecting { batch.exit() }
         else if let viewerLogin { batch.enter(batchCandidates, viewer: viewerLogin) }
@@ -181,10 +181,14 @@ final class ReviewQueueStore {
         onChange?()
     }
 
-    func openAutopilot() {
-        guard !batch.isRunning, let viewerLogin else { return }
-        batch.exit()
-        autopilot.present(batchCandidates, viewer: viewerLogin)
+    func toggleAutopilot() {
+        guard !batch.isRunning, !autopilot.isActive else { return }
+        if autopilot.isPresented {
+            autopilot.close()
+        } else if let viewerLogin {
+            batch.exit()
+            autopilot.present(batchCandidates, viewer: viewerLogin)
+        }
     }
 
     func setAutopilotEnabled(_ enabled: Bool) {

@@ -244,7 +244,7 @@ struct PullRequestMergeBatchTests {
             for scheme in [ColorScheme.light, .dark] {
                 try render(store, defaults: defaults, directory: directory, name: "result-\(language.rawValue)-\(scheme)", scheme: scheme)
             }
-            store.openAutopilot()
+            store.toggleAutopilot()
             for scheme in [ColorScheme.light, .dark] {
                 try render(store, defaults: defaults, directory: directory, name: "autopilot-preview-\(language.rawValue)-\(scheme)", scheme: scheme)
             }

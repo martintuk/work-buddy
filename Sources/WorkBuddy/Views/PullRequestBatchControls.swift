@@ -36,14 +36,6 @@ struct PullRequestBatchBar: View {
                             .buttonStyle(BatchActionButtonStyle())
                             .disabled(count == 0)
                     }
-                    Button { batch.exit() } label: {
-                        Image(systemName: "xmark").font(.system(size: 10, weight: .semibold))
-                            .frame(width: 18, height: 28)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .help(L10n.text(.batchExitSelection))
-                    .accessibilityLabel(L10n.text(.batchExitSelection))
                 }
             }
         }
