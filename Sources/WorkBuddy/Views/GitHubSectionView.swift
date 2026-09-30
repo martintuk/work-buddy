@@ -4,6 +4,7 @@ import SwiftUI
 struct GitHubSectionView: View {
     let store: ReviewQueueStore
     var showActivity: (ActivityLog.Focus?) -> Void = { _ in }
+    var showsExecutionControls = true
     var revealPullRequestID: Binding<String?> = .constant(nil)
     let showRepositories: () -> Void
 
@@ -93,14 +94,8 @@ struct GitHubSectionView: View {
                         .padding(.horizontal, 10)
                         .padding(.top, 8)
                 }
-            if store.autopilot.isPresented {
-                PullRequestAutopilotBar(autopilot: store.autopilot, setEnabled: store.setAutopilotEnabled, showActivity: showActivity)
-            } else if store.batch.isSelecting {
-                PullRequestBatchBar(batch: store.batch, showActivity: showActivity) { action in
-                    pendingAction = nil
-                    configurationHint = nil
-                    store.startBatch(action)
-                }
+            if showsExecutionControls {
+                PullRequestExecutionControls(store: store, showActivity: showActivity)
             }
         }
         .onChange(of: store.editor.selectedURL) { _, selectedURL in
@@ -667,6 +662,22 @@ extension ReviewBucket {
         switch self {
         case .needsReview: nil
         case .approvedAlready: L10n.text(.githubApprovedHelp)
+        }
+    }
+}
+
+/// El panel también mantiene estos controles accesibles al navegar o ampliar Actividad.
+struct PullRequestExecutionControls: View {
+    let store: ReviewQueueStore
+    var compact = false
+    var showActivity: (ActivityLog.Focus?) -> Void = { _ in }
+
+    var body: some View {
+        if store.autopilot.isPresented {
+            PullRequestAutopilotBar(autopilot: store.autopilot, setEnabled: store.setAutopilotEnabled,
+                                   showActivity: showActivity, compact: compact)
+        } else if store.batch.isSelecting {
+            PullRequestBatchBar(batch: store.batch, showActivity: showActivity) { store.startBatch($0) }
         }
     }
 }

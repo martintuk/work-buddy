@@ -5,12 +5,17 @@ struct PullRequestAutopilotBar: View {
     let autopilot: PullRequestAutopilot
     let setEnabled: @MainActor (Bool) -> Void
     var showActivity: (ActivityLog.Focus?) -> Void = { _ in }
+    var compact = false
+    private var showsQueue: Bool { autopilot.isExpanded && !compact }
+    private var isStopping: Bool { !autopilot.isEnabled && autopilot.current != nil }
     @State private var isHoveringHandle = false
 
     var body: some View {
         VStack(spacing: 0) {
-            expansionHandle
-            Divider()
+            if !compact {
+                expansionHandle
+                Divider()
+            }
             HStack(spacing: 10) {
                 Text("Autopilot")
                     .font(.system(size: 11, weight: .medium))
@@ -29,8 +34,10 @@ struct PullRequestAutopilotBar: View {
                 Text(String(autopilot.queue.count))
                     .font(.system(size: 11, weight: .medium))
                     .monospacedDigit().foregroundStyle(.secondary)
+                    .help(L10n.text(.autopilotPendingCount, String(autopilot.queue.count)))
+                    .accessibilityLabel(L10n.text(.autopilotPendingCount, String(autopilot.queue.count)))
                     .fixedSize()
-                Button(L10n.text(autopilot.isActive ? .autopilotStop : .autopilotStart)) {
+                Button(L10n.text(isStopping ? .batchStopping : (autopilot.isActive ? .autopilotStop : .autopilotStart))) {
                     setEnabled(!autopilot.isEnabled)
                 }
                 .buttonStyle(.borderedProminent).controlSize(.small)
@@ -42,7 +49,7 @@ struct PullRequestAutopilotBar: View {
                 .accessibilityLabel("\(L10n.text(autopilot.isActive ? .autopilotStop : .autopilotStart)) · \(L10n.text(.autopilotHelp))")
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
-            if autopilot.isExpanded {
+            if showsQueue {
                 Divider()
                 VStack(spacing: 6) {
                     if autopilot.current == nil && autopilot.queue.isEmpty {
@@ -87,7 +94,7 @@ struct PullRequestAutopilotBar: View {
 
     @ViewBuilder
     private var headerStatus: some View {
-        if !autopilot.isExpanded, let current = autopilot.current {
+        if !showsQueue, let current = autopilot.current {
             HStack(spacing: 6) {
                 Image(systemName: current.candidate.action.symbol)
                     .foregroundStyle(Color.accentColor)

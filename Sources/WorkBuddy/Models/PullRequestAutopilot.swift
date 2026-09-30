@@ -72,6 +72,12 @@ final class PullRequestAutopilot {
         reconcile(candidates, viewer: viewer)
     }
 
+    func pauseForScopeChange() {
+        guard isActive else { return }
+        notice = LocalizedMessage(L10n.text(.autopilotScopeChanged))
+        stop()
+    }
+
     func stop() {
         isEnabled = false
         rebuildQueue()

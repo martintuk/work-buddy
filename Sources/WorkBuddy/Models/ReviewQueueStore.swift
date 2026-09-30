@@ -303,6 +303,7 @@ final class ReviewQueueStore {
 
     func setAutomationFilter(_ filter: AutomationFilter) {
         guard automationFilter != filter else { return }
+        autopilot.pauseForScopeChange()
         automationFilter = filter
         automationFilter.persist()
         reconcileBatch()
@@ -310,6 +311,7 @@ final class ReviewQueueStore {
     }
 
     func clearFilters() {
+        if automationFilter.isActive { autopilot.pauseForScopeChange() }
         automationFilter = .all
         automationFilter.persist()
         clearRepositoryFilter()
@@ -321,16 +323,19 @@ final class ReviewQueueStore {
     }
 
     func toggleRepositorySolo(_ repository: String) {
+        autopilot.pauseForScopeChange()
         repositoryFilter.toggleSolo(repository)
         repositoryFilterDidChange()
     }
 
     func toggleRepositoryMute(_ repository: String) {
+        autopilot.pauseForScopeChange()
         repositoryFilter.toggleMute(repository)
         repositoryFilterDidChange()
     }
 
     func clearRepositoryFilter() {
+        if repositoryFilter.isActive { autopilot.pauseForScopeChange() }
         repositoryFilter.clearSelection()
         repositoryFilterDidChange()
     }
@@ -494,6 +499,7 @@ final class ReviewQueueStore {
         )
         guard updated != configuration else { return }
 
+        autopilot.pauseForScopeChange()
         configuration = updated
         configuration.persist()
         configurationRevision += 1

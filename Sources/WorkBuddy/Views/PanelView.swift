@@ -82,10 +82,21 @@ struct PanelView: View {
                 categoryContent
             }
 
+            if showingGitHub || store.autopilot.isActive || store.batch.isRunning {
+                PullRequestExecutionControls(store: store, compact: !showingGitHub) { focus in
+                    activityFocus = focus
+                    showingActivity = true
+                }
+            }
             Divider()
             footer
         }
         .frame(width: Self.preferredSize.width, height: Self.preferredSize.height)
+    }
+
+    private var showingGitHub: Bool {
+        selectedCategory == .github && !showingConfiguration && !showingRepositories
+            && !(showingActivity && activityExpanded)
     }
 
     private func navigationHeader(title: String, back: @escaping () -> Void) -> some View {
@@ -161,7 +172,7 @@ struct PanelView: View {
             GitHubSectionView(store: store, showActivity: { focus in
                 activityFocus = focus
                 showingActivity = true
-            }, revealPullRequestID: $revealPullRequestID) {
+            }, showsExecutionControls: false, revealPullRequestID: $revealPullRequestID) {
                 showingActivity = false
                 showingRepositories = true
             }

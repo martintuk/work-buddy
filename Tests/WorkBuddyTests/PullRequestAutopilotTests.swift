@@ -5,6 +5,23 @@ import Testing
 @Suite("Autopilot de Dependabot")
 @MainActor
 struct PullRequestAutopilotTests {
+    @Test("Cambiar el filtro de automatización pausa hasta volver a pulsar Start")
+    func scopePause() {
+        let store = ReviewQueueStore.preview(reviews: [], merges: [])
+        let suite = UserDefaults.standard
+        let keys = ["github.automationFilter"]
+        let saved = keys.map { suite.object(forKey: $0) }
+        defer { for (key, value) in zip(keys, saved) { suite.set(value, forKey: key) } }
+        store.setAutopilotEnabled(true)
+        #expect(store.autopilot.isEnabled)
+        store.setAutomationFilter(.excludingAutomation)
+        #expect(!store.autopilot.isEnabled && store.autopilot.notice != nil)
+        #expect(store.autopilot.isPresented)
+        store.setAutopilotEnabled(true)
+        #expect(store.autopilot.isEnabled && store.autopilot.notice == nil)
+        store.setAutopilotEnabled(false)
+    }
+
     private func candidates(_ prs: [PullRequest]) -> [PullRequestBatch.Candidate] {
         PullRequestBatch.candidates(reviews: prs, merges: prs.filter(\.canMerge))
     }
