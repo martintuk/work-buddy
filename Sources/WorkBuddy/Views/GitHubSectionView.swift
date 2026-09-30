@@ -121,7 +121,8 @@ struct GitHubSectionView: View {
                             active: store.repositoryFilter.isActive)
             }
             .buttonStyle(.plain)
-            .frame(maxWidth: .infinity)
+            // El selector compacto deja el espacio restante al filtro de automatización.
+            .fixedSize(horizontal: true, vertical: false)
             .help(L10n.text(.repositoriesFilterHelp))
             .accessibilityLabel(L10n.text(.repositoriesFilterHelp))
             .accessibilityValue(L10n.text(store.repositoryFilter.isActive ? .repositoriesFilterActive : .repositoriesAll))
