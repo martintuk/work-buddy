@@ -4,7 +4,6 @@ import SwiftUI
 struct PullRequestAutopilotBar: View {
     let autopilot: PullRequestAutopilot
     let setEnabled: @MainActor (Bool) -> Void
-    var showActivity: (ActivityLog.Focus?) -> Void = { _ in }
     var compact = false
     private var showsQueue: Bool { autopilot.isExpanded && !compact }
     private var isStopping: Bool { !autopilot.isEnabled && autopilot.current != nil }
@@ -23,14 +22,6 @@ struct PullRequestAutopilotBar: View {
                 headerStatus
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .layoutPriority(-1)
-                if !autopilot.history.isEmpty {
-                    Button { showActivity(.autopilot) } label: {
-                        Image(systemName: autopilot.notice == nil ? "clock.arrow.circlepath" : "exclamationmark.circle.fill")
-                            .foregroundStyle(autopilot.notice == nil ? Color.secondary : Color.red)
-                    }
-                    .buttonStyle(.plain)
-                    .help(L10n.text(.batchViewResults)).accessibilityLabel(L10n.text(.batchViewResults))
-                }
                 Text(String(autopilot.queue.count))
                     .font(.system(size: 11, weight: .medium))
                     .monospacedDigit().foregroundStyle(.secondary)

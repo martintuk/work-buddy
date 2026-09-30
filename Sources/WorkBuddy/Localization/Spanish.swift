@@ -14,12 +14,9 @@ extension L10n {
         case .commonRefreshing: "Actualizando"
 
         // MARK: - Activity
-        case .activityShowAll: "Mostrar toda la actividad"
-        case .activityShowInList: "Mostrar en la lista"
         case .activityUncertain: "Resultado sin confirmar: %@"
         case .activityNotExecuted: "No se ejecutó: %@"
-        case .activityVerify: "Verificar resultado en GitHub"
-        case .activityRetry: "Reintentar esta acción"
+        case .prVerifyResult: "Verificar resultado en GitHub"
         case .activityNotRecorded: "GitHub no registra la acción. Podés reintentarla."
         case .activityTitle: "Actividad"
         case .activityClose: "Cerrar actividad"
@@ -198,7 +195,6 @@ extension L10n {
         case .batchMethodChanged: "Cambió el método de merge"
         case .batchSucceededCount: "%@ completados"
         case .batchUnavailable: "Sin acción disponible en lote"
-        case .batchViewResults: "Ver resultados del lote"
         case .batchApproveCount: "Aprobar %@"
         case .batchSelected: "Seleccionado"
         case .batchNotSelected: "Sin seleccionar"

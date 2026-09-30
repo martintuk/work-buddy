@@ -14,12 +14,9 @@ extension L10n {
         case commonRefreshing
 
         // MARK: - Activity
-        case activityShowAll
-        case activityShowInList
         case activityUncertain
         case activityNotExecuted
-        case activityVerify
-        case activityRetry
+        case prVerifyResult
         case activityNotRecorded
         case activityTitle
         case activityClose
@@ -197,7 +194,6 @@ extension L10n {
         case batchMethodChanged
         case batchSucceededCount
         case batchUnavailable
-        case batchViewResults
         case batchApproveCount
         case batchSelected
         case batchNotSelected

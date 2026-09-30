@@ -4,7 +4,6 @@ import SwiftUI
 /// Selección, acciones, progreso y resultados permanecen al pie de la lista.
 struct PullRequestBatchBar: View {
     let batch: PullRequestBatch
-    var showActivity: (ActivityLog.Focus?) -> Void = { _ in }
     let start: (PullRequestBatchAction) -> Void
 
     var body: some View {
@@ -13,7 +12,7 @@ struct PullRequestBatchBar: View {
                 ProgressView(value: Double(batch.completedCount), total: Double(max(1, batch.entries.count)))
                     .tint(.accentColor)
                 HStack {
-                    resultsButton
+                    results
                     Text(L10n.text(.batchProgress, String(batch.completedCount), String(batch.entries.count)))
                         .font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
                     Spacer(minLength: 0)
@@ -23,7 +22,7 @@ struct PullRequestBatchBar: View {
                 }
             } else {
                 if !batch.entries.isEmpty {
-                    HStack { resultsButton; Spacer() }
+                    HStack { results; Spacer() }
                 }
                 HStack(spacing: 8) {
                     Text(L10n.text(.batchSelectedCount, String(batch.selectedIDs.count)))
@@ -44,29 +43,29 @@ struct PullRequestBatchBar: View {
         .queueControlSurface()
     }
 
-    private var resultsButton: some View {
-        Button { showActivity(.entries(Set(batch.entries.map(\.activityID)))) } label: {
-            HStack(spacing: 9) {
-                if batch.succeededCount > 0 {
-                    Label(String(batch.succeededCount), systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-                }
-                if batch.skippedCount > 0 {
-                    Label(String(batch.skippedCount), systemImage: "minus.circle").foregroundStyle(.secondary)
-                }
-                if batch.failedCount > 0 {
-                    Label(String(batch.failedCount), systemImage: "exclamationmark.circle.fill").foregroundStyle(.red)
-                }
-                Image(systemName: "list.bullet").foregroundStyle(.secondary)
+    private var results: some View {
+        HStack(spacing: 9) {
+            if batch.succeededCount > 0 {
+                Label(String(batch.succeededCount), systemImage: "checkmark.circle.fill").foregroundStyle(.green)
             }
-            .font(.system(size: 11, weight: .medium)).monospacedDigit()
-            .frame(minHeight: 20)
+            if batch.skippedCount > 0 {
+                Label(String(batch.skippedCount), systemImage: "minus.circle").foregroundStyle(.secondary)
+            }
+            if batch.failedCount > 0 {
+                Label(String(batch.failedCount), systemImage: "exclamationmark.circle.fill").foregroundStyle(.red)
+            }
         }
-        .buttonStyle(.plain)
-        .help(L10n.text(.batchViewResults))
-        .accessibilityLabel([L10n.text(.batchViewResults),
-                             L10n.text(.batchSucceededCount, String(batch.succeededCount)),
-                             L10n.text(.batchSkippedCount, String(batch.skippedCount)),
-                             L10n.text(.batchFailedCount, String(batch.failedCount))].joined(separator: ", "))
+        .font(.system(size: 11, weight: .medium)).monospacedDigit()
+        .frame(minHeight: 20)
+        .help(resultsSummary)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(resultsSummary)
+    }
+
+    private var resultsSummary: String {
+        [L10n.text(.batchSucceededCount, String(batch.succeededCount)),
+         L10n.text(.batchSkippedCount, String(batch.skippedCount)),
+         L10n.text(.batchFailedCount, String(batch.failedCount))].joined(separator: ", ")
     }
 
 }

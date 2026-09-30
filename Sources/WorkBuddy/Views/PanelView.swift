@@ -16,8 +16,6 @@ struct PanelView: View {
     @State private var showingRepositories = false
     @State private var showingActivity = false
     @State private var activityExpanded = false
-    @State private var activityFocus: ActivityLog.Focus?
-    @State private var revealPullRequestID: String?
     @State private var isPinned = false
 
     private enum Category: String, CaseIterable, Identifiable {
@@ -42,20 +40,7 @@ struct PanelView: View {
 
             if showingActivity {
                 ActivityView(activity: store.activity, isExpanded: $activityExpanded,
-                             close: { showingActivity = false },
-                             canVerify: store.canVerify, verify: { entry in Task { await store.verifyActivity(entry.id) } },
-                             canRetry: store.canRetry, retry: { store.retryActivity($0.id) },
-                             focus: activityFocus,
-                             clearFocus: { activityFocus = nil },
-                             canShowInList: { entry in
-                                 entry.pullRequest.map { store.visibleSectionID(for: $0.id) != nil } ?? false
-                             }, showInList: { entry in
-                                 selectedCategory = .github
-                                 showingConfiguration = false
-                                 showingRepositories = false
-                                 showingActivity = false
-                                 revealPullRequestID = entry.pullRequest?.id
-                             })
+                             close: { showingActivity = false })
                     .frame(maxHeight: activityExpanded ? .infinity : 220)
                 if !activityExpanded { Divider() }
             }
@@ -86,10 +71,7 @@ struct PanelView: View {
             }
 
             if showingGitHub || store.autopilot.isActive || store.batch.isRunning {
-                PullRequestExecutionControls(store: store, compact: showingActivity || !showingGitHub) { focus in
-                    activityFocus = focus
-                    showingActivity = true
-                }
+                PullRequestExecutionControls(store: store, compact: showingActivity || !showingGitHub)
             }
             Divider()
             footer
@@ -129,7 +111,6 @@ struct PanelView: View {
             Spacer()
 
             Button {
-                activityFocus = nil
                 showingActivity.toggle()
                 if showingActivity {
                     showingConfiguration = false
@@ -172,10 +153,7 @@ struct PanelView: View {
     private var categoryContent: some View {
         switch selectedCategory {
         case .github:
-            GitHubSectionView(store: store, showActivity: { focus in
-                activityFocus = focus
-                showingActivity = true
-            }, showsExecutionControls: false, revealPullRequestID: $revealPullRequestID) {
+            GitHubSectionView(store: store, showsExecutionControls: false) {
                 showingActivity = false
                 showingRepositories = true
             }

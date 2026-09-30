@@ -290,16 +290,6 @@ final class ReviewQueueStore {
         )
     }
 
-    /// Mismo orden que el panel; permite localizar el PR sin cambiar filtros.
-    func visibleSectionID(for id: String) -> String? {
-        let sections: [(String, [PullRequest])] = [
-            ("readyToMerge", readyToMerge), ("needingCIFix", needingCIFix),
-            ("needingReply", needingReply), ("waitingForReply", waitingForReply)
-        ] + reviewSections.map { ($0.bucket == .needsReview ? "needsReview" : "approvedAlready", $0.items) }
-            + [("automation", automation), ("ignored", ignored)]
-        return sections.first { $0.1.contains { $0.id == id } }?.0
-    }
-
     // MARK: - Acciones
 
     func setAutomationFilter(_ filter: AutomationFilter) {
@@ -494,32 +484,19 @@ final class ReviewQueueStore {
         inFlightActions.contains(pullRequest.id)
     }
 
-    func canVerify(_ entry: ActivityLog.Entry) -> Bool {
+    func actionToVerify(for pr: PullRequest) -> ActivityLog.Entry? {
+        guard let entry = activity.unconfirmedAction(for: pr, viewer: viewerLogin), canVerify(entry) else { return nil }
+        return entry
+    }
+
+    private func canVerify(_ entry: ActivityLog.Entry) -> Bool {
         entry.status.needsVerification && entry.action?.batchAction != nil
             && entry.viewer != nil && entry.viewer?.lowercased() == viewerLogin?.lowercased()
             && entry.pullRequest.map { !inFlightActions.contains($0.id) } == true
     }
 
-    func canRetry(_ entry: ActivityLog.Entry) -> Bool {
-        guard case .failed = entry.status, let action = entry.action, action.batchAction != nil,
-              let original = entry.pullRequest, let current = currentPullRequest(id: original.id),
-              let viewer = entry.viewer, viewer.lowercased() == viewerLogin?.lowercased(),
-              !inFlightActions.contains(original.id), current.headRefOID == original.headRefOID,
-              current.baseRefName == original.baseRefName,
-              action != .merge || current.defaultMergeMethod == original.defaultMergeMethod,
-              visibleSectionID(for: original.id) != nil else { return false }
-        return availableWriteActions(for: current).contains(action)
-    }
-
-    func retryActivity(_ id: UUID) {
-        guard let entry = activity.entries.first(where: { $0.id == id }), canRetry(entry),
-              let pr = entry.pullRequest, let action = entry.action else { return }
-        // Un click explícito crea una ejecución nueva, con la revalidación normal.
-        perform(action, onID: pr.id)
-    }
-
     /// Sólo consulta GitHub. Verificar jamás repite la escritura incierta.
-    func verifyActivity(_ id: UUID,
+    func verifyAction(_ id: UUID,
                         read: @Sendable (PullRequest, String, PullRequestBatchAction) async throws -> PullRequestActionCheck.Snapshot = {
                             try await PullRequestActionCheck.fetch($0, viewer: $1, action: $2)
                         }) async {
@@ -556,7 +533,7 @@ final class ReviewQueueStore {
                 activity.update(id, status: .skipped(LocalizedMessage(L10n.text(.batchClosed))))
             } else {
                 // No convertir una comprobación en permiso para volver a escribir.
-                // El usuario puede reintentar desde Actividad; Start sigue con los demás.
+                // El usuario puede reintentar desde el menú del PR; Start sigue con los demás.
                 autopilot.stop()
                 activity.update(id, status: .failed(LocalizedMessage(L10n.text(.activityNotRecorded))))
             }

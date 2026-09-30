@@ -17,11 +17,6 @@ final class ActivityLog {
         }
     }
 
-    enum Focus: Equatable {
-        case entries(Set<UUID>)
-        case autopilot
-    }
-
     enum Status {
         case pending, checking, running, waiting(seconds: Int, attempt: Int)
         case succeeded, skipped(LocalizedMessage), failed(LocalizedMessage), uncertain(LocalizedMessage)
@@ -70,7 +65,6 @@ final class ActivityLog {
 
     private(set) var entries: [Entry] = []
     private(set) var unreadIDs: Set<UUID> = []
-    private var visibleFocus: Focus?
     private var isPresented = false
     private var isPanelVisible = true
     private var isVisible: Bool { isPresented && isPanelVisible }
@@ -92,7 +86,7 @@ final class ActivityLog {
             entries.insert(Entry(id: id, date: date, title: title, target: target, detail: detail,
                                  url: url, symbol: symbol, source: source, status: status, action: action, pullRequest: pullRequest, viewer: viewer), at: 0)
         }
-        if !isVisible || !filtered(visibleFocus).contains(where: { $0.id == id }) { unreadIDs.insert(id) }
+        if !isVisible { unreadIDs.insert(id) }
         return id
     }
 
@@ -105,7 +99,7 @@ final class ActivityLog {
     func update(_ id: UUID, status: Status) {
         guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
         entries[index].status = status
-        if !isVisible || !filtered(visibleFocus).contains(where: { $0.id == id }) { unreadIDs.insert(id) }
+        if !isVisible { unreadIDs.insert(id) }
     }
 
     func record(_ entry: PullRequestBatch.Entry, source: Source, viewer: String? = nil) {
@@ -127,45 +121,30 @@ final class ActivityLog {
                action: entry.candidate.action.action, pullRequest: pr, viewer: viewer)
     }
 
-    func filtered(_ focus: Focus?) -> [Entry] {
-        entries.filter { entry in
-            switch focus {
-            case .entries(let ids): ids.contains(entry.id)
-            case .autopilot: entry.source == .autopilot
-            case nil: true
-            }
-        }
+    func needsVerification(for pr: PullRequest, viewer: String?) -> Bool {
+        unconfirmedAction(for: pr, viewer: viewer) != nil
     }
 
-    func needsVerification(for pr: PullRequest, viewer: String?) -> Bool {
-        entries.contains {
+    func unconfirmedAction(for pr: PullRequest, viewer: String?) -> Entry? {
+        entries.first {
             $0.pullRequest?.id == pr.id && $0.pullRequest?.headRefOID == pr.headRefOID
                 && $0.viewer?.lowercased() == viewer?.lowercased() && $0.status.needsVerification
         }
     }
 
-    func status(for pr: PullRequest) -> Status? {
-        entries.first {
-            $0.pullRequest?.id == pr.id && $0.pullRequest?.headRefOID == pr.headRefOID
-                && $0.action?.writesToGitHub == true
-        }?.status
-    }
-
-    func setVisible(_ visible: Bool, focus: Focus? = nil) {
+    func setVisible(_ visible: Bool) {
         isPresented = visible
-        visibleFocus = focus
-        if isVisible { unreadIDs.subtract(filtered(focus).map(\.id)) }
+        if isVisible { unreadIDs = [] }
     }
 
     func setPanelVisible(_ visible: Bool) {
         isPanelVisible = visible
-        if isVisible { unreadIDs.subtract(filtered(visibleFocus).map(\.id)) }
+        if isVisible { unreadIDs = [] }
     }
 
     /// Limpiar no oculta operaciones en curso ni interrumpe su ejecución.
-    func clearCompleted(focus: Focus? = nil) {
-        let ids = Set(filtered(focus).filter { $0.status.isClearable }.map(\.id))
-        entries.removeAll { ids.contains($0.id) }
+    func clearCompleted() {
+        entries.removeAll { $0.status.isClearable }
         unreadIDs.formIntersection(Set(entries.map(\.id)))
     }
 }

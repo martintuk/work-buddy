@@ -14,12 +14,9 @@ extension L10n {
         case .commonRefreshing: "Refreshing"
 
         // MARK: - Activity
-        case .activityShowAll: "Show all activity"
-        case .activityShowInList: "Show in list"
         case .activityUncertain: "Unconfirmed result: %@"
         case .activityNotExecuted: "Not executed: %@"
-        case .activityVerify: "Verify result on GitHub"
-        case .activityRetry: "Retry this action"
+        case .prVerifyResult: "Verify result on GitHub"
         case .activityNotRecorded: "GitHub does not show the action. You can retry it."
         case .activityTitle: "Activity"
         case .activityClose: "Close activity"
@@ -198,7 +195,6 @@ extension L10n {
         case .batchMethodChanged: "Merge method changed"
         case .batchSucceededCount: "%@ completed"
         case .batchUnavailable: "No batch action available"
-        case .batchViewResults: "View batch results"
         case .batchApproveCount: "Approve %@"
         case .batchSelected: "Selected"
         case .batchNotSelected: "Not selected"

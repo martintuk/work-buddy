@@ -5,23 +5,6 @@ import Testing
 @Suite("Historial de actividad")
 @MainActor
 struct ActivityLogTests {
-    @Test("El foco del lote conserva sin leer las novedades de otras operaciones")
-    func focusedActivity() {
-        let log = ActivityLog()
-        let first = log.record(.approve, on: fixture(1), status: .pending)
-        let second = log.record(.merge, on: fixture(2), status: .running)
-        let focus = ActivityLog.Focus.entries([first])
-        log.setVisible(true, focus: focus)
-        #expect(log.unreadIDs == [second])
-        #expect(log.filtered(focus).map(\.id) == [first])
-        log.update(second, status: .succeeded)
-        #expect(log.unreadIDs == [second])
-        #expect(log.status(for: fixture(1))?.isComplete == false)
-        #expect(log.status(for: fixture(1, head: "new")) == nil)
-        log.setVisible(true)
-        #expect(log.unreadIDs.isEmpty)
-    }
-
     @Test("Dependabot confirma la solicitud, y una aprobación confirma la review")
     func resultMeaning() {
         let log = ActivityLog()

@@ -21,8 +21,6 @@ struct PullRequestRow: View {
     let openProject: () -> Void
     let openAgent: () -> Void
     let repositoryStore: ReviewQueueStore
-    var showActivity: () -> Void = {}
-    var actionStatus: ActivityLog.Status? = nil
     var batchSelection: PullRequestBatchSelection? = nil
     let perform: (PullRequestAction) -> Void
 
@@ -67,14 +65,7 @@ struct PullRequestRow: View {
                     itemID: .github(nodeID: pullRequest.id, host: pullRequest.url.host() ?? "github.com"),
                     isRowHovering: isHovering
                 )
-                if let actionStatus {
-                    Button(action: showActivity) {
-                        ActivityStatusIcon(status: actionStatus).frame(width: 18, height: 18)
-                    }
-                        .buttonStyle(.plain)
-                        .help(actionStatus.text)
-                        .accessibilityLabel(actionStatus.text)
-                } else if isActing || isOpeningProject {
+                if isActing || isOpeningProject {
                     ProgressView().controlSize(.small).frame(width: 18, height: 18)
                 }
                 if !isActing && !isOpeningProject { actionMenu }
@@ -105,7 +96,7 @@ struct PullRequestRow: View {
     }
 
     private var details: some View {
-        PullRequestSummary(pullRequest: pullRequest, titleTrailingPadding: actionStatus == nil ? 44 : 66, usesRepositoryOverlay: true) {
+        PullRequestSummary(pullRequest: pullRequest, titleTrailingPadding: 44, usesRepositoryOverlay: true) {
             Text("· \(pullRequest.author.login)")
                 .foregroundStyle(.tertiary)
             badges
@@ -221,11 +212,20 @@ struct PullRequestRow: View {
         // Una colección dinámica identifica las inserciones y bajas de acciones
         // cuando cambia el PR, tanto en Menu como en el menú contextual.
         let writeActions = repositoryStore.availableWriteActions(for: pullRequest)
+        let actionToVerify = repositoryStore.actionToVerify(for: pullRequest)
+        if let entry = actionToVerify {
+            Button {
+                Task { await repositoryStore.verifyAction(entry.id) }
+            } label: {
+                Label(L10n.text(.prVerifyResult), systemImage: "arrow.clockwise.circle")
+            }
+            .help(entry.statusText)
+        }
         ForEach(writeActions) { action in
             button(action)
         }
 
-        if !writeActions.isEmpty {
+        if !writeActions.isEmpty || actionToVerify != nil {
             Divider()
         }
         button(isIgnored ? .restore : .ignore)

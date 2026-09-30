@@ -23,9 +23,7 @@ struct ActivityViewTests {
         for scheme in [ColorScheme.light, .dark] {
             for expanded in [false, true] {
                 let height: CGFloat = expanded ? 480 : 220
-                let content = ActivityView(activity: log, isExpanded: .constant(expanded), close: {},
-                    canVerify: { $0.status.needsVerification }, canRetry: { if case .failed = $0.status { true } else { false } },
-                    canShowInList: { $0.pullRequest != nil })
+                let content = ActivityView(activity: log, isExpanded: .constant(expanded), close: {})
                     .frame(width: 420, height: height).environment(\.colorScheme, scheme)
                 try render(content, size: NSSize(width: 420, height: height), scheme: scheme,
                            path: "\(directory)/activity-\(expanded ? "expanded" : "compact")-\(scheme).png")
