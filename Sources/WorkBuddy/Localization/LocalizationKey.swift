@@ -152,6 +152,8 @@ extension L10n {
         case githubWaiting
         case githubAutomation
         case githubAutomationNotReady
+        case autopilotStart
+        case autopilotStop
         case autopilotOpen
         case autopilotHelp
         case autopilotEmpty

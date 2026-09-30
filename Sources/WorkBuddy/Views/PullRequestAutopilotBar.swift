@@ -33,12 +33,17 @@ struct PullRequestAutopilotBar: View {
             }
             VStack(spacing: 8) {
                 HStack(spacing: 10) {
-                    Toggle("Autopilot", isOn: Binding(get: { autopilot.isEnabled }, set: setEnabled))
-                        .toggleStyle(.switch).controlSize(.mini)
+                    Text("Autopilot")
                         .font(.system(size: 11, weight: .medium))
-                        .disabled(!autopilot.isEnabled && autopilot.current != nil)
-                        .help(L10n.text(.autopilotHelp))
-                        .accessibilityLabel(L10n.text(.autopilotHelp))
+                    Button(L10n.text(autopilot.isActive ? .autopilotStop : .autopilotStart)) {
+                        setEnabled(!autopilot.isEnabled)
+                    }
+                    .buttonStyle(.borderedProminent).controlSize(.small)
+                    .tint(autopilot.isActive ? Color.secondary : Color.accentColor)
+                    .font(.system(size: 11, weight: .semibold))
+                    .disabled(!autopilot.isEnabled && autopilot.current != nil)
+                    .help(L10n.text(autopilot.isActive ? .batchStopHelp : .autopilotHelp))
+                    .accessibilityLabel("\(L10n.text(autopilot.isActive ? .autopilotStop : .autopilotStart)) · \(L10n.text(.autopilotHelp))")
                     Spacer(minLength: 0)
                     if !autopilot.history.isEmpty {
                         Button { showingResults.toggle() } label: {

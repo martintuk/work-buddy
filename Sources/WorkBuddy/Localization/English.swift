@@ -153,6 +153,8 @@ extension L10n {
         case .githubWaiting: "Awaiting reply"
         case .githubAutomation: "Automation"
         case .githubAutomationNotReady: "Automation · Not ready"
+        case .autopilotStart: "Start"
+        case .autopilotStop: "Stop"
         case .autopilotOpen: "Open Dependabot autopilot"
         case .autopilotHelp: "Autopilot · Dependabot only"
         case .autopilotEmpty: "No Dependabot PRs ready"
