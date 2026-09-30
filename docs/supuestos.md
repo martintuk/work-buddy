@@ -108,7 +108,7 @@ página y el panel aparece en ~4s, y dependabot se carga en segunda fase.
 
 **Qué se rompe:** si la org migra a Renovate, sus PRs caen en la cola de
 ReviewQueue —el filtro no los excluye—. `Author.isBot` permite agruparlos
-en Automatización cuando falla CI; sin fallas aparecen en las secciones de
+en Automatización · No listos cuando falla CI; sin fallas aparecen en las secciones de
 review y cuentan en el badge (ver #4).
 
 **Cómo detectarlo:** `--dump-queue` imprime `personas: N | dependabot: M`. Si
@@ -129,7 +129,7 @@ configuración explícita.
 
 **Qué se rompe:** una cuenta de máquina nueva tipada como `User` se cuenta como
 persona. Sus PRs con CI fallida quedan en review y pueden contar en el badge
-y notificar, en lugar de ir a Automatización.
+y notificar, en lugar de ir a Automatización · No listos.
 
 **Cómo detectarlo:** logins que no reconocés en "Para revisar". Para revisar la
 clasificación actual:

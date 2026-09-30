@@ -98,7 +98,7 @@ enum DumpQueue {
             // Se listan igual que las personas: desde que dependabot entra al
             // panel, su atraso contra la base es el dato que decide si hace falta
             // un rebase, y no verlo acá sería volar a ciegas.
-            print("── AUTOMATIZACIÓN ──")
+            print("── AUTOMATIZACIÓN · NO LISTOS ──")
             for pullRequest in bots {
                 print("  \(describe(pullRequest, behind: behind))")
             }

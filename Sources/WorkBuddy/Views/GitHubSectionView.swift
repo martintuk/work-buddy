@@ -432,7 +432,7 @@ struct GitHubSectionView: View {
                         items: sections.first { $0.bucket == bucket }?.items ?? []
                     )
                 }
-                queueSection(.automation, title: L10n.text(.githubAutomation), items: store.automation)
+                queueSection(.automation, title: L10n.text(.githubAutomationNotReady), items: store.automation)
                 queueSection(.ignored, title: L10n.text(.githubIgnored), items: store.ignored)
             }
             .padding(.horizontal, QueueLayout.sectionSpacing)
