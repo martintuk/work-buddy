@@ -70,10 +70,10 @@ struct PullRequestAutopilotBar: View {
             withAnimation(.easeInOut(duration: 0.18)) { autopilot.isExpanded.toggle() }
         } label: {
             Image(systemName: "chevron.compact.up")
-                .font(.system(size: 22, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .rotationEffect(.degrees(autopilot.isExpanded ? 180 : 0))
                 .frame(maxWidth: .infinity)
-                .frame(height: 16)
+                .frame(height: 12)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
