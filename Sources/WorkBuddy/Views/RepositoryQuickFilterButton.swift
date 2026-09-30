@@ -76,8 +76,31 @@ struct RepositoryQuickFilterButton: View {
             .frame(height: 28)
             .contentShape(.rect)
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(RepositoryActionButtonStyle())
         .help(title)
         .accessibilityValue(L10n.text(active ? .commonEnabled : .commonDisabled))
+    }
+}
+
+private struct RepositoryActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Content(configuration: configuration)
+    }
+
+    private struct Content: View {
+        let configuration: ButtonStyle.Configuration
+        @State private var isHovering = false
+
+        var body: some View {
+            configuration.label
+                .foregroundStyle(.primary)
+                .background(
+                    Color.primary.opacity(configuration.isPressed ? 0.14 : isHovering ? 0.08 : 0),
+                    in: RoundedRectangle(cornerRadius: 6)
+                )
+                .onHover { isHovering = $0 }
+                .animation(.easeOut(duration: 0.12), value: isHovering)
+                .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+        }
     }
 }
