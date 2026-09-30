@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// La cola crece hacia arriba; el control de encendido siempre queda al pie.
+/// Una única cabecera en ambos estados; al expandir se agrega la cola debajo.
 struct PullRequestAutopilotBar: View {
     let autopilot: PullRequestAutopilot
     let setEnabled: @MainActor (Bool) -> Void
@@ -8,29 +8,6 @@ struct PullRequestAutopilotBar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if autopilot.isExpanded {
-                VStack(spacing: 6) {
-                    HStack {
-                        Text("Autopilot").font(.system(size: 11, weight: .semibold))
-                        Spacer()
-                    }
-                    if autopilot.current == nil && autopilot.queue.isEmpty {
-                        Text(L10n.text(.autopilotEmpty))
-                            .font(.system(size: 11)).foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6)
-                    } else {
-                        ScrollView {
-                            LazyVStack(spacing: 2) {
-                                if let current = autopilot.current { queueRow(current.candidate, status: current.status) }
-                                ForEach(autopilot.queue) { queueRow($0, status: nil) }
-                            }
-                        }
-                        .frame(height: min(168, CGFloat(autopilot.queue.count + (autopilot.current == nil ? 0 : 1)) * 28))
-                    }
-                }
-                .padding(.horizontal, 12).padding(.vertical, 10)
-                Divider()
-            }
             VStack(spacing: 8) {
                 HStack(spacing: 10) {
                     Text("Autopilot")
@@ -87,6 +64,25 @@ struct PullRequestAutopilotBar: View {
                 }
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
+            if autopilot.isExpanded {
+                Divider()
+                VStack(spacing: 6) {
+                    if autopilot.current == nil && autopilot.queue.isEmpty {
+                        Text(L10n.text(.autopilotEmpty))
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6)
+                    } else {
+                        ScrollView {
+                            LazyVStack(spacing: 2) {
+                                if let current = autopilot.current { queueRow(current.candidate, status: current.status) }
+                                ForEach(autopilot.queue) { queueRow($0, status: nil) }
+                            }
+                        }
+                        .frame(height: min(168, CGFloat(autopilot.queue.count + (autopilot.current == nil ? 0 : 1)) * 28))
+                    }
+                }
+                .padding(.horizontal, 12).padding(.vertical, 8)
+            }
         }
         .queueControlSurface()
         .popover(isPresented: $showingResults, arrowEdge: .top) {
