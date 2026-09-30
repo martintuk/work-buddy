@@ -137,6 +137,7 @@ struct GitHubSectionView: View {
                     }
                 }
                 .pickerStyle(.inline)
+                .labelsHidden()
             } label: {
                 filterLabel(store.automationFilter.title, symbol: "line.3.horizontal.decrease",
                             active: store.automationFilter.isActive)
