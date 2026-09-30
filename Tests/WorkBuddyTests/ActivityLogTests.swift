@@ -5,6 +5,32 @@ import Testing
 @Suite("Historial de actividad")
 @MainActor
 struct ActivityLogTests {
+    @Test("El foco del lote conserva sin leer las novedades de otras operaciones")
+    func focusedActivity() {
+        let log = ActivityLog()
+        let first = log.record(.approve, on: fixture(1), status: .pending)
+        let second = log.record(.merge, on: fixture(2), status: .running)
+        let focus = ActivityLog.Focus.entries([first])
+        log.setVisible(true, focus: focus)
+        #expect(log.unreadIDs == [second])
+        #expect(log.filtered(focus).map(\.id) == [first])
+        log.update(second, status: .succeeded)
+        #expect(log.unreadIDs == [second])
+        #expect(log.status(for: fixture(1))?.isComplete == false)
+        #expect(log.status(for: fixture(1, head: "new")) == nil)
+        log.setVisible(true)
+        #expect(log.unreadIDs.isEmpty)
+    }
+
+    @Test("Dependabot confirma la solicitud, y una aprobación confirma la review")
+    func resultMeaning() {
+        let log = ActivityLog()
+        log.record(.dependabotRebase, on: fixture(1))
+        #expect(log.entries[0].statusText == L10n.text(.prDependabotRequested))
+        log.record(.approve, on: fixture(2))
+        #expect(log.entries[0].statusText == L10n.text(.prApproved))
+    }
+
     @Test("Progreso y reintentos actualizan una entrada; repetir la acción crea otra")
     func identityAndUnread() throws {
         let log = ActivityLog()
@@ -67,7 +93,7 @@ struct ActivityLogTests {
             write: { if $0.number == 2 { throw GH.Failure.noAttempts } },
             isAllowed: { $0.number != 3 })
         let task = try #require(started)
-        #expect(log.entries.count == 3 && log.runningCount == 3)
+        #expect(log.entries.count == 3 && log.pendingCount == 3 && log.runningCount == 0)
         await task.value
         #expect(log.entries.allSatisfy { $0.source == .batch && $0.status.isComplete })
         #expect(log.entries.count { $0.status.isError } == 1)

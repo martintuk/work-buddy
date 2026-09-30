@@ -17,6 +17,11 @@ final class ActivityLog {
         }
     }
 
+    enum Focus: Equatable {
+        case entries(Set<UUID>)
+        case autopilot
+    }
+
     enum Status {
         case pending, checking, running, waiting(seconds: Int, attempt: Int)
         case succeeded, skipped(LocalizedMessage), failed(LocalizedMessage)
@@ -47,41 +52,53 @@ final class ActivityLog {
         let symbol: String
         let source: Source
         var status: Status
+        let action: PullRequestAction?
+        let pullRequest: PullRequest?
+
+        var statusText: String {
+            if case .succeeded = status, let action { return action.completedText }
+            return status.text
+        }
     }
 
     private(set) var entries: [Entry] = []
     private(set) var unreadIDs: Set<UUID> = []
+    private var visibleFocus: Focus?
     private var isPresented = false
     private var isPanelVisible = true
     private var isVisible: Bool { isPresented && isPanelVisible }
 
-    var runningCount: Int { entries.count { !$0.status.isComplete } }
+    var runningCount: Int { entries.count {
+        switch $0.status { case .checking, .running: true; default: false }
+    } }
+    var pendingCount: Int { entries.count { if case .pending = $0.status { true } else { false } } }
     var hasUnreadErrors: Bool { entries.contains { unreadIDs.contains($0.id) && $0.status.isError } }
 
     @discardableResult
     func record(id: UUID = UUID(), title: LocalizedMessage, target: String, detail: String = "",
                 url: URL? = nil, symbol: String, source: Source = .manual,
-                status: Status = .succeeded, date: Date = .now) -> UUID {
+                status: Status = .succeeded, date: Date = .now,
+                action: PullRequestAction? = nil, pullRequest: PullRequest? = nil) -> UUID {
         if let index = entries.firstIndex(where: { $0.id == id }) {
             entries[index].status = status
         } else {
             entries.insert(Entry(id: id, date: date, title: title, target: target, detail: detail,
-                                 url: url, symbol: symbol, source: source, status: status), at: 0)
+                                 url: url, symbol: symbol, source: source, status: status, action: action, pullRequest: pullRequest), at: 0)
         }
-        if !isVisible { unreadIDs.insert(id) }
+        if !isVisible || !filtered(visibleFocus).contains(where: { $0.id == id }) { unreadIDs.insert(id) }
         return id
     }
 
     @discardableResult
     func record(_ action: PullRequestAction, on pr: PullRequest, status: Status = .succeeded) -> UUID {
         record(title: LocalizedMessage(action.title), target: "\(pr.repository) #\(pr.number)",
-               detail: pr.title, url: pr.url, symbol: action.systemImage, status: status)
+               detail: pr.title, url: pr.url, symbol: action.systemImage, status: status, action: action, pullRequest: pr)
     }
 
     func update(_ id: UUID, status: Status) {
         guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
         entries[index].status = status
-        if !isVisible { unreadIDs.insert(id) }
+        if !isVisible || !filtered(visibleFocus).contains(where: { $0.id == id }) { unreadIDs.insert(id) }
     }
 
     func record(_ entry: PullRequestBatch.Entry, source: Source) {
@@ -98,17 +115,36 @@ final class ActivityLog {
         let pr = entry.pullRequest
         record(id: entry.activityID, title: LocalizedMessage(entry.candidate.action.title),
                target: "\(pr.repository) #\(pr.number)", detail: pr.title, url: pr.url,
-               symbol: entry.candidate.action.symbol, source: source, status: status)
+               symbol: entry.candidate.action.symbol, source: source, status: status,
+               action: entry.candidate.action.action, pullRequest: pr)
     }
 
-    func setVisible(_ visible: Bool) {
+    func filtered(_ focus: Focus?) -> [Entry] {
+        entries.filter { entry in
+            switch focus {
+            case .entries(let ids): ids.contains(entry.id)
+            case .autopilot: entry.source == .autopilot
+            case nil: true
+            }
+        }
+    }
+
+    func status(for pr: PullRequest) -> Status? {
+        entries.first {
+            $0.pullRequest?.id == pr.id && $0.pullRequest?.headRefOID == pr.headRefOID
+                && $0.action?.writesToGitHub == true
+        }?.status
+    }
+
+    func setVisible(_ visible: Bool, focus: Focus? = nil) {
         isPresented = visible
-        if isVisible { unreadIDs = [] }
+        visibleFocus = focus
+        if isVisible { unreadIDs.subtract(filtered(focus).map(\.id)) }
     }
 
     func setPanelVisible(_ visible: Bool) {
         isPanelVisible = visible
-        if isVisible { unreadIDs = [] }
+        if isVisible { unreadIDs.subtract(filtered(visibleFocus).map(\.id)) }
     }
 
     /// Limpiar no oculta operaciones en curso ni interrumpe su ejecución.

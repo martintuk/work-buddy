@@ -16,6 +16,8 @@ struct PanelView: View {
     @State private var showingRepositories = false
     @State private var showingActivity = false
     @State private var activityExpanded = false
+    @State private var activityFocus: ActivityLog.Focus?
+    @State private var revealPullRequestID: String?
     @State private var isPinned = false
 
     private enum Category: String, CaseIterable, Identifiable {
@@ -39,7 +41,18 @@ struct PanelView: View {
             header
 
             if showingActivity {
-                ActivityView(activity: store.activity, isExpanded: $activityExpanded) { showingActivity = false }
+                ActivityView(activity: store.activity, isExpanded: $activityExpanded,
+                             close: { showingActivity = false }, focus: activityFocus,
+                             clearFocus: { activityFocus = nil },
+                             canShowInList: { entry in
+                                 entry.pullRequest.map { store.visibleSectionID(for: $0.id) != nil } ?? false
+                             }, showInList: { entry in
+                                 selectedCategory = .github
+                                 showingConfiguration = false
+                                 showingRepositories = false
+                                 showingActivity = false
+                                 revealPullRequestID = entry.pullRequest?.id
+                             })
                     .frame(maxHeight: activityExpanded ? .infinity : 220)
                 if !activityExpanded { Divider() }
             }
@@ -102,6 +115,7 @@ struct PanelView: View {
             Spacer()
 
             Button {
+                activityFocus = nil
                 showingActivity.toggle()
                 if showingActivity {
                     showingConfiguration = false
@@ -144,7 +158,10 @@ struct PanelView: View {
     private var categoryContent: some View {
         switch selectedCategory {
         case .github:
-            GitHubSectionView(store: store, showActivity: { showingActivity = true }) {
+            GitHubSectionView(store: store, showActivity: { focus in
+                activityFocus = focus
+                showingActivity = true
+            }, revealPullRequestID: $revealPullRequestID) {
                 showingActivity = false
                 showingRepositories = true
             }

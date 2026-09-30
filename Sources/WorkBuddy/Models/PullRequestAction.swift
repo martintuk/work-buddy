@@ -49,6 +49,16 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
         }
     }
 
+    var completedText: String {
+        switch self {
+        case .approve: L10n.text(.prApproved)
+        case .merge: L10n.text(.prMerged)
+        case .rebase: L10n.text(.prRebased)
+        case .dependabotRebase: L10n.text(.prDependabotRequested)
+        default: L10n.text(.activityCompleted)
+        }
+    }
+
     var batchAction: PullRequestBatchAction? {
         switch self { case .approve: .approve; case .merge: .merge; default: nil }
     }

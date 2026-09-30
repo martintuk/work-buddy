@@ -3,7 +3,8 @@ import SwiftUI
 /// Cola de PRs de la sección GitHub.
 struct GitHubSectionView: View {
     let store: ReviewQueueStore
-    var showActivity: () -> Void = {}
+    var showActivity: (ActivityLog.Focus?) -> Void = { _ in }
+    var revealPullRequestID: Binding<String?> = .constant(nil)
     let showRepositories: () -> Void
 
     @AppStorage("appearance.showEmptySections") private var showEmptySections = true
@@ -386,6 +387,7 @@ struct GitHubSectionView: View {
     private var list: some View {
         let sections = store.reviewSections
         let merge = store.readyToMerge
+        ScrollViewReader { proxy in
         ScrollView {
             // En macOS 26, las actualizaciones de esta cola pueden dejar al
             // LazyVStack con headers fijos recalculando posiciones sin terminar
@@ -424,6 +426,24 @@ struct GitHubSectionView: View {
             }
             .padding(.horizontal, QueueLayout.sectionSpacing)
             .padding(.bottom, QueueLayout.sectionSpacing)
+        }
+        .onAppear { reveal(in: proxy) }
+        .onChange(of: revealPullRequestID.wrappedValue) { _, _ in reveal(in: proxy) }
+        }
+    }
+
+    private func reveal(in proxy: ScrollViewProxy) {
+        guard let id = revealPullRequestID.wrappedValue,
+              let section = store.visibleSectionID(for: id) else { return }
+        var collapsed = Set(collapsedSectionIDs.split(separator: ",").map(String.init))
+        collapsed.remove(section)
+        collapsedSectionIDs = collapsed.sorted().joined(separator: ",")
+        selectedPullRequestID = id
+        revealPullRequestID.wrappedValue = nil
+        // El destino puede haber estado plegado: esperar a que SwiftUI inserte la fila.
+        Task { @MainActor in
+            await Task.yield()
+            withAnimation { proxy.scrollTo(QueueSectionItem<PullRequest>.ID(section: section, item: id), anchor: .center) }
         }
     }
 
@@ -477,6 +497,7 @@ struct GitHubSectionView: View {
                     Task { await store.openAgent(pullRequest, folder: folder) }
                 },
                 repositoryStore: store,
+                actionStatus: store.activity.status(for: pullRequest),
                 batchSelection: store.batch.isSelecting ? PullRequestBatchSelection(
                     isSelected: store.batch.selectedIDs.contains(pullRequest.id),
                     canSelect: !store.batch.isRunning && store.batch.candidates.contains { $0.id == pullRequest.id },
@@ -495,6 +516,7 @@ struct GitHubSectionView: View {
                 }
             }
             .padding(.top, QueueLayout.rowSpacing)
+            .id(entry.id)
         }
     }
 

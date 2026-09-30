@@ -4,7 +4,7 @@ import SwiftUI
 /// Selección, acciones, progreso y resultados permanecen al pie de la lista.
 struct PullRequestBatchBar: View {
     let batch: PullRequestBatch
-    var showActivity: () -> Void = {}
+    var showActivity: (ActivityLog.Focus?) -> Void = { _ in }
     let start: (PullRequestBatchAction) -> Void
 
     var body: some View {
@@ -45,7 +45,7 @@ struct PullRequestBatchBar: View {
     }
 
     private var resultsButton: some View {
-        Button(action: showActivity) {
+        Button { showActivity(.entries(Set(batch.entries.map(\.activityID)))) } label: {
             HStack(spacing: 9) {
                 if batch.succeededCount > 0 {
                     Label(String(batch.succeededCount), systemImage: "checkmark.circle.fill").foregroundStyle(.green)

@@ -4,7 +4,7 @@ import SwiftUI
 struct PullRequestAutopilotBar: View {
     let autopilot: PullRequestAutopilot
     let setEnabled: @MainActor (Bool) -> Void
-    var showActivity: () -> Void = {}
+    var showActivity: (ActivityLog.Focus?) -> Void = { _ in }
     @State private var isHoveringHandle = false
 
     var body: some View {
@@ -19,7 +19,7 @@ struct PullRequestAutopilotBar: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .layoutPriority(-1)
                 if !autopilot.history.isEmpty {
-                    Button(action: showActivity) {
+                    Button { showActivity(.autopilot) } label: {
                         Image(systemName: autopilot.notice == nil ? "clock.arrow.circlepath" : "exclamationmark.circle.fill")
                             .foregroundStyle(autopilot.notice == nil ? Color.secondary : Color.red)
                     }

@@ -289,6 +289,16 @@ final class ReviewQueueStore {
         )
     }
 
+    /// Mismo orden que el panel; permite localizar el PR sin cambiar filtros.
+    func visibleSectionID(for id: String) -> String? {
+        let sections: [(String, [PullRequest])] = [
+            ("readyToMerge", readyToMerge), ("needingCIFix", needingCIFix),
+            ("needingReply", needingReply), ("waitingForReply", waitingForReply)
+        ] + reviewSections.map { ($0.bucket == .needsReview ? "needsReview" : "approvedAlready", $0.items) }
+            + [("automation", automation), ("ignored", ignored)]
+        return sections.first { $0.1.contains { $0.id == id } }?.0
+    }
+
     // MARK: - Acciones
 
     func setAutomationFilter(_ filter: AutomationFilter) {

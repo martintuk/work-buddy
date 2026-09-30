@@ -14,6 +14,8 @@ extension L10n {
         case commonRefreshing
 
         // MARK: - Activity
+        case activityShowAll
+        case activityShowInList
         case activityTitle
         case activityClose
         case activityExpand

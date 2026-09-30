@@ -14,6 +14,8 @@ extension L10n {
         case .commonRefreshing: "Refreshing"
 
         // MARK: - Activity
+        case .activityShowAll: "Show all activity"
+        case .activityShowInList: "Show in list"
         case .activityTitle: "Activity"
         case .activityClose: "Close activity"
         case .activityExpand: "Expand activity"

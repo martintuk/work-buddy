@@ -21,6 +21,7 @@ struct PullRequestRow: View {
     let openProject: () -> Void
     let openAgent: () -> Void
     let repositoryStore: ReviewQueueStore
+    var actionStatus: ActivityLog.Status? = nil
     var batchSelection: PullRequestBatchSelection? = nil
     let perform: (PullRequestAction) -> Void
 
@@ -65,13 +66,15 @@ struct PullRequestRow: View {
                     itemID: .github(nodeID: pullRequest.id, host: pullRequest.url.host() ?? "github.com"),
                     isRowHovering: isHovering
                 )
-                if isActing || isOpeningProject {
-                    ProgressView()
-                        .controlSize(.small)
+                if let actionStatus {
+                    ActivityStatusIcon(status: actionStatus)
                         .frame(width: 18, height: 18)
-                } else {
-                    actionMenu
+                        .help(actionStatus.text)
+                        .accessibilityLabel(actionStatus.text)
+                } else if isActing || isOpeningProject {
+                    ProgressView().controlSize(.small).frame(width: 18, height: 18)
                 }
+                if !isActing && !isOpeningProject { actionMenu }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
@@ -99,7 +102,7 @@ struct PullRequestRow: View {
     }
 
     private var details: some View {
-        PullRequestSummary(pullRequest: pullRequest, titleTrailingPadding: 44, usesRepositoryOverlay: true) {
+        PullRequestSummary(pullRequest: pullRequest, titleTrailingPadding: actionStatus == nil ? 44 : 66, usesRepositoryOverlay: true) {
             Text("· \(pullRequest.author.login)")
                 .foregroundStyle(.tertiary)
             badges
