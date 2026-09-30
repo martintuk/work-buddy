@@ -108,24 +108,14 @@ struct GitHubSectionView: View {
     private var filters: some View {
         HStack(spacing: 8) {
             Button(action: showRepositories) {
-                HStack(spacing: 5) {
-                    Label(L10n.text(.repositoriesTitle), systemImage: store.repositoryFilter.isActive
-                        ? "line.3.horizontal.decrease.circle.fill"
-                        : "line.3.horizontal.decrease.circle")
-                    Image(systemName: "chevron.right").font(.system(size: 8, weight: .semibold))
-                }
-                .padding(.horizontal, 8)
-                .frame(height: 26)
-                .background(Color.accentColor.opacity(store.repositoryFilter.isActive ? 0.12 : 0.05), in: Capsule())
-                .contentShape(.capsule)
+                filterLabel(L10n.text(.repositoriesTitle), symbol: "folder",
+                            active: store.repositoryFilter.isActive)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(store.repositoryFilter.isActive ? Color.accentColor : Color.secondary)
+            .frame(maxWidth: .infinity)
             .help(L10n.text(.repositoriesFilterHelp))
             .accessibilityLabel(L10n.text(.repositoriesFilterHelp))
             .accessibilityValue(L10n.text(store.repositoryFilter.isActive ? .repositoriesFilterActive : .repositoriesAll))
-
-            Spacer(minLength: 0)
 
             Menu {
                 Picker(L10n.text(.githubAutomation), selection: Binding(
@@ -138,26 +128,42 @@ struct GitHubSectionView: View {
                 }
                 .pickerStyle(.inline)
             } label: {
-                HStack(spacing: 5) {
-                    Label(store.automationFilter.title,
-                          systemImage: store.automationFilter == .excludingAutomation ? "eye.slash" : "gearshape.2")
-                    Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
-                }
-                .padding(.horizontal, 8)
-                .frame(height: 26)
-                .background(Color.accentColor.opacity(store.automationFilter.isActive ? 0.12 : 0.05), in: Capsule())
+                filterLabel(store.automationFilter.title, symbol: "line.3.horizontal.decrease",
+                            active: store.automationFilter.isActive)
             }
-            .menuStyle(.borderlessButton)
+            .menuStyle(.button)
+            .buttonStyle(.plain)
             .menuIndicator(.hidden)
-            .fixedSize()
-            .foregroundStyle(store.automationFilter.isActive ? Color.accentColor : Color.secondary)
+            .frame(maxWidth: .infinity)
             .help(L10n.text(.automationFilterHelp))
             .accessibilityLabel(L10n.text(.automationFilterHelp))
             .accessibilityValue(store.automationFilter.title)
         }
-        .font(.system(size: 11))
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
+    }
+
+    /// Ambos controles comparten el aspecto aunque abran destinos distintos.
+    private func filterLabel(_ title: String, symbol: String, active: Bool) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbol)
+                .frame(width: 14)
+            Text(title)
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            Image(systemName: "chevron.down")
+                .font(.system(size: 8, weight: .semibold))
+        }
+        .font(.system(size: 11, weight: .medium))
+        .foregroundStyle(active ? Color.accentColor : Color.secondary)
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity)
+        .frame(height: 26)
+        .background(Color.accentColor.opacity(active ? 0.12 : 0.05), in: Capsule())
+        .overlay {
+            Capsule().strokeBorder(active ? Color.accentColor.opacity(0.25) : Color.secondary.opacity(0.15))
+        }
+        .contentShape(.capsule)
     }
 
     /// Los avisos flotan sobre la lista para no alterar su altura ni el scroll.
