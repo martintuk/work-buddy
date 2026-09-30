@@ -15,10 +15,12 @@ enum PullRequestQueuePolicy {
     /// incluyendo CODEOWNERS y branch protection. Contar approvals no alcanza.
     /// Un pedido al equipo equivale a uno personal. La antigüedad, la CI y haber
     /// comentado antes no cambian la categoría de personas. La automatización
-    /// con CI fallida queda en su sección. Tu aprobación vigente sí te saca
+    /// con CI fallida queda en su sección. Dependabot espera CI exitosa,
+    /// ausencia confirmada de conflictos y salida de draft. Tu aprobación vigente sí te saca
     /// de ambas categorías de review, aunque falten approvals de otras personas.
     static func reviewBucket(for pullRequest: PullRequest) -> ReviewBucket? {
         guard !pullRequest.author.isBot || !pullRequest.checks.isRed else { return nil }
+        if pullRequest.author.isDependabot && !pullRequest.isReadyForDependabotReview { return nil }
         guard !pullRequest.approvedByMe else { return nil }
         return pullRequest.reviewDecision == .approved ? .approvedAlready : .needsReview
     }
@@ -45,7 +47,8 @@ extension [PullRequest] {
         filter { ids.contains($0.id) }
     }
 
-    /// Personas y automatización sin fallas de CI, agrupadas por review pendiente.
+    /// Personas y automatización, agrupadas por review pendiente. Dependabot
+    /// entra sólo cuando está listo para revisar.
     var reviewSections: [(bucket: ReviewBucket, items: [PullRequest])] {
         let grouped = Dictionary(grouping: self) { $0.bucket() }
         return ReviewBucket.allCases.compactMap { bucket in
@@ -54,9 +57,13 @@ extension [PullRequest] {
         }
     }
 
-    /// Bots con CI fallida o aprobados por vos que esperan otra aprobación.
+    /// Bots con CI fallida, Dependabot esperando condiciones de review, o bots
+    /// aprobados por vos que esperan otra aprobación.
     var automation: [PullRequest] {
-        filter { $0.author.isBot && ($0.checks.isRed || $0.awaitingOtherApproval) }
+        filter {
+            $0.author.isBot && ($0.checks.isRed || $0.awaitingOtherApproval
+                || ($0.author.isDependabot && !$0.isReadyForDependabotReview))
+        }
             .sorted { $0.updatedAt > $1.updatedAt }
     }
 

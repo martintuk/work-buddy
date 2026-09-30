@@ -12,19 +12,12 @@ import Foundation
 /// Contra una whitelist a mano esto midió mejor: evita mantener una segunda
 /// fuente de verdad que se desactualiza cuando cambian los equipos o repos.
 enum DependabotQueue {
-    /// 50 por página con el set completo de campos: verificado 5/5 contra la API
-    /// real, ~9s por request.
-    ///
-    /// Lo que **no** entra es `mergeable`: la misma query con 50 devuelve **502**
-    /// de forma consistente, y con 25 anda. Por eso no lo pedimos acá, y por eso
-    /// un dependabot listo para mergear llega por `MergeQueue` y no por esta
-    /// cola.
-    private static let pageSize = 50
+    /// Confirmar ausencia de conflictos exige `mergeable`. Con 50 PRs produce
+    /// 502; con 25 funciona (ver docs/supuestos.md).
+    private static let pageSize = 25
 
-    /// Hoy los 50 entran en una página (`hasNextPage: false`). Paginamos igual:
-    /// si mañana son 60, truncar en silencio sería exactamente el modo de falla
-    /// que esta app trata de no tener.
-    private static let maxPages = 4
+    /// Conserva la capacidad anterior de 200 PRs al reducir el tamaño de página.
+    private static let maxPages = 8
 
     /// Complemento exacto de `ReviewQueue.searchQuery`.
     static let baseSearchQuery =
@@ -34,13 +27,18 @@ enum DependabotQueue {
         configuration.scopedSearch(baseSearchQuery)
     }
 
-    static func fetch(configuration: AppConfiguration = .empty, viewer: Viewer) async throws -> [PullRequest] {
+    static func fetch(
+        configuration: AppConfiguration = .empty, viewer: Viewer,
+        request: @Sendable ([String]) async throws -> Data = { try await GH.runRetrying($0) }
+    ) async throws -> [PullRequest] {
         try await PullRequestSearch.fetch(
             viewer: viewer,
             search: searchQuery(configuration: configuration),
+            fields: PullRequestFields.withMergeability,
             pageSize: pageSize,
             maxPages: maxPages,
-            machineAccounts: configuration.machineAccounts
+            machineAccounts: configuration.machineAccounts,
+            request: request
         )
     }
 }

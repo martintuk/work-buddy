@@ -73,7 +73,7 @@ struct AutomationFilterTests {
             id: id, number: 1, title: "Cambio", url: URL(string: "https://github.com/\(repository)/pull/1")!,
             repository: repository, baseRefName: "main", headRefName: "change", author: author,
             updatedAt: .now, isDraft: false, checks: checks, reviewDecision: .reviewRequired,
-            mergeable: merge ? .mergeable : nil, mergeStateStatus: merge ? .clean : nil,
+            mergeable: .mergeable, mergeStateStatus: merge ? .clean : nil,
             defaultMergeMethod: .squash, authoredByMe: false, requestedFromMe: true,
             reviewedByMe: false, approvals: 0, approvedByMe: false
         )

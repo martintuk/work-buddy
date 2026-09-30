@@ -45,19 +45,35 @@ struct QueryShapeTests {
         #expect(query.contains("archived:false"))
     }
 
-    @Test("La cola de dependabot no pide mergeable")
-    func dependabotSinMergeable() {
-        // `mergeable` obliga a GitHub a calcular la mergeabilidad. Con los 50 PRs
-        // de dependabot en una página devuelve **502** de forma consistente
-        // (verificado 3/3); con 25 anda. Un dependabot listo para mergear llega
-        // por `MergeQueue`, que trae un puñado.
-        let query = PullRequestSearch.query(
-            search: DependabotQueue.baseSearchQuery,
-            fields: PullRequestFields.base,
-            pageSize: 50
-        )
-        #expect(!query.contains("mergeable"))
-        #expect(!query.contains("mergeStateStatus"))
+    @Test("Dependabot consulta conflictos con páginas de 25 y conserva las ocho páginas")
+    func dependabotPideMergeable() async throws {
+        let prs = try await DependabotQueue.fetch(viewer: Viewer(login: "me")) { arguments in
+            let query = try #require(arguments.first { $0.hasPrefix("query=") })
+            #expect(query.contains(DependabotQueue.baseSearchQuery))
+            #expect(query.contains("mergeable"))
+            #expect(!query.contains("mergeStateStatus"))
+            #expect(query.contains("first: 25"))
+            #expect(arguments.contains("reviewAuthor=me"))
+            let page = arguments.first { $0.hasPrefix("cursor=") }
+                .flatMap { Int($0.dropFirst("cursor=".count)) } ?? 0
+            return try JSONSerialization.data(withJSONObject: ["data": [
+                "viewer": ["login": "me"],
+                "search": [
+                    "pageInfo": ["hasNextPage": page < 7, "endCursor": String(page + 1)],
+                    "nodes": [[
+                        "id": "PR_\(page)", "number": page + 1, "title": "Dependency update",
+                        "url": "https://github.com/org/repo/pull/\(page + 1)",
+                        "repository": ["nameWithOwner": "org/repo"],
+                        "author": ["login": "dependabot", "__typename": "Bot"],
+                        "baseRefName": "main", "headRefName": "dependabot/update-\(page)",
+                        "updatedAt": "2026-09-30T00:00:00Z", "mergeable": "MERGEABLE",
+                        "commits": ["nodes": [["commit": ["statusCheckRollup": ["state": "SUCCESS"]]]]]
+                    ]]
+                ]
+            ]])
+        }
+        #expect(prs.count == 8)
+        #expect(prs.awaitingYourReview.count == 8)
     }
 
     @Test("La query paginada declara cursor y lo pide de vuelta")
@@ -78,8 +94,7 @@ struct QueryShapeTests {
 
     @Test("La cola de merge sí pide el estado de merge")
     func mergeQueuePideMergeable() {
-        // El complemento del test de arriba: es la única query que lo pide, y sin
-        // eso la sección "Para mergear" no puede existir.
+        // Merge también necesita el veredicto sobre las condiciones requeridas.
         #expect(PullRequestFields.withMergeState.contains("mergeable"))
         #expect(PullRequestFields.withMergeState.contains("mergeStateStatus"))
         #expect(!PullRequestFields.base.contains("mergeable"))

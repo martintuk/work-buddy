@@ -20,10 +20,13 @@ enum PullRequestFields {
     commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
     """
 
-    /// `mergeable` obliga a GitHub a calcular la mergeabilidad, que es caro. Lo
-    /// pedimos sólo en la query de "Para mergear", que devuelve un puñado
-    /// de PRs, y no en la cola de review, que trae decenas.
-    static let withMergeState = base + "\nmergeable mergeStateStatus"
+    /// Dependabot necesita confirmar ausencia de conflictos antes de ofrecer
+    /// review. Calcularlo es caro: esa cola usa páginas de 25.
+    static let withMergeability = base + "\nmergeable"
+
+    /// Para mergear también necesitamos el veredicto sobre reviews y checks
+    /// requeridos. Las colas de personas no piden estos campos.
+    static let withMergeState = withMergeability + " mergeStateStatus"
 }
 
 /// Nodo de PullRequest tal como viene de GraphQL.

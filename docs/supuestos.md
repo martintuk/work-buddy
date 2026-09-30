@@ -197,7 +197,7 @@ carácter raro, hay que pasar a variables de GraphQL, no a escapar a mano.
 
 ## 7. Tamaño de página: lo que decide el límite es `mergeable`
 
-**Dónde:** `ReviewQueue.pageSize` (25) y `DependabotQueue.pageSize` (50).
+**Dónde:** `ReviewQueue.pageSize` y `DependabotQueue.pageSize` (25).
 
 **Medición**, con `reviewRequests` + `latestReviews` + `commits` anidados:
 
@@ -223,9 +223,11 @@ Aparte, la misma query devuelve 502 **intermitente** (~1 de cada 4 intentos), y
 por eso existe `GH.runRetrying`.
 
 **Qué se rompe:** si GitHub endurece los límites, hay que bajar el tamaño. Si los
-afloja, seguimos paginando de más — cuesta latencia, nada más. Lo que **no** hay
-que hacer es agregarle `mergeable` a `DependabotQueue`: eso rompe seguro. Lo fija
-`QueryShapeTests.dependabotSinMergeable`.
+afloja, seguimos paginando de más — cuesta latencia, nada más. Dependabot ahora
+pide `mergeable` para ofrecer review sólo con ausencia confirmada de conflictos, por eso
+usa páginas de 25 y hasta 8 páginas, conservando la capacidad anterior de 200 PRs.
+No debe volver a 50 mientras pida ese campo. Lo fija
+`QueryShapeTests.dependabotPideMergeable` sobre la consulta real de la cola.
 
 **Cómo detectarlo:** errores `HTTP 502` que sobreviven a los 4 reintentos.
 

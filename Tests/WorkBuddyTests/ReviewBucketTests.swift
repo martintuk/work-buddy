@@ -10,7 +10,7 @@ import Testing
 struct ReviewBucketTests {
     @Test("Dependabot descubierto por ownership se clasifica sin pedido y sin duplicados")
     func teamDependabotWithoutReviewRequest() {
-        let pending = makePullRequest(authorLogin: "dependabot", authorTypename: "Bot")
+        let pending = makePullRequest(authorLogin: "dependabot", authorTypename: "Bot", mergeable: .mergeable)
         let failed = makePullRequest(number: 2, checks: .failure, authorLogin: "dependabot", authorTypename: "Bot")
         let mergeable = makePullRequest(number: 3, reviewDecision: .approved,
                                        authorLogin: "dependabot", authorTypename: "Bot",
@@ -124,6 +124,41 @@ struct ReviewBucketTests {
     func pedidoAlEquipo() {
         #expect(makePullRequest(requestedFromMe: false).bucket() == .needsReview)
     }
+
+    @Test("Dependabot espera CI exitosa y ausencia confirmada de conflictos",
+          arguments: [CheckState.success, .failure, .error, .pending, .expected, .unknown],
+          [MergeableState?.none, .mergeable, .conflicting, .unknown])
+    func dependabotReadiness(checks: CheckState, mergeable: MergeableState?) {
+        for draft in [false, true] {
+            for decision: ReviewDecision in [.reviewRequired, .approved] {
+                let pr = makePullRequest(reviewDecision: decision, checks: checks,
+                                         authorLogin: "dependabot", authorTypename: "Bot",
+                                         isDraft: draft, mergeable: mergeable)
+                let ready = !draft && checks == .success && mergeable == .mergeable
+                #expect(pr.bucket() == (ready ? (decision == .approved ? .approvedAlready : .needsReview) : nil))
+                #expect([pr].awaitingYourReview.isEmpty == !(ready && decision == .reviewRequired))
+                #expect([pr].automation.isEmpty == ready)
+            }
+        }
+    }
+
+    @Test("Dependabot listo conserva la aprobación personal y espera otros reviewers")
+    func dependabotPersonalApproval() {
+        let pr = makePullRequest(approvedByMe: true, reviewDecision: .reviewRequired,
+                                 authorLogin: "dependabot[bot]", authorTypename: "Bot",
+                                 mergeable: .mergeable)
+        #expect(pr.bucket() == nil)
+        #expect([pr].awaitingYourReview.isEmpty)
+        #expect([pr].automation.map(\.id) == [pr.id])
+    }
+
+    @Test("Personas conservan review con CI pendiente, conflictos o draft")
+    func humanReadinessUnchanged() {
+        let pr = makePullRequest(checks: .pending, isDraft: true, mergeable: .conflicting)
+        #expect(pr.bucket() == .needsReview)
+        #expect([pr].awaitingYourReview.map(\.id) == [pr.id])
+        #expect([pr].automation.isEmpty)
+    }
 }
 
 @Suite("Clasificación de autores")
@@ -164,7 +199,8 @@ struct GroupingTests {
     func badgeIncluyeAutomatizacion() {
         let queue = [
             makePullRequest(requestedFromMe: true, authorLogin: "alice"),
-            makePullRequest(requestedFromMe: true, authorLogin: "dependabot", authorTypename: "Bot"),
+            makePullRequest(requestedFromMe: true, authorLogin: "dependabot", authorTypename: "Bot",
+                            mergeable: .mergeable),
             makePullRequest(
                 requestedFromMe: true,
                 authorLogin: "ci-service-user",

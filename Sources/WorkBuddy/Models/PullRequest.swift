@@ -83,7 +83,8 @@ struct PullRequest: Identifiable, Sendable {
     let checks: CheckState
     let reviewDecision: ReviewDecision?
 
-    /// Sólo se piden en la query de "Para mergear": calcularlos es caro.
+    /// La cola de Dependabot pide `mergeable` para confirmar ausencia de conflictos.
+    /// `mergeStateStatus` también contempla las condiciones requeridas para mergear.
     let mergeable: MergeableState?
     let mergeStateStatus: MergeStateStatus?
 
@@ -105,6 +106,12 @@ struct PullRequest: Identifiable, Sendable {
     /// Tu parte está resuelta, pero GitHub todavía requiere otra aprobación.
     var awaitingOtherApproval: Bool {
         author.isBot && approvedByMe && reviewDecision == .reviewRequired
+    }
+
+    /// Condiciones previas para revisar Dependabot. No exige las aprobaciones
+    /// ajenas que GitHub pueda requerir para mergear.
+    var isReadyForDependabotReview: Bool {
+        !isDraft && checks == .success && mergeable == .mergeable
     }
 
     /// GitHub habilitaría el botón de merge ahora mismo.

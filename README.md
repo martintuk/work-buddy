@@ -26,7 +26,7 @@ La opción empieza desactivada y respeta el filtro de organizaciones.
 | **Para Fixear** | Sólo PRs de tu autoría con CI fallida o en error, incluidos drafts |
 | **Para revisar** | Pedido a vos o a tus equipos, sin aprobación tuya vigente ni aprobación agregada de GitHub |
 | **Ya aprobados** | `reviewDecision = APPROVED`, sin aprobación tuya vigente: tu review es opcional |
-| **Automatización** _(colapsada)_ | Bots y cuentas de máquina con CI fallida o en error, o que ya aprobaste y esperan otra aprobación, salvo los que ya están en Para mergear; favoritos y actividad reciente |
+| **Automatización** _(colapsada)_ | Dependabot esperando CI exitosa, ausencia confirmada de conflictos o salida de draft; bots con CI fallida o que ya aprobaste y esperan otra aprobación, salvo los que ya están en Para mergear |
 | **Ignorados** _(colapsada)_ | Los que archivaste a mano |
 
 El badge del icono cuenta lo accionable: lo que espera tu review más lo que podés
@@ -36,8 +36,11 @@ la antigüedad y haber comentado antes no cambian la categoría. Tu aprobación
 personal vigente excluye el PR de ambas categorías de review, aunque siga
 pedido al equipo. Si se descarta o pedís cambios después, puede volver a aparecer.
 La automatización que ya aprobaste y sigue en `REVIEW_REQUIRED` queda en
-Automatización, sin contar en el badge. El resto sin fallas de CI se agrupa en Para revisar o Ya aprobados,
-según sus reviews. CI pendiente o desconocida conserva su indicador. Los bots
+Automatización, sin contar en el badge. Dependabot entra en Para revisar o Ya aprobados
+sólo con CI exitosa, ausencia confirmada de conflictos y sin ser draft. Mientras espera
+esas condiciones permanece en Automatización y no cuenta ni notifica como review pendiente.
+Los demás bots sin fallas de CI se agrupan según sus reviews;
+CI pendiente o desconocida conserva su indicador. Los bots
 en Para revisar cuentan en el badge y notifican; los listos para mergear aparecen
 sólo en Para mergear.
 
