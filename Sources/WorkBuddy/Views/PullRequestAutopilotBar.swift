@@ -88,7 +88,7 @@ struct PullRequestAutopilotBar: View {
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .queueControlSurface()
         .popover(isPresented: $showingResults, arrowEdge: .top) {
             ScrollView {
                 VStack(spacing: 2) {

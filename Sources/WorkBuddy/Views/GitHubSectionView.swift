@@ -93,10 +93,8 @@ struct GitHubSectionView: View {
                         .padding(.top, 8)
                 }
             if store.autopilot.isPresented {
-                Divider()
                 PullRequestAutopilotBar(autopilot: store.autopilot, setEnabled: store.setAutopilotEnabled)
             } else if store.batch.isSelecting {
-                Divider()
                 PullRequestBatchBar(batch: store.batch) { action in
                     pendingAction = nil
                     configurationHint = nil

@@ -49,7 +49,7 @@ struct PullRequestBatchBar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .queueControlSurface()
         .popover(isPresented: $showingResults, arrowEdge: .top) { results }
     }
 
