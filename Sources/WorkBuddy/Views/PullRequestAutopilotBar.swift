@@ -11,7 +11,7 @@ struct PullRequestAutopilotBar: View {
             if autopilot.isExpanded {
                 VStack(spacing: 6) {
                     HStack {
-                        Text("Dependabot").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                        Text("Autopilot").font(.system(size: 11, weight: .semibold))
                         Spacer()
                     }
                     if autopilot.current == nil && autopilot.queue.isEmpty {
@@ -103,9 +103,9 @@ struct PullRequestAutopilotBar: View {
     private func queueRow(_ candidate: PullRequestBatch.Candidate, status: PullRequestBatch.Status?) -> some View {
         HStack(spacing: 8) {
             Image(systemName: candidate.action.symbol).frame(width: 14).foregroundStyle(.secondary)
-            Text(candidate.pullRequest.shortRepository).lineLimit(1).truncationMode(.middle)
-            Text("#\(candidate.pullRequest.number)").foregroundStyle(.secondary).fixedSize()
-            Spacer(minLength: 0)
+            Text(candidate.pullRequest.title)
+                .lineLimit(1).truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
             if let status { BatchStatusIcon(status: status).frame(width: 14, height: 14) }
         }
         .font(.system(size: 11, weight: .medium)).frame(height: 26)
@@ -113,6 +113,6 @@ struct PullRequestAutopilotBar: View {
         .background(Color.accentColor.opacity(status.map { !$0.isComplete } ?? false ? 0.07 : 0), in: RoundedRectangle(cornerRadius: 5))
         .help("\(candidate.action.title) · \(candidate.pullRequest.repository) #\(candidate.pullRequest.number)\n\(candidate.pullRequest.title)\n\(status?.text ?? L10n.text(.batchPending))")
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(candidate.action.title), \(candidate.pullRequest.repository) #\(candidate.pullRequest.number), \(status?.text ?? L10n.text(.batchPending))")
+        .accessibilityLabel("\(candidate.action.title), \(candidate.pullRequest.title), \(candidate.pullRequest.repository) #\(candidate.pullRequest.number), \(status?.text ?? L10n.text(.batchPending))")
     }
 }
