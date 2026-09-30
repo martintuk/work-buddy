@@ -180,7 +180,7 @@ extension L10n {
         case .batchNotSelected: "Sin seleccionar"
         case .batchProgress: "%@ de %@ procesados"
         case .batchPending: "Pendiente"
-        case .batchChecking: "Verificando…"
+        case .batchChecking: "Comprobando requisitos…"
         case .batchRateLimited: "Omitido: GitHub sigue limitando las acciones"
         case .batchRetryWaiting: "Esperando a GitHub: %@ s · Intento %@ de 3"
         case .batchApproving: "Aprobando…"
