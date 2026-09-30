@@ -99,26 +99,7 @@ struct PullRequestRow: View {
     }
 
     private var details: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(pullRequest.title)
-                .font(.system(size: 12, weight: .medium))
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .padding(.trailing, 44)
-            subtitle
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(.rect)
-    }
-
-    private var subtitle: some View {
-        HStack(spacing: 5) {
-            Text(pullRequest.shortRepository)
-                .hidden()
-                .accessibilityHidden(true)
-                .anchorPreference(key: RepositoryLabelBounds.self, value: .bounds) { $0 }
-            Text("#\(String(pullRequest.number))")
-                .foregroundStyle(.secondary)
+        PullRequestSummary(pullRequest: pullRequest, titleTrailingPadding: 44, usesRepositoryOverlay: true) {
             Text("· \(pullRequest.author.login)")
                 .foregroundStyle(.tertiary)
             badges
@@ -126,8 +107,6 @@ struct PullRequestRow: View {
             Text(pullRequest.updatedAt, format: .relative(presentation: .numeric))
                 .foregroundStyle(.tertiary)
         }
-        .font(.system(size: 10))
-        .lineLimit(1)
     }
 
     @ViewBuilder
@@ -243,14 +222,6 @@ struct PullRequestRow: View {
         button(isIgnored ? .restore : .ignore)
     }
 
-}
-
-private struct RepositoryLabelBounds: PreferenceKey {
-    static var defaultValue: Anchor<CGRect>? { nil }
-
-    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
-        value = nextValue() ?? value
-    }
 }
 
 /// Selecciona la fila al presionar cualquier botón del mouse, antes de que

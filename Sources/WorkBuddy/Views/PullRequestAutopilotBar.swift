@@ -63,7 +63,7 @@ struct PullRequestAutopilotBar: View {
                                 ForEach(autopilot.queue) { queueRow($0, status: nil) }
                             }
                         }
-                        .frame(height: min(168, CGFloat(autopilot.queue.count + (autopilot.current == nil ? 0 : 1)) * 28))
+                        .frame(height: min(168, CGFloat(autopilot.queue.count + (autopilot.current == nil ? 0 : 1)) * 44))
                     }
                 }
                 .padding(.horizontal, 12).padding(.vertical, 8)
@@ -77,7 +77,7 @@ struct PullRequestAutopilotBar: View {
                         queueRow(entry.candidate, status: entry.status)
                     }
                 }.padding(12)
-            }.frame(width: 320, height: min(280, CGFloat(autopilot.history.count * 28 + 24)))
+            }.frame(width: 320, height: min(280, CGFloat(autopilot.history.count * 44 + 24)))
         }
     }
 
@@ -109,12 +109,10 @@ struct PullRequestAutopilotBar: View {
         HStack(spacing: 8) {
             Image(systemName: candidate.action.symbol).frame(width: 14)
                 .foregroundStyle(status.map { !$0.isComplete } ?? false ? Color.accentColor : Color.secondary)
-            Text(candidate.pullRequest.title)
-                .lineLimit(1).truncationMode(.tail)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            PullRequestSummary(pullRequest: candidate.pullRequest, titleLineLimit: 1)
             if let status { BatchStatusIcon(status: status).frame(width: 14, height: 14) }
         }
-        .font(.system(size: 11, weight: .medium)).frame(height: 26)
+        .font(.system(size: 11, weight: .medium)).frame(height: 42)
         .padding(.horizontal, 6)
         .background(Color.accentColor.opacity(status.map { !$0.isComplete } ?? false ? 0.07 : 0), in: RoundedRectangle(cornerRadius: 5))
         .help("\(candidate.action.title) · \(candidate.pullRequest.repository) #\(candidate.pullRequest.number)\n\(candidate.pullRequest.title)\n\(status?.text ?? L10n.text(.batchPending))")
