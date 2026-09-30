@@ -1,12 +1,12 @@
 import Foundation
 
-/// Una cola compartida para aprobaciones individuales y por lote. Serializa
+/// Cola compartida de aprobación y merge. Serializa
 /// también las revalidaciones y conserva el cooldown entre operaciones.
 @MainActor
-final class GitHubApproval {
-    static let shared = GitHubApproval()
-    enum Result { case approved, skipped(DependabotApprovalBatch.SkipReason) }
-    enum Progress { case checking, approving, waiting(seconds: Int, attempt: Int) }
+final class GitHubActionRunner {
+    static let shared = GitHubActionRunner()
+    enum Result { case completed, skipped(PullRequestActionSkipReason) }
+    enum Progress { case checking, executing, waiting(seconds: Int, attempt: Int) }
 
     private let now: () -> Date
     private let sleep: (TimeInterval) async throws -> Void
@@ -25,9 +25,9 @@ final class GitHubApproval {
     }
 
     func perform(
-        _ original: PullRequest, viewer: String, dependabotOnly: Bool,
-        read: @escaping @Sendable (PullRequest, String) async throws -> DependabotApprovalCheck.Snapshot,
-        approve: @escaping @Sendable (PullRequest) async throws -> Void,
+        _ original: PullRequest, viewer: String, action: PullRequestBatchAction = .approve, batch: Bool,
+        read: @escaping @Sendable (PullRequest, String) async throws -> PullRequestActionCheck.Snapshot,
+        write: @escaping @Sendable (PullRequest) async throws -> Void,
         shouldStop: @escaping () -> Bool = { false },
         isAllowed: @escaping (PullRequest) -> Bool = { _ in true },
         progress: @escaping (Progress) -> Void = { _ in }
@@ -55,22 +55,22 @@ final class GitHubApproval {
                 let snapshot = try await read(original, viewer)
                 if shouldStop() { return .skipped(.stopped) }
                 if !isAllowed(original) { return .skipped(.scopeChanged) }
-                if let reason = DependabotApprovalBatch.skipReason(
-                    for: original, snapshot: snapshot, viewer: viewer, dependabotOnly: dependabotOnly
+                if let reason = action.skipReason(
+                    for: original, snapshot: snapshot, viewer: viewer, batch: batch
                 ) {
                     // No repetimos una review que ya quedó registrada.
-                    if attempt > 0, reason == .alreadyApproved { return .approved }
+                    if attempt > 0, reason == .alreadyApproved || reason == .alreadyMerged { return .completed }
                     return .skipped(reason)
                 }
-                progress(.approving)
+                progress(.executing)
                 do {
-                    try await approve(original)
+                    try await write(original)
                 } catch {
                     nextRequest = max(nextRequest, now().addingTimeInterval(1))
                     throw error
                 }
                 nextRequest = max(nextRequest, now().addingTimeInterval(1))
-                return .approved
+                return .completed
             } catch let error as GitHubAPIError where error.isRateLimited {
                 nextRequest = max(nextRequest, now().addingTimeInterval(error.retryDelay(attempt: attempt, now: now())))
                 guard attempt < 2 else { throw error }
@@ -80,10 +80,28 @@ final class GitHubApproval {
         throw GH.Failure.noAttempts
     }
 
+    nonisolated static func submit(
+        _ pr: PullRequest, action: PullRequestBatchAction,
+        request: @Sendable ([String]) async throws -> Data = { try await GH.runAPI($0) }
+    ) async throws {
+        guard let commit = pr.headRefOID else { throw GH.Failure.badJSON("Missing head commit") }
+        switch action {
+        case .approve:
+            _ = try await request(GitHubWrite.approveCommit(repository: pr.repository, number: pr.number, commitID: commit).arguments)
+        case .merge:
+            guard let method = pr.defaultMergeMethod else { throw PullRequestActionSkipped(reason: .methodChanged) }
+            let data = try await request(GitHubWrite.mergeCommit(repository: pr.repository, number: pr.number,
+                                                               commitID: commit, method: method).arguments)
+            struct Response: Decodable { let merged: Bool; let message: String? }
+            let result = try JSONDecoder().decode(Response.self, from: data)
+            guard result.merged else { throw GH.Failure.badJSON(result.message ?? "Merge was not completed") }
+        }
+    }
+
     private func acquire(shouldStop: @escaping () -> Bool, isAllowed: @escaping () -> Bool) async -> Bool {
         guard busy else { busy = true; return true }
         let id = UUID()
-        // Una aprobación manual puede estar esperando a GitHub. Detener un
+        // Una acción manual puede estar esperando a GitHub. Detener un
         // lote encolado no necesita esperar a que termine esa otra operación.
         let monitor = Task {
             while !Task.isCancelled {
@@ -103,9 +121,4 @@ final class GitHubApproval {
     private func release() {
         if waiters.isEmpty { busy = false } else { waiters.removeFirst().continuation.resume(returning: true) }
     }
-}
-
-struct ApprovalSkipped: LocalizedError {
-    let reason: DependabotApprovalBatch.SkipReason
-    var errorDescription: String? { reason.text }
 }

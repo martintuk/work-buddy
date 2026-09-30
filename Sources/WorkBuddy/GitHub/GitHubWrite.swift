@@ -40,6 +40,7 @@ enum GitHubWrite: Sendable {
     case approveCommit(repository: String, number: Int, commitID: String)
     case rebase(repository: String, number: Int)
     case dependabotRebase(repository: String, number: Int)
+    case mergeCommit(repository: String, number: Int, commitID: String, method: MergeMethod)
     case merge(repository: String, number: Int, method: MergeMethod)
 
     var arguments: [String] {
@@ -55,6 +56,11 @@ enum GitHubWrite: Sendable {
         case .approveCommit(let repository, let number, let commitID):
             ["api", "repos/\(repository)/pulls/\(number)/reviews", "--method", "POST",
              "-f", "event=APPROVE", "-f", "commit_id=\(commitID)"]
+
+        // GitHub rechaza el merge si el head cambió desde la revalidación.
+        case .mergeCommit(let repository, let number, let commitID, let method):
+            ["api", "repos/\(repository)/pulls/\(number)/merge", "--method", "PUT",
+             "-f", "sha=\(commitID)", "-f", "merge_method=\(method.rawValue)"]
 
         // Actualiza la rama y mantiene el PR abierto. Sin --rebase, GitHub
         // crearía un commit de merge en vez de rebasear.
@@ -86,7 +92,7 @@ enum GitHubWrite: Sendable {
         case .approve, .approveCommit: L10n.text(.prApproved)
         case .rebase: L10n.text(.prRebased)
         case .dependabotRebase: L10n.text(.prDependabotRequested)
-        case .merge: L10n.text(.prMerged)
+        case .merge, .mergeCommit: L10n.text(.prMerged)
         }
     }
 }

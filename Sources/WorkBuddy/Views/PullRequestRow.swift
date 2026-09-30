@@ -21,11 +21,32 @@ struct PullRequestRow: View {
     let openProject: () -> Void
     let openAgent: () -> Void
     let repositoryStore: ReviewQueueStore
+    var batchSelection: PullRequestBatchSelection? = nil
     let perform: (PullRequestAction) -> Void
 
     @State private var isHovering = false
 
     var body: some View {
+        HStack(spacing: 0) {
+            if let batchSelection {
+                Button(action: batchSelection.toggle) {
+                    Image(systemName: batchSelection.isSelected ? "checkmark.square.fill" : "square")
+                        .font(.system(size: 14))
+                        .foregroundStyle(batchSelection.isSelected ? Color.accentColor : Color.secondary)
+                        .frame(width: 28, height: 30)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .disabled(!batchSelection.canSelect)
+                .help(L10n.text(batchSelection.canSelect ? .batchSelect : .batchUnavailable))
+                .accessibilityLabel("\(L10n.text(.batchSelect)): \(pullRequest.shortRepository) #\(pullRequest.number)")
+                .accessibilityValue(L10n.text(batchSelection.isSelected ? .batchSelected : .batchNotSelected))
+            }
+            rowContent
+        }
+    }
+
+    private var rowContent: some View {
         ZStack(alignment: .topTrailing) {
             // Las acciones quedan fuera del área que reconoce los clicks de la fila.
             details
@@ -298,4 +319,10 @@ private struct Badge: View {
             .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: 3))
             .foregroundStyle(color)
     }
+}
+
+struct PullRequestBatchSelection {
+    let isSelected: Bool
+    let canSelect: Bool
+    let toggle: () -> Void
 }

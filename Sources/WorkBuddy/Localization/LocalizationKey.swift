@@ -152,24 +152,27 @@ extension L10n {
         case githubWaiting
         case githubAutomation
         case githubAutomationNotReady
-        case batchTitle
-        case batchOpen
+        case batchSelect
+        case batchExitSelection
+        case batchSelectedCount
+        case batchMergeCount
+        case batchMerging
+        case batchMerged
+        case batchAlreadyMerged
+        case batchMethodChanged
+        case batchSucceededCount
+        case batchUnavailable
         case batchViewResults
-        case batchSelectAll
-        case batchDeselectAll
         case batchApproveCount
-        case batchSelectionCount
         case batchSelected
         case batchNotSelected
         case batchProgress
-        case batchEmpty
         case batchPending
         case batchChecking
         case batchRateLimited
         case batchRetryWaiting
         case batchApproving
         case batchApproved
-        case batchApprovedCount
         case batchSkippedCount
         case batchFailedCount
         case batchChanged
@@ -182,8 +185,6 @@ extension L10n {
         case batchStop
         case batchStopping
         case batchStopHelp
-        case batchDone
-        case batchNew
         case automationFilterAll
         case automationFilterHide
         case automationFilterOnly

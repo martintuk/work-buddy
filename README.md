@@ -61,30 +61,31 @@ de actualizar, también cuando fallan. Si ya hay una consulta en curso, se hace
 otra al terminar. Ignorar y dejar de ignorar actualizan el panel y el badge
 localmente, sin volver a consultar GitHub.
 
-En **Para revisar**, el botón de checklist prepara un **lote de aprobaciones de
-Dependabot**, respetando los filtros y los PRs ignorados. Sólo incluye los que
-están listos para revisar y todavía necesitan tu aprobación. Podés desmarcar PRs,
-seleccionar todos, abrirlos en GitHub y confirmar una vez con **Aprobar N**.
-El lote conserva su selección durante las actualizaciones y al cerrar el panel.
-La lista muestra sólo repositorio y número, con el título completo en el tooltip.
-Si un PR deja de cumplir el criterio durante la preparación, se retira del lote;
-las actualizaciones no agregan candidatos nuevos a la selección.
+El icono de checkbox en la barra de filtros activa la **selección múltiple**
+en la pantalla principal. Las filas conservan su contenido y suman un checkbox.
+La selección es individual y admite PRs de personas y de automatización, respetando
+los filtros y los ignorados. Al pie, **Aprobar N** y **Mergear N** actúan sobre
+los seleccionados de **Para revisar** y **Para mergear**, respectivamente.
+Ejecutar una acción conserva la selección del otro grupo. La confirmación es el
+botón con la cantidad, incluso si las acciones individuales están configuradas
+sin confirmación. El progreso y **Detener** aparecen en esa misma barra; los
+resultados por PR se consultan desde su icono de lista.
 
-Antes de cada aprobación consulta GitHub de nuevo y verifica la cuenta, el commit,
-CI, ausencia de conflictos, draft y aprobación personal. Si el PR cambió, se cerró
-o dejó de cumplir las condiciones, lo omite. La aprobación se asocia al commit
-seleccionado; nunca aprueba un commit nuevo por accidente. Los resultados quedan
-por PR. Las aprobaciones individuales y por lote comparten una cola serial y
-esperan al menos un segundo entre escrituras. Ante un rate limit explícito de
-GitHub (incluido `422` con “was submitted too quickly”), respetan `Retry-After` o `X-RateLimit-Reset`; sin esos headers esperan
-60 segundos y aumentan la espera si se repite. Hay hasta tres intentos y se
-revalida el PR antes de cada uno, sin duplicar una aprobación ya registrada.
-Si el límite persiste, se omite el resto del lote. Errores de permisos, validación
-o transporte incierto no se reintentan. La espera aparece sólo como icono, con
-el detalle en el tooltip. **Detener** interrumpe la espera, termina una escritura
-en curso y omite los restantes. Al finalizar actualiza la
-cola; el merge sigue siendo una acción separada. El lote siempre necesita confirmación,
-incluso si las acciones individuales están configuradas sin confirmación.
+La selección se conserva al cerrar el panel. Las actualizaciones muestran nuevos
+PRs sin seleccionarlos y retiran selecciones que ya no cumplen el criterio o cuyo
+commit, base, acción o método de merge cambió. Cada ejecución fija su conjunto y
+revalida cada PR contra GitHub antes de escribir. Los merges se envían con el SHA
+y método seleccionados, y sólo cuentan como completados si GitHub confirma el merge.
+Un merge puede bloquear el siguiente PR; en ese caso se omite hasta otra ejecución.
+
+La cola de ejecución comparte la pausa de un segundo y el manejo de rate limits
+entre aprobaciones individuales, aprobaciones en lote y merges en lote. Ante un
+límite explícito (incluido `422` con “was submitted too quickly”), respeta
+`Retry-After` o `X-RateLimit-Reset`; sin headers espera 60 segundos y aumenta la
+espera si se repite. Hay hasta tres intentos y una nueva validación antes de cada
+uno, sin repetir acciones ya registradas. Si el límite persiste, omite el resto.
+Errores de permisos, validación o transporte incierto no se reintentan.
+**Detener** interrumpe la espera y deja terminar una escritura ya enviada.
 
 Refresca cada 5 minutos y notifica lo nuevo que te bloquea.
 

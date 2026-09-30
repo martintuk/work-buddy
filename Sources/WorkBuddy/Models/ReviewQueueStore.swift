@@ -23,7 +23,9 @@ final class ReviewQueueStore {
     let editor = EditorStore()
     let agentCLI = AgentCLIStore()
     let projectOpener = ProjectOpener()
-    let approvalBatch = DependabotApprovalBatch(approvals: .shared)
+    let batch: PullRequestBatch
+
+    init(batch: PullRequestBatch = PullRequestBatch(runner: .shared)) { self.batch = batch }
     private(set) var viewerLogin: String?
     private(set) var pullRequests: [PullRequest] = []
     /// PRs de dependabot en la cola de review, agrupados según su CI.
@@ -130,57 +132,64 @@ final class ReviewQueueStore {
 
     var awaitingYourReview: [PullRequest] { visible.awaitingYourReview }
 
-    var dependabotApprovalCandidates: [PullRequest] {
-        awaitingYourReview.filter { $0.canBatchApproveDependabot && !isActing(on: $0) }
+    var batchCandidates: [PullRequestBatch.Candidate] {
+        PullRequestBatch.candidates(reviews: reviewSections.first { $0.bucket == .needsReview }?.items ?? [], merges: readyToMerge)
+            .filter { !inFlightActions.contains($0.id) || batch.runningIDs.contains($0.id) }
     }
 
-    func openApprovalBatch() {
-        if approvalBatch.isRunning || approvalBatch.phase == .finished {
-            approvalBatch.isPresented = true
-        } else if let viewerLogin {
-            approvalBatch.prepare(dependabotApprovalCandidates, viewer: viewerLogin)
-        }
+    func toggleBatchSelection() {
+        if batch.isSelecting { batch.exit() }
+        else if let viewerLogin { batch.enter(batchCandidates, viewer: viewerLogin) }
     }
 
-    func startApprovalBatch() {
-        guard approvalBatch.phase == .selecting, !approvalBatch.selectedIDs.isEmpty else { return }
-        let ids = approvalBatch.selectedIDs
-        guard ids.isDisjoint(with: inFlightActions) else { return }
+    func reconcileBatch() {
+        batch.reconcile(batchCandidates, viewer: viewerLogin ?? "")
+    }
+
+    func startBatch(_ action: PullRequestBatchAction) {
+        reconcileBatch()
+        guard !batch.isRunning, let viewerLogin, batch.viewer == viewerLogin else { return }
+        let ids = Set(batch.selected(action).map(\.id))
+        guard !ids.isEmpty, ids.isDisjoint(with: inFlightActions) else { return }
         let revision = configurationRevision
+        let machineAccounts = configuration.machineAccounts
         inFlightActions.formUnion(ids)
-        onChange?()
-        approvalBatch.start(
-            read: { try await DependabotApprovalCheck.fetch($0, viewer: $1) },
-            approve: { pr in
-                guard let commitID = pr.headRefOID else { throw GH.Failure.badJSON("Missing head commit") }
-                _ = try await GH.runAPI(GitHubWrite.approveCommit(
-                    repository: pr.repository, number: pr.number, commitID: commitID
-                ).arguments)
-            },
+        outcome = nil
+        let task = batch.start(action,
+            read: { try await PullRequestActionCheck.fetch($0, viewer: $1, action: action, machineAccounts: machineAccounts) },
+            write: { try await GitHubActionRunner.submit($0, action: action) },
             isAllowed: { [self] pr in
                 revision == configurationRevision
-                    && filtered(reviewQueue).excluding(ignoreList.ids).contains { $0.id == pr.id }
+                    && filtered(allKnown).excluding(ignoreList.ids).contains { $0.id == pr.id }
             },
-            didApprove: { [self] pr in
-                // No dejamos aprobado un commit nuevo publicado durante la request.
-                let matches: (PullRequest) -> Bool = { $0.id == pr.id && $0.headRefOID == pr.headRefOID }
-                pullRequests.removeAll(where: matches)
-                dependabotPullRequests.removeAll(where: matches)
-                teamDependabotPullRequests.removeAll(where: matches)
-                requestedMergeCandidates.removeAll(where: matches)
+            didComplete: { [self] pr in
+                removeCompleted(pr, action: action)
                 onChange?()
             },
             didFinish: { [self] in
                 inFlightActions.subtract(ids)
+                reconcileBatch()
                 onChange?()
                 refresh(force: true)
             }
         )
+        if task == nil { inFlightActions.subtract(ids) }
+        onChange?()
     }
 
-    func prepareNewApprovalBatch() {
-        guard !approvalBatch.isRunning, let viewerLogin else { return }
-        approvalBatch.prepare(dependabotApprovalCandidates, viewer: viewerLogin)
+    private func removeCompleted(_ pr: PullRequest, action: PullRequestBatchAction) {
+        let matches: (PullRequest) -> Bool = { $0.id == pr.id && $0.headRefOID == pr.headRefOID }
+        pullRequests.removeAll(where: matches)
+        dependabotPullRequests.removeAll(where: matches)
+        teamDependabotPullRequests.removeAll(where: matches)
+        // Una aprobación no retira un PR que ya está listo para mergear.
+        if action == .merge {
+            requestedMergeCandidates.removeAll(where: matches)
+            fixCandidates.removeAll(where: matches)
+            replyCandidates.removeAll(where: matches)
+            waitingReplyCandidates.removeAll(where: matches)
+            behindCounts.removeValue(forKey: pr.id)
+        }
     }
 
     var readyToMerge: [PullRequest] {
@@ -250,6 +259,7 @@ final class ReviewQueueStore {
         guard automationFilter != filter else { return }
         automationFilter = filter
         automationFilter.persist()
+        reconcileBatch()
         onChange?()
     }
 
@@ -281,6 +291,7 @@ final class ReviewQueueStore {
 
     private func repositoryFilterDidChange() {
         repositoryFilter.persist()
+        reconcileBatch()
         onChange?()
     }
 
@@ -341,6 +352,7 @@ final class ReviewQueueStore {
             ), on: pullRequest)
         }
         // Ignorar y restaurar mueven el contador del badge.
+        reconcileBatch()
         onChange?()
         if action == .open {
             refresh(force: true)
@@ -415,6 +427,7 @@ final class ReviewQueueStore {
         lastUpdated = nil
         state = .idle
         notificationTracker.resetBaseline()
+        reconcileBatch()
         onChange?()
         refresh(force: true)
     }
@@ -423,6 +436,7 @@ final class ReviewQueueStore {
         // Una escritura por PR a la vez: el doble click no manda dos merges.
         guard inFlightActions.insert(pullRequest.id).inserted else { return }
         outcome = nil
+        reconcileBatch()
         onChange?()
 
         let revision = configurationRevision
@@ -431,19 +445,14 @@ final class ReviewQueueStore {
             do {
                 if case .approve = operation {
                     guard let viewer else { throw GH.Failure.badJSON("Missing viewer") }
-                    let result = try await GitHubApproval.shared.perform(
-                        pullRequest, viewer: viewer, dependabotOnly: false,
-                        read: { try await DependabotApprovalCheck.fetch($0, viewer: $1) },
-                        approve: { pr in
-                            guard let commitID = pr.headRefOID else { throw GH.Failure.badJSON("Missing head commit") }
-                            _ = try await GH.runAPI(GitHubWrite.approveCommit(
-                                repository: pr.repository, number: pr.number, commitID: commitID
-                            ).arguments)
-                        },
+                    let result = try await GitHubActionRunner.shared.perform(
+                        pullRequest, viewer: viewer, batch: false,
+                        read: { try await PullRequestActionCheck.fetch($0, viewer: $1) },
+                        write: { try await GitHubActionRunner.submit($0, action: .approve) },
                         isAllowed: { [self] _ in revision == configurationRevision }
                     )
                     if case .skipped(let reason) = result, reason != .alreadyApproved {
-                        throw ApprovalSkipped(reason: reason)
+                        throw PullRequestActionSkipped(reason: reason)
                     }
                 } else {
                     // Las demás escrituras conservan un único intento: un error
@@ -484,6 +493,7 @@ final class ReviewQueueStore {
                 )
             }
             inFlightActions.remove(pullRequest.id)
+            reconcileBatch()
             onChange?()
             // Consultamos todas las colas al finalizar, incluso si GitHub
             // devolvió un error y no sabemos si alcanzó a aplicar la escritura.
@@ -604,6 +614,7 @@ final class ReviewQueueStore {
             count = replies.needingReply.count + replies.waitingForReply.count
         }
         recordPublication(phase, count: count, firstContent: &firstContent)
+        reconcileBatch()
         onChange?()
     }
 
@@ -618,3 +629,21 @@ final class ReviewQueueStore {
     }
 
 }
+
+#if DEBUG
+extension ReviewQueueStore {
+    /// Datos en memoria para previews del panel, sin consultas ni escrituras remotas.
+    static func preview(reviews: [PullRequest], merges: [PullRequest],
+                        batch: PullRequestBatch = PullRequestBatch(), viewer: String = "me") -> ReviewQueueStore {
+        let store = ReviewQueueStore(batch: batch)
+        store.viewerLogin = viewer
+        store.repositoryFilter = RepositoryFilter()
+        store.automationFilter = .all
+        store.configuration = .empty
+        store.pullRequests = reviews
+        store.requestedMergeCandidates = merges
+        store.state = .loaded
+        return store
+    }
+}
+#endif

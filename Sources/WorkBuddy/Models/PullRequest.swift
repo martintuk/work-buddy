@@ -102,13 +102,8 @@ struct PullRequest: Identifiable, Sendable {
     let approvals: Int
     /// Tu última decisión de review es APPROVED y no fue descartada.
     let approvedByMe: Bool
-    /// Commit incluido en el snapshot. Los lotes nunca aprueban un commit distinto.
+    /// Commit incluido en el snapshot. Las acciones en lote conservan este commit.
     var headRefOID: String? = nil
-
-    var canBatchApproveDependabot: Bool {
-        author.isDependabot && canApprove && isReadyForDependabotReview
-            && !approvedByMe && bucket() == .needsReview && headRefOID != nil
-    }
 
     /// Tu parte está resuelta, pero GitHub todavía requiere otra aprobación.
     var awaitingOtherApproval: Bool {

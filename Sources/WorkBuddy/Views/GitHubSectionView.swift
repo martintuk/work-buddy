@@ -84,23 +84,21 @@ struct GitHubSectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if store.approvalBatch.isPresented {
-                DependabotApprovalBatchView(
-                    batch: store.approvalBatch,
-                    start: store.startApprovalBatch,
-                    close: { store.approvalBatch.isPresented = false },
-                    newBatch: { store.prepareNewApprovalBatch() }
-                )
-            } else {
-                filters
+            filters
+            Divider()
+            content
+                .overlay(alignment: .top) {
+                    topNotice
+                        .padding(.horizontal, 10)
+                        .padding(.top, 8)
+                }
+            if store.batch.isSelecting {
                 Divider()
-
-                content
-                    .overlay(alignment: .top) {
-                        topNotice
-                            .padding(.horizontal, 10)
-                            .padding(.top, 8)
-                    }
+                PullRequestBatchBar(batch: store.batch) { action in
+                    pendingAction = nil
+                    configurationHint = nil
+                    store.startBatch(action)
+                }
             }
         }
         .onChange(of: store.editor.selectedURL) { _, selectedURL in
@@ -112,9 +110,7 @@ struct GitHubSectionView: View {
         .onChange(of: pendingAction.map { store.isAvailable($0) } ?? false) { _, available in
             if !available { pendingAction = nil }
         }
-        .onChange(of: store.dependabotApprovalCandidates.map { "\($0.id):\($0.headRefOID ?? "")" }) { _, _ in
-            store.approvalBatch.reconcile(store.dependabotApprovalCandidates)
-        }
+
     }
 
     private var filters: some View {
@@ -150,6 +146,22 @@ struct GitHubSectionView: View {
             .help(L10n.text(.automationFilterHelp))
             .accessibilityLabel(L10n.text(.automationFilterHelp))
             .accessibilityValue(store.automationFilter.title)
+            Button {
+                pendingAction = nil
+                configurationHint = nil
+                store.dismissOutcome()
+                store.toggleBatchSelection()
+            } label: {
+                Image(systemName: store.batch.isSelecting ? "checkmark.square.fill" : "checkmark.square")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(store.batch.isSelecting ? Color.accentColor : Color.secondary)
+                    .frame(width: 28, height: 26)
+                    .background(Color.accentColor.opacity(store.batch.isSelecting ? 0.12 : 0.05), in: RoundedRectangle(cornerRadius: 7))
+            }
+            .buttonStyle(.plain)
+            .disabled(store.batch.isRunning || (!store.batch.isSelecting && (store.viewerLogin == nil || store.batchCandidates.isEmpty)))
+            .help(L10n.text(store.batch.isSelecting ? .batchExitSelection : .batchSelect))
+            .accessibilityLabel(L10n.text(store.batch.isSelecting ? .batchExitSelection : .batchSelect))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
@@ -378,7 +390,6 @@ struct GitHubSectionView: View {
     private var hasVisiblePullRequests: Bool {
         !store.reviewSections.isEmpty || !store.readyToMerge.isEmpty || !store.needingCIFix.isEmpty
             || !store.needingReply.isEmpty || !store.waitingForReply.isEmpty || !store.automation.isEmpty || !store.ignored.isEmpty
-            || !store.approvalBatch.entries.isEmpty
     }
 
     @ViewBuilder
@@ -458,7 +469,8 @@ struct GitHubSectionView: View {
             let pullRequest = entry.item
             PullRequestRow(
                 pullRequest: pullRequest,
-                isSelected: selectedPullRequestID == pullRequest.id,
+                isSelected: store.batch.isSelecting ? store.batch.selectedIDs.contains(pullRequest.id)
+                    : selectedPullRequestID == pullRequest.id,
                 select: { selectedPullRequestID = pullRequest.id },
                 isIgnored: store.isIgnored(pullRequest),
                 isActing: store.isActing(on: pullRequest),
@@ -507,7 +519,12 @@ struct GitHubSectionView: View {
                     }
                     Task { await store.agentCLI.open(folder, id: pullRequest.id) }
                 },
-                repositoryStore: store
+                repositoryStore: store,
+                batchSelection: store.batch.isSelecting ? PullRequestBatchSelection(
+                    isSelected: store.batch.selectedIDs.contains(pullRequest.id),
+                    canSelect: !store.batch.isRunning && store.batch.candidates.contains { $0.id == pullRequest.id },
+                    toggle: { store.batch.toggle(pullRequest.id) }
+                ) : nil
             ) { action in
                 configurationHint = nil
                 store.projectOpener.dismissNotice()
@@ -531,8 +548,7 @@ struct GitHubSectionView: View {
         subtitle: String? = nil,
         items: [PullRequest]
     ) -> some View {
-        if showEmptySections || !items.isEmpty
-            || (section == .review(.needsReview) && !store.approvalBatch.entries.isEmpty) {
+        if showEmptySections || !items.isEmpty {
             let collapsed = Set(collapsedSectionIDs.split(separator: ",").map(String.init))
             let isExpanded = !collapsed.contains(section.persistenceID)
             Section {
@@ -571,35 +587,6 @@ struct GitHubSectionView: View {
                             }
                             collapsedSectionIDs = updated.sorted().joined(separator: ",")
                         }
-                    }
-                    if section == .review(.needsReview),
-                       !store.dependabotApprovalCandidates.isEmpty || !store.approvalBatch.entries.isEmpty {
-                        Button {
-                            pendingAction = nil
-                            configurationHint = nil
-                            store.dismissOutcome()
-                            store.openApprovalBatch()
-                        } label: {
-                            Group {
-                                if store.approvalBatch.isRunning {
-                                    ProgressView().controlSize(.small)
-                                } else {
-                                    Image(systemName: "checklist")
-                                        .font(.system(size: 14, weight: .medium))
-                                }
-                            }
-                            .foregroundStyle(Color.blue)
-                            .frame(width: 36, height: 46)
-                            .background(Color.blue.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 10).strokeBorder(Color.blue.opacity(0.2))
-                            }
-                            .contentShape(.rect)
-                        }
-                        .buttonStyle(.plain)
-                        .help(L10n.text(store.approvalBatch.phase == .finished ? .batchViewResults : .batchOpen))
-                        .accessibilityLabel(L10n.text(store.approvalBatch.phase == .finished ? .batchViewResults : .batchOpen))
-                        .padding(.top, QueueLayout.sectionSpacing)
                     }
                 }
             }
