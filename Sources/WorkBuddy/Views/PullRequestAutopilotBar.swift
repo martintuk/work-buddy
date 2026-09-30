@@ -5,23 +5,15 @@ struct PullRequestAutopilotBar: View {
     let autopilot: PullRequestAutopilot
     let setEnabled: @MainActor (Bool) -> Void
     @State private var showingResults = false
+    @State private var isHoveringHandle = false
 
     var body: some View {
         VStack(spacing: 0) {
+            expansionHandle
             HStack(spacing: 10) {
                 Text("Autopilot")
                     .font(.system(size: 11, weight: .medium))
                     .fixedSize()
-                Button(L10n.text(autopilot.isActive ? .autopilotStop : .autopilotStart)) {
-                    setEnabled(!autopilot.isEnabled)
-                }
-                .buttonStyle(.borderedProminent).controlSize(.small)
-                .fixedSize()
-                .tint(autopilot.isActive ? Color.secondary : Color.accentColor)
-                .font(.system(size: 11, weight: .semibold))
-                .disabled(!autopilot.isEnabled && autopilot.current != nil)
-                .help(L10n.text(autopilot.isActive ? .batchStopHelp : .autopilotHelp))
-                .accessibilityLabel("\(L10n.text(autopilot.isActive ? .autopilotStop : .autopilotStart)) · \(L10n.text(.autopilotHelp))")
                 headerStatus
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .layoutPriority(-1)
@@ -33,22 +25,22 @@ struct PullRequestAutopilotBar: View {
                     .buttonStyle(.plain)
                     .help(L10n.text(.batchViewResults)).accessibilityLabel(L10n.text(.batchViewResults))
                 }
-                Button {
-                    withAnimation(.easeInOut(duration: 0.18)) { autopilot.isExpanded.toggle() }
-                } label: {
-                    HStack(spacing: 6) {
-                        Text(String(autopilot.queue.count)).monospacedDigit()
-                        Image(systemName: autopilot.isExpanded ? "chevron.down" : "chevron.up")
-                            .font(.system(size: 9, weight: .semibold))
-                    }.frame(minWidth: 30, minHeight: 24)
+                Text(String(autopilot.queue.count))
+                    .font(.system(size: 11, weight: .medium))
+                    .monospacedDigit().foregroundStyle(.secondary)
+                    .fixedSize()
+                Button(L10n.text(autopilot.isActive ? .autopilotStop : .autopilotStart)) {
+                    setEnabled(!autopilot.isEnabled)
                 }
-                .buttonStyle(.plain).foregroundStyle(.secondary)
+                .buttonStyle(.borderedProminent).controlSize(.small)
                 .fixedSize()
-                .help(L10n.text(.autopilotQueue, String(autopilot.queue.count)))
-                .accessibilityLabel(L10n.text(.autopilotQueue, String(autopilot.queue.count)))
-                .accessibilityValue(L10n.text(autopilot.isExpanded ? .autopilotExpanded : .autopilotCollapsed))
+                .tint(autopilot.isActive ? Color.secondary : Color.accentColor)
+                .font(.system(size: 11, weight: .semibold))
+                .disabled(!autopilot.isEnabled && autopilot.current != nil)
+                .help(L10n.text(autopilot.isActive ? .batchStopHelp : .autopilotHelp))
+                .accessibilityLabel("\(L10n.text(autopilot.isActive ? .autopilotStop : .autopilotStart)) · \(L10n.text(.autopilotHelp))")
             }
-            .padding(.horizontal, 12).padding(.vertical, 8)
+            .padding(.horizontal, 12).padding(.top, 2).padding(.bottom, 8)
             if autopilot.isExpanded {
                 Divider()
                 VStack(spacing: 6) {
@@ -79,6 +71,25 @@ struct PullRequestAutopilotBar: View {
                 }.padding(12)
             }.frame(width: 320, height: min(280, CGFloat(autopilot.history.count * 44 + 24)))
         }
+    }
+
+    private var expansionHandle: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.18)) { autopilot.isExpanded.toggle() }
+        } label: {
+            Image(systemName: "chevron.compact.up")
+                .font(.system(size: 22, weight: .semibold))
+                .rotationEffect(.degrees(autopilot.isExpanded ? 180 : 0))
+                .frame(maxWidth: .infinity)
+                .frame(height: 16)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isHoveringHandle ? Color.accentColor : Color.secondary)
+        .onHover { isHoveringHandle = $0 }
+        .help(L10n.text(.autopilotQueue, String(autopilot.queue.count)))
+        .accessibilityLabel(L10n.text(.autopilotQueue, String(autopilot.queue.count)))
+        .accessibilityValue(L10n.text(autopilot.isExpanded ? .autopilotExpanded : .autopilotCollapsed))
     }
 
     @ViewBuilder
