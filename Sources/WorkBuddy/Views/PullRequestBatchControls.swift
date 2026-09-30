@@ -79,6 +79,7 @@ struct BatchStatusIcon: View {
         case .completed: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
         case .waiting: Image(systemName: "clock").foregroundStyle(.secondary)
         case .skipped: Image(systemName: "minus.circle").foregroundStyle(.secondary)
+        case .uncertain: Image(systemName: "questionmark.circle.fill").foregroundStyle(.orange)
         case .failed: Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.red)
         case .pending: Image(systemName: "circle.dotted").foregroundStyle(.secondary)
         }

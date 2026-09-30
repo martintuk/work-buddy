@@ -24,12 +24,14 @@ final class ActivityLog {
 
     enum Status {
         case pending, checking, running, waiting(seconds: Int, attempt: Int)
-        case succeeded, skipped(LocalizedMessage), failed(LocalizedMessage)
+        case succeeded, skipped(LocalizedMessage), failed(LocalizedMessage), uncertain(LocalizedMessage)
 
         var isComplete: Bool {
-            switch self { case .succeeded, .skipped, .failed: true; default: false }
+            switch self { case .succeeded, .skipped, .failed, .uncertain: true; default: false }
         }
-        var isError: Bool { if case .failed = self { true } else { false } }
+        var isError: Bool { switch self { case .failed, .uncertain: true; default: false } }
+        var needsVerification: Bool { if case .uncertain = self { true } else { false } }
+        var isClearable: Bool { isComplete && !needsVerification }
         var text: String {
             switch self {
             case .pending: L10n.text(.batchPending)
@@ -38,6 +40,7 @@ final class ActivityLog {
             case .waiting(let seconds, let attempt): L10n.text(.batchRetryWaiting, String(seconds), String(attempt))
             case .succeeded: L10n.text(.activityCompleted)
             case .skipped(let message), .failed(let message): message.text
+            case .uncertain(let message): L10n.text(.activityUncertain, message.text)
             }
         }
     }
@@ -54,9 +57,13 @@ final class ActivityLog {
         var status: Status
         let action: PullRequestAction?
         let pullRequest: PullRequest?
+        let viewer: String?
 
         var statusText: String {
             if case .succeeded = status, let action { return action.completedText }
+            if case .failed(let message) = status, action?.batchAction != nil {
+                return L10n.text(.activityNotExecuted, message.text)
+            }
             return status.text
         }
     }
@@ -78,21 +85,21 @@ final class ActivityLog {
     func record(id: UUID = UUID(), title: LocalizedMessage, target: String, detail: String = "",
                 url: URL? = nil, symbol: String, source: Source = .manual,
                 status: Status = .succeeded, date: Date = .now,
-                action: PullRequestAction? = nil, pullRequest: PullRequest? = nil) -> UUID {
+                action: PullRequestAction? = nil, pullRequest: PullRequest? = nil, viewer: String? = nil) -> UUID {
         if let index = entries.firstIndex(where: { $0.id == id }) {
             entries[index].status = status
         } else {
             entries.insert(Entry(id: id, date: date, title: title, target: target, detail: detail,
-                                 url: url, symbol: symbol, source: source, status: status, action: action, pullRequest: pullRequest), at: 0)
+                                 url: url, symbol: symbol, source: source, status: status, action: action, pullRequest: pullRequest, viewer: viewer), at: 0)
         }
         if !isVisible || !filtered(visibleFocus).contains(where: { $0.id == id }) { unreadIDs.insert(id) }
         return id
     }
 
     @discardableResult
-    func record(_ action: PullRequestAction, on pr: PullRequest, status: Status = .succeeded) -> UUID {
+    func record(_ action: PullRequestAction, on pr: PullRequest, status: Status = .succeeded, viewer: String? = nil) -> UUID {
         record(title: LocalizedMessage(action.title), target: "\(pr.repository) #\(pr.number)",
-               detail: pr.title, url: pr.url, symbol: action.systemImage, status: status, action: action, pullRequest: pr)
+               detail: pr.title, url: pr.url, symbol: action.systemImage, status: status, action: action, pullRequest: pr, viewer: viewer)
     }
 
     func update(_ id: UUID, status: Status) {
@@ -101,7 +108,7 @@ final class ActivityLog {
         if !isVisible || !filtered(visibleFocus).contains(where: { $0.id == id }) { unreadIDs.insert(id) }
     }
 
-    func record(_ entry: PullRequestBatch.Entry, source: Source) {
+    func record(_ entry: PullRequestBatch.Entry, source: Source, viewer: String? = nil) {
         let status: Status
         switch entry.status {
         case .pending: status = .pending
@@ -111,12 +118,13 @@ final class ActivityLog {
         case .completed: status = .succeeded
         case .skipped(let reason): status = .skipped(LocalizedMessage(reason.text))
         case .failed(let message): status = .failed(message)
+        case .uncertain(let message): status = .uncertain(message)
         }
         let pr = entry.pullRequest
         record(id: entry.activityID, title: LocalizedMessage(entry.candidate.action.title),
                target: "\(pr.repository) #\(pr.number)", detail: pr.title, url: pr.url,
                symbol: entry.candidate.action.symbol, source: source, status: status,
-               action: entry.candidate.action.action, pullRequest: pr)
+               action: entry.candidate.action.action, pullRequest: pr, viewer: viewer)
     }
 
     func filtered(_ focus: Focus?) -> [Entry] {
@@ -126,6 +134,13 @@ final class ActivityLog {
             case .autopilot: entry.source == .autopilot
             case nil: true
             }
+        }
+    }
+
+    func needsVerification(for pr: PullRequest, viewer: String?) -> Bool {
+        entries.contains {
+            $0.pullRequest?.id == pr.id && $0.pullRequest?.headRefOID == pr.headRefOID
+                && $0.viewer?.lowercased() == viewer?.lowercased() && $0.status.needsVerification
         }
     }
 
@@ -148,8 +163,9 @@ final class ActivityLog {
     }
 
     /// Limpiar no oculta operaciones en curso ni interrumpe su ejecución.
-    func clearCompleted() {
-        entries.removeAll { $0.status.isComplete }
+    func clearCompleted(focus: Focus? = nil) {
+        let ids = Set(filtered(focus).filter { $0.status.isClearable }.map(\.id))
+        entries.removeAll { ids.contains($0.id) }
         unreadIDs.formIntersection(Set(entries.map(\.id)))
     }
 }

@@ -16,6 +16,11 @@ extension L10n {
         // MARK: - Activity
         case .activityShowAll: "Mostrar toda la actividad"
         case .activityShowInList: "Mostrar en la lista"
+        case .activityUncertain: "Resultado sin confirmar: %@"
+        case .activityNotExecuted: "No se ejecutó: %@"
+        case .activityVerify: "Verificar resultado en GitHub"
+        case .activityRetry: "Reintentar esta acción"
+        case .activityNotRecorded: "GitHub no registra la acción. Podés reintentarla."
         case .activityTitle: "Actividad"
         case .activityClose: "Cerrar actividad"
         case .activityExpand: "Ampliar actividad"

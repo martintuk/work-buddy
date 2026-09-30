@@ -17,8 +17,9 @@ final class PullRequestBatch {
     enum Status {
         case pending, checking, executing(PullRequestBatchAction), completed(PullRequestBatchAction)
         case waiting(seconds: Int, attempt: Int), skipped(PullRequestActionSkipReason), failed(LocalizedMessage)
+        case uncertain(LocalizedMessage)
         var isComplete: Bool {
-            switch self { case .completed, .skipped, .failed: true; default: false }
+            switch self { case .completed, .skipped, .failed, .uncertain: true; default: false }
         }
         var text: String {
             switch self {
@@ -29,6 +30,7 @@ final class PullRequestBatch {
             case .waiting(let seconds, let attempt): L10n.text(.batchRetryWaiting, String(seconds), String(attempt))
             case .skipped(let reason): reason.text
             case .failed(let message): message.text
+            case .uncertain(let message): L10n.text(.activityUncertain, message.text)
             }
         }
     }
@@ -55,7 +57,7 @@ final class PullRequestBatch {
     var completedCount: Int { entries.count { $0.status.isComplete } }
     var succeededCount: Int { entries.count { if case .completed = $0.status { true } else { false } } }
     var skippedCount: Int { entries.count { if case .skipped = $0.status { true } else { false } } }
-    var failedCount: Int { entries.count { if case .failed = $0.status { true } else { false } } }
+    var failedCount: Int { entries.count { switch $0.status { case .failed, .uncertain: true; default: false } } }
     var runningIDs: Set<String> { isRunning ? Set(entries.map(\.id)) : [] }
 
     /// Prioridad de merge, una sola acción y una sola selección por PR.
@@ -140,6 +142,7 @@ final class PullRequestBatch {
             var rateLimited = false
             for index in entries.indices {
                 let original = entries[index].pullRequest
+                var submitted = false
                 if rateLimited {
                     setStatus(.skipped(.rateLimited), at: index)
                     continue
@@ -149,6 +152,7 @@ final class PullRequestBatch {
                         original, viewer: expectedViewer, action: action, batch: true,
                         read: read, write: write, shouldStop: { self.stopRequested }, isAllowed: isAllowed,
                         progress: { progress in
+                            if case .executing = progress { submitted = true } else { submitted = false }
                             switch progress {
                             case .checking: self.setStatus(.checking, at: index)
                             case .executing: self.setStatus(.executing(action), at: index)
@@ -163,10 +167,13 @@ final class PullRequestBatch {
                         didComplete(original)
                     case .skipped(let reason):
                         setStatus(.skipped(reason), at: index)
+                        if reason == .alreadyApproved || reason == .alreadyMerged { didComplete(original) }
                         if reason == .accountChanged { stopRequested = true }
                     }
                 } catch {
-                    setStatus(.failed(LocalizedMessage(error.localizedDescription)), at: index)
+                    let message = LocalizedMessage(error.localizedDescription)
+                    setStatus(GitHubActionRunner.needsVerification(error, submitted: submitted)
+                              ? .uncertain(message) : .failed(message), at: index)
                     rateLimited = (error as? GitHubAPIError)?.isRateLimited == true
                 }
             }

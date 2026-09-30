@@ -21,6 +21,7 @@ struct PullRequestRow: View {
     let openProject: () -> Void
     let openAgent: () -> Void
     let repositoryStore: ReviewQueueStore
+    var showActivity: () -> Void = {}
     var actionStatus: ActivityLog.Status? = nil
     var batchSelection: PullRequestBatchSelection? = nil
     let perform: (PullRequestAction) -> Void
@@ -67,8 +68,10 @@ struct PullRequestRow: View {
                     isRowHovering: isHovering
                 )
                 if let actionStatus {
-                    ActivityStatusIcon(status: actionStatus)
-                        .frame(width: 18, height: 18)
+                    Button(action: showActivity) {
+                        ActivityStatusIcon(status: actionStatus).frame(width: 18, height: 18)
+                    }
+                        .buttonStyle(.plain)
                         .help(actionStatus.text)
                         .accessibilityLabel(actionStatus.text)
                 } else if isActing || isOpeningProject {
@@ -217,7 +220,7 @@ struct PullRequestRow: View {
 
         // Una colección dinámica identifica las inserciones y bajas de acciones
         // cuando cambia el PR, tanto en Menu como en el menú contextual.
-        let writeActions = pullRequest.availableWriteActions(behindBy: behindBy)
+        let writeActions = repositoryStore.availableWriteActions(for: pullRequest)
         ForEach(writeActions) { action in
             button(action)
         }

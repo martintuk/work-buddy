@@ -16,6 +16,11 @@ extension L10n {
         // MARK: - Activity
         case activityShowAll
         case activityShowInList
+        case activityUncertain
+        case activityNotExecuted
+        case activityVerify
+        case activityRetry
+        case activityNotRecorded
         case activityTitle
         case activityClose
         case activityExpand

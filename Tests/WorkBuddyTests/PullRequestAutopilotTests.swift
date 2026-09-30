@@ -5,6 +5,21 @@ import Testing
 @Suite("Autopilot de Dependabot")
 @MainActor
 struct PullRequestAutopilotTests {
+    @Test("Un error de lectura permite volver a comprobar el mismo PR al pulsar Start")
+    func readFailureCanResume() async {
+        let autopilot = PullRequestAutopilot(runner: AutopilotClock().runner())
+        let calls = AutopilotCalls()
+        let prs = candidates([fixture(1)])
+        autopilot.enable(prs, viewer: "me", operations: .init(
+            read: { _, _ in throw GH.Failure.noAttempts },
+            write: { _ in Issue.record("La lectura falló: no debe escribir") }))
+        await autopilot.waitUntilIdle()
+        #expect(!autopilot.isEnabled && autopilot.queue.count == 1)
+        autopilot.enable(prs, viewer: "me", operations: operations(calls))
+        await autopilot.waitUntilIdle()
+        #expect(await calls.values.count == 1)
+    }
+
     @Test("Cambiar el filtro de automatización pausa hasta volver a pulsar Start")
     func scopePause() {
         let store = ReviewQueueStore.preview(reviews: [], merges: [])
@@ -219,7 +234,7 @@ struct PullRequestAutopilotTests {
         await autopilot.waitUntilIdle()
         #expect(await calls.values == ["batch-1", "batch-1", "batch-1"])
         #expect(clock.date.timeIntervalSince1970 == 4)
-        #expect(!autopilot.isEnabled && autopilot.queue.map(\.id) == ["batch-2"])
+        #expect(!autopilot.isEnabled && autopilot.queue.map(\.id) == ["batch-1", "batch-2"])
     }
 
     @Test("La lectura fresca también impide ejecutar autores que no sean Dependabot")

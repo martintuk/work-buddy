@@ -42,7 +42,10 @@ struct PanelView: View {
 
             if showingActivity {
                 ActivityView(activity: store.activity, isExpanded: $activityExpanded,
-                             close: { showingActivity = false }, focus: activityFocus,
+                             close: { showingActivity = false },
+                             canVerify: store.canVerify, verify: { entry in Task { await store.verifyActivity(entry.id) } },
+                             canRetry: store.canRetry, retry: { store.retryActivity($0.id) },
+                             focus: activityFocus,
                              clearFocus: { activityFocus = nil },
                              canShowInList: { entry in
                                  entry.pullRequest.map { store.visibleSectionID(for: $0.id) != nil } ?? false
@@ -83,7 +86,7 @@ struct PanelView: View {
             }
 
             if showingGitHub || store.autopilot.isActive || store.batch.isRunning {
-                PullRequestExecutionControls(store: store, compact: !showingGitHub) { focus in
+                PullRequestExecutionControls(store: store, compact: showingActivity || !showingGitHub) { focus in
                     activityFocus = focus
                     showingActivity = true
                 }

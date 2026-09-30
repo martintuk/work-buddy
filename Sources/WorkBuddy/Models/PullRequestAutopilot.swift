@@ -24,7 +24,7 @@ final class PullRequestAutopilot {
     var isExpanded = false
     var isActive: Bool { isEnabled || current != nil }
 
-    private var viewer = ""
+    private(set) var viewer = ""
     private var latest: [Candidate] = []
     // Conservamos éxitos y errores inciertos durante toda la sesión de la app.
     // Un refresh atrasado o apagar/encender no debe repetir una escritura.
@@ -137,10 +137,11 @@ final class PullRequestAutopilot {
                     rebuildQueue()
                     continue
                 }
-                current = Entry(candidate: candidate, status: .checking)
+                current = Entry(candidate: candidate, status: .pending)
                 if let current { onActivity(current) }
                 rebuildQueue()
                 var completed = false
+                var submitted = false
                 do {
                     let result = try await runner.perform(candidate.pullRequest, viewer: viewer,
                         action: candidate.action, batch: true,
@@ -157,6 +158,7 @@ final class PullRequestAutopilot {
                             operations.isAllowed(candidate) && self.latest.contains { $0.fingerprint == candidate.fingerprint }
                         },
                         progress: { progress in
+                            if case .executing = progress { submitted = true } else { submitted = false }
                             switch progress {
                             case .checking: self.setStatus(.checking)
                             case .executing: self.setStatus(.executing(candidate.action))
@@ -171,7 +173,10 @@ final class PullRequestAutopilot {
                     case .skipped(let reason):
                         setStatus(.skipped(reason))
                         switch reason {
-                        case .alreadyApproved, .alreadyMerged, .closed: handled.insert(candidate.fingerprint)
+                        case .alreadyApproved, .alreadyMerged:
+                            completed = true
+                            handled.insert(candidate.fingerprint)
+                        case .closed: handled.insert(candidate.fingerprint)
                         case .stopped: break
                         default: deferRetry(candidate.fingerprint)
                         }
@@ -181,8 +186,10 @@ final class PullRequestAutopilot {
                         }
                     }
                 } catch {
-                    handled.insert(candidate.fingerprint)
-                    setStatus(.failed(LocalizedMessage(error.localizedDescription)))
+                    let uncertain = GitHubActionRunner.needsVerification(error, submitted: submitted)
+                    if uncertain { handled.insert(candidate.fingerprint) }
+                    let message = LocalizedMessage(error.localizedDescription)
+                    setStatus(uncertain ? .uncertain(message) : .failed(message))
                     notice = LocalizedMessage(error.localizedDescription)
                     stop()
                 }

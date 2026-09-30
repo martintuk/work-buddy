@@ -12,6 +12,11 @@ struct PullRequestActionEffects {
     private(set) var revision = 0
     private var effects: [String: [PullRequestAction: Effect]] = [:]
 
+    mutating func reset() {
+        revision += 1
+        effects = [:]
+    }
+
     mutating func record(_ action: PullRequestAction, on pr: PullRequest) {
         revision += 1
         effects[pr.id, default: [:]][action] = Effect(revision: revision, action: action, head: pr.headRefOID)

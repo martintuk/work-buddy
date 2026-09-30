@@ -5,6 +5,10 @@ struct ActivityView: View {
     let activity: ActivityLog
     @Binding var isExpanded: Bool
     let close: () -> Void
+    var canVerify: (ActivityLog.Entry) -> Bool = { _ in false }
+    var verify: (ActivityLog.Entry) -> Void = { _ in }
+    var canRetry: (ActivityLog.Entry) -> Bool = { _ in false }
+    var retry: (ActivityLog.Entry) -> Void = { _ in }
     var focus: ActivityLog.Focus? = nil
     var clearFocus: () -> Void = {}
     var canShowInList: (ActivityLog.Entry) -> Bool = { _ in false }
@@ -24,8 +28,8 @@ struct ActivityView: View {
                 if focus != nil {
                     iconButton("line.3.horizontal.decrease.circle.fill", title: L10n.text(.activityShowAll), action: clearFocus)
                 }
-                iconButton("trash", title: L10n.text(.activityClear)) { activity.clearCompleted() }
-                    .disabled(!activity.entries.contains { $0.status.isComplete })
+                iconButton("trash", title: L10n.text(.activityClear)) { activity.clearCompleted(focus: focus) }
+                    .disabled(!activity.filtered(focus).contains { $0.status.isClearable })
                 iconButton(isExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
                            title: L10n.text(isExpanded ? .activityCollapse : .activityExpand)) {
                     isExpanded.toggle()
@@ -92,6 +96,13 @@ struct ActivityView: View {
             .accessibilityLabel("\(entry.title.text), \(entry.target), \(entry.source.title), \(entry.statusText)")
             .accessibilityValue(L10n.text(selectedID == entry.id ? .sectionHide : .sectionShow))
             ActivityStatusIcon(status: entry.status).frame(width: 14, height: 18)
+            if canVerify(entry) {
+                iconButton("arrow.clockwise.circle", title: L10n.text(.activityVerify)) { verify(entry) }
+                    .frame(height: 18)
+            } else if canRetry(entry) {
+                iconButton("arrow.clockwise", title: L10n.text(.activityRetry)) { retry(entry) }
+                    .frame(height: 18)
+            }
             if canShowInList(entry) {
                 iconButton("list.bullet", title: L10n.text(.activityShowInList)) { showInList(entry) }
                     .frame(height: 18)
@@ -116,6 +127,7 @@ struct ActivityView: View {
     private func statusColor(_ status: ActivityLog.Status) -> Color {
         switch status {
         case .failed: .red
+        case .uncertain: .orange
         case .succeeded: .green
         default: .secondary
         }
@@ -133,6 +145,7 @@ struct ActivityStatusIcon: View {
         case .waiting: Image(systemName: "clock").foregroundStyle(.secondary)
         case .succeeded: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
         case .skipped: Image(systemName: "minus.circle").foregroundStyle(.secondary)
+        case .uncertain: Image(systemName: "questionmark.circle.fill").foregroundStyle(.orange)
         case .failed: Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.red)
         }
     }

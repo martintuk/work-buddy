@@ -3,6 +3,17 @@ import Testing
 
 @Suite("Resultados visibles de acciones")
 struct PullRequestActionEffectsTests {
+    @Test("Cambiar la cuenta conserva revisiones crecientes para las lecturas en curso")
+    func resetRevision() {
+        var effects = PullRequestActionEffects()
+        effects.record(.approve, on: fixture(1))
+        let started = effects.revision
+        effects.reset()
+        effects.record(.merge, on: fixture(2))
+        #expect(effects.applying(to: [fixture(2)], readRevision: started).isEmpty)
+        #expect(!effects.applying(to: [fixture(1)], readRevision: started)[0].approvedByMe)
+    }
+
     @Test("Lecturas anteriores no reviven merges ni revierten una aprobación")
     func staleResults() {
         var effects = PullRequestActionEffects()

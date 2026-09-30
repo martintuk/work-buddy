@@ -19,14 +19,26 @@ struct ActivityViewTests {
         log.record(PullRequestBatch.Entry(candidate: .init(pullRequest: fixture(4), action: .approve),
             status: .waiting(seconds: 30, attempt: 2)), source: .autopilot)
         log.record(.dependabotRebase, on: fixture(5), status: .running)
+        log.record(.merge, on: fixture(6), status: .uncertain(LocalizedMessage("Connection lost")), viewer: "me")
         for scheme in [ColorScheme.light, .dark] {
             for expanded in [false, true] {
                 let height: CGFloat = expanded ? 480 : 220
-                let content = ActivityView(activity: log, isExpanded: .constant(expanded), close: {})
+                let content = ActivityView(activity: log, isExpanded: .constant(expanded), close: {},
+                    canVerify: { $0.status.needsVerification }, canRetry: { if case .failed = $0.status { true } else { false } },
+                    canShowInList: { $0.pullRequest != nil })
                     .frame(width: 420, height: height).environment(\.colorScheme, scheme)
                 try render(content, size: NSSize(width: 420, height: height), scheme: scheme,
                            path: "\(directory)/activity-\(expanded ? "expanded" : "compact")-\(scheme).png")
             }
+            let store = ReviewQueueStore.preview(reviews: [], merges: [])
+            store.autopilot.enable([], viewer: "me", operations: .init(
+                read: { _, _ in fatalError("Sin candidatos") }, write: { _ in fatalError("Sin escrituras") }))
+            try render(VStack(spacing: 0) {
+                ActivityView(activity: log, isExpanded: .constant(true), close: {})
+                PullRequestExecutionControls(store: store, compact: true)
+            }.frame(width: 420, height: 480), size: NSSize(width: 420, height: 480), scheme: scheme,
+                path: "\(directory)/activity-with-autopilot-\(scheme).png")
+            store.autopilot.stop()
             try render(PanelView(store: ReviewQueueStore.preview(reviews: [fixture(1)], merges: []), jiraStore: JiraStore())
                 .environment(\.colorScheme, scheme), size: PanelView.preferredSize, scheme: scheme,
                 path: "\(directory)/panel-\(scheme).png")

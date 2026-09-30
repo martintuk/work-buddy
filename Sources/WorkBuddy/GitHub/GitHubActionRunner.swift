@@ -8,6 +8,14 @@ final class GitHubActionRunner {
     enum Result { case completed, skipped(PullRequestActionSkipReason) }
     enum Progress { case checking, executing, waiting(seconds: Int, attempt: Int) }
 
+    /// Una lectura fallida o un rechazo HTTP no significan una escritura incierta.
+    /// Transporte, 5xx o una respuesta ilegible después de enviar sí la requieren.
+    nonisolated static func needsVerification(_ error: Error, submitted: Bool) -> Bool {
+        guard submitted, !(error is PullRequestActionSkipped) else { return false }
+        if let api = error as? GitHubAPIError, (400..<500).contains(api.response.status) { return false }
+        return true
+    }
+
     private let now: () -> Date
     private let sleep: (TimeInterval) async throws -> Void
     private var nextRequest = Date.distantPast
@@ -94,7 +102,7 @@ final class GitHubActionRunner {
                                                                commitID: commit, method: method).arguments)
             struct Response: Decodable { let merged: Bool; let message: String? }
             let result = try JSONDecoder().decode(Response.self, from: data)
-            guard result.merged else { throw GH.Failure.badJSON(result.message ?? "Merge was not completed") }
+            guard result.merged else { throw PullRequestActionSkipped(reason: .notReady) }
         }
     }
 

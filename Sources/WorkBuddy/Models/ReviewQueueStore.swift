@@ -30,8 +30,8 @@ final class ReviewQueueStore {
 
     init(batch: PullRequestBatch = PullRequestBatch(runner: .shared)) {
         self.batch = batch
-        batch.onActivity = { [activity] in activity.record($0, source: .batch) }
-        autopilot.onActivity = { [activity] in activity.record($0, source: .autopilot) }
+        batch.onActivity = { [activity, weak batch] in activity.record($0, source: .batch, viewer: batch?.viewer) }
+        autopilot.onActivity = { [activity, weak autopilot] in activity.record($0, source: .autopilot, viewer: autopilot?.viewer) }
     }
     private(set) var viewerLogin: String?
     private(set) var pullRequests: [PullRequest] = []
@@ -131,6 +131,7 @@ final class ReviewQueueStore {
 
     var batchCandidates: [PullRequestBatch.Candidate] {
         PullRequestBatch.candidates(reviews: reviewSections.first { $0.bucket == .needsReview }?.items ?? [], merges: readyToMerge)
+            .filter { !activity.needsVerification(for: $0.pullRequest, viewer: viewerLogin) }
             .filter { !inFlightActions.contains($0.id) || batch.runningIDs.contains($0.id) || autopilot.current?.id == $0.id }
     }
 
@@ -162,7 +163,7 @@ final class ReviewQueueStore {
                     && filtered(allKnown).excluding(ignoreList.ids).contains { $0.id == pr.id }
             },
             didComplete: { [self] pr in
-                if revision == configurationRevision { applyCompletedAction(action.action, on: pr) }
+                if revision == configurationRevision, self.viewerLogin?.lowercased() == viewerLogin.lowercased() { applyCompletedAction(action.action, on: pr) }
                 onChange?()
             },
             didFinish: { [self] in
@@ -204,7 +205,7 @@ final class ReviewQueueStore {
             },
             finished: { [self] candidate, completed in
                 inFlightActions.remove(candidate.id)
-                if revision == configurationRevision {
+                if revision == configurationRevision, self.viewerLogin?.lowercased() == viewerLogin.lowercased() {
                     if completed { applyCompletedAction(candidate.action.action, on: candidate.pullRequest) }
                     reconcileBatch()
                     refresh(force: true)
@@ -351,8 +352,7 @@ final class ReviewQueueStore {
         // Resolver por ID evita escribir usando el objeto que capturó la fila.
         guard let pullRequest = currentPullRequest(id: pullRequestID) else { return }
         if action.writesToGitHub {
-            guard pullRequest.availableWriteActions(behindBy: behindCount(for: pullRequest))
-                .contains(action) else { return }
+            guard availableWriteActions(for: pullRequest).contains(action) else { return }
         }
         switch action {
         case .open:
@@ -478,14 +478,91 @@ final class ReviewQueueStore {
         allKnown.first { $0.id == id }
     }
 
+    func availableWriteActions(for pr: PullRequest) -> [PullRequestAction] {
+        guard !activity.needsVerification(for: pr, viewer: viewerLogin) else { return [] }
+        return pr.availableWriteActions(behindBy: behindCount(for: pr))
+    }
+
     func isAvailable(_ pending: PendingPullRequestAction) -> Bool {
         !inFlightActions.contains(pending.pullRequestID)
+            && currentPullRequest(id: pending.pullRequestID).map { availableWriteActions(for: $0).contains(pending.action) } == true
             && pending.isAvailable(for: currentPullRequest(id: pending.pullRequestID),
                                    behindBy: behindCounts[pending.pullRequestID])
     }
 
     func isActing(on pullRequest: PullRequest) -> Bool {
         inFlightActions.contains(pullRequest.id)
+    }
+
+    func canVerify(_ entry: ActivityLog.Entry) -> Bool {
+        entry.status.needsVerification && entry.action?.batchAction != nil
+            && entry.viewer != nil && entry.viewer?.lowercased() == viewerLogin?.lowercased()
+            && entry.pullRequest.map { !inFlightActions.contains($0.id) } == true
+    }
+
+    func canRetry(_ entry: ActivityLog.Entry) -> Bool {
+        guard case .failed = entry.status, let action = entry.action, action.batchAction != nil,
+              let original = entry.pullRequest, let current = currentPullRequest(id: original.id),
+              let viewer = entry.viewer, viewer.lowercased() == viewerLogin?.lowercased(),
+              !inFlightActions.contains(original.id), current.headRefOID == original.headRefOID,
+              current.baseRefName == original.baseRefName,
+              action != .merge || current.defaultMergeMethod == original.defaultMergeMethod,
+              visibleSectionID(for: original.id) != nil else { return false }
+        return availableWriteActions(for: current).contains(action)
+    }
+
+    func retryActivity(_ id: UUID) {
+        guard let entry = activity.entries.first(where: { $0.id == id }), canRetry(entry),
+              let pr = entry.pullRequest, let action = entry.action else { return }
+        // Un click explícito crea una ejecución nueva, con la revalidación normal.
+        perform(action, onID: pr.id)
+    }
+
+    /// Sólo consulta GitHub. Verificar jamás repite la escritura incierta.
+    func verifyActivity(_ id: UUID,
+                        read: @Sendable (PullRequest, String, PullRequestBatchAction) async throws -> PullRequestActionCheck.Snapshot = {
+                            try await PullRequestActionCheck.fetch($0, viewer: $1, action: $2)
+                        }) async {
+        guard let entry = activity.entries.first(where: { $0.id == id }), canVerify(entry),
+              let original = entry.pullRequest, let action = entry.action?.batchAction,
+              let viewer = entry.viewer else { return }
+        let revision = configurationRevision
+        inFlightActions.insert(original.id)
+        activity.update(id, status: .checking)
+        defer {
+            inFlightActions.remove(original.id)
+            reconcileBatch()
+            onChange?()
+        }
+        do {
+            let snapshot = try await read(original, viewer, action)
+            guard revision == configurationRevision else { throw PullRequestActionSkipped(reason: .scopeChanged) }
+            guard snapshot.viewer.lowercased() == viewer.lowercased(), viewerLogin?.lowercased() == viewer.lowercased() else {
+                throw PullRequestActionSkipped(reason: .accountChanged)
+            }
+            guard let current = snapshot.pullRequest else {
+                activity.update(id, status: .skipped(LocalizedMessage(L10n.text(.batchClosed))))
+                return
+            }
+            guard current.id == original.id, current.repository == original.repository,
+                  current.headRefOID == original.headRefOID, current.baseRefName == original.baseRefName else {
+                activity.update(id, status: .skipped(LocalizedMessage(L10n.text(.batchChanged))))
+                return
+            }
+            if action == .merge ? snapshot.isMerged : current.approvedByMe {
+                applyCompletedAction(action.action, on: original)
+                activity.update(id, status: .succeeded)
+            } else if !snapshot.isOpen {
+                activity.update(id, status: .skipped(LocalizedMessage(L10n.text(.batchClosed))))
+            } else {
+                // No convertir una comprobación en permiso para volver a escribir.
+                // El usuario puede reintentar desde Actividad; Start sigue con los demás.
+                autopilot.stop()
+                activity.update(id, status: .failed(LocalizedMessage(L10n.text(.activityNotRecorded))))
+            }
+        } catch {
+            activity.update(id, status: .uncertain(LocalizedMessage(error.localizedDescription)))
+        }
     }
 
     /// Valida, guarda y aplica el alcance sin tener que reiniciar la app.
@@ -503,7 +580,7 @@ final class ReviewQueueStore {
         configuration = updated
         configuration.persist()
         configurationRevision += 1
-        actionEffects = PullRequestActionEffects()
+        actionEffects.reset()
         viewerLogin = nil
         inFlight?.cancel()
         inFlight = nil
@@ -534,10 +611,11 @@ final class ReviewQueueStore {
         reconcileBatch()
         onChange?()
 
-        let activityID = activity.record(operation.action, on: pullRequest, status: .running)
+        let activityID = activity.record(operation.action, on: pullRequest, status: .pending, viewer: viewerLogin)
         let revision = configurationRevision
         let viewer = viewerLogin
         Task {
+            var submitted = false
             do {
                 if let action = operation.action.batchAction {
                     guard let viewer else { throw GH.Failure.badJSON("Missing viewer") }
@@ -547,6 +625,7 @@ final class ReviewQueueStore {
                         write: { try await GitHubActionRunner.submit($0, action: action) },
                         isAllowed: { [self] _ in revision == configurationRevision },
                         progress: { [activity] progress in
+                            if case .executing = progress { submitted = true } else { submitted = false }
                             switch progress {
                             case .checking: activity.update(activityID, status: .checking)
                             case .executing: activity.update(activityID, status: .running)
@@ -561,10 +640,12 @@ final class ReviewQueueStore {
                 } else {
                     // Las demás escrituras conservan un único intento: un error
                     // de transporte puede llegar después de aplicar la acción.
+                    submitted = true
+                    activity.update(activityID, status: .running)
                     _ = try await GH.run(operation.arguments)
                 }
 
-                if revision == configurationRevision {
+                if revision == configurationRevision, viewer?.lowercased() == viewerLogin?.lowercased() {
                     applyCompletedAction(operation.action, on: pullRequest)
                 }
 
@@ -572,7 +653,9 @@ final class ReviewQueueStore {
             } catch let error as PullRequestActionSkipped {
                 activity.update(activityID, status: .skipped(LocalizedMessage(error.reason.text)))
             } catch {
-                activity.update(activityID, status: .failed(LocalizedMessage(error.localizedDescription)))
+                let message = LocalizedMessage(error.localizedDescription)
+                activity.update(activityID, status: operation.action.batchAction != nil && GitHubActionRunner.needsVerification(error, submitted: submitted)
+                                ? .uncertain(message) : .failed(message))
             }
             inFlightActions.remove(pullRequest.id)
             reconcileBatch()
@@ -613,6 +696,9 @@ final class ReviewQueueStore {
                     // Una identidad por actualización, sin caché entre cuentas ni ciclos.
                     let viewer = try await Viewer.fetch()
                     guard requestedRevision == configurationRevision, !Task.isCancelled else { return }
+                    if let previous = viewerLogin, previous.lowercased() != viewer.login.lowercased() {
+                        actionEffects.reset()
+                    }
                     viewerLogin = viewer.login
                     // Detenemos inmediatamente si la cuenta cambió, incluso si falla una query.
                     autopilot.reconcile(batchCandidates, viewer: viewer.login)

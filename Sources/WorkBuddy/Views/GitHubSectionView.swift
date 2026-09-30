@@ -14,6 +14,7 @@ struct GitHubSectionView: View {
     @State private var pendingAction: PendingPullRequestAction?
     @State private var configurationHint: ConfigurationHint?
     @State private var selectedPullRequestID: String?
+    @State private var revealedPullRequestID: String?
 
     private enum ConfigurationHint {
         case editor
@@ -434,6 +435,7 @@ struct GitHubSectionView: View {
         collapsed.remove(section)
         collapsedSectionIDs = collapsed.sorted().joined(separator: ",")
         selectedPullRequestID = id
+        revealedPullRequestID = id
         revealPullRequestID.wrappedValue = nil
         // El destino puede haber estado plegado: esperar a que SwiftUI inserte la fila.
         Task { @MainActor in
@@ -447,9 +449,9 @@ struct GitHubSectionView: View {
             let pullRequest = entry.item
             PullRequestRow(
                 pullRequest: pullRequest,
-                isSelected: store.batch.isSelecting ? store.batch.selectedIDs.contains(pullRequest.id)
-                    : selectedPullRequestID == pullRequest.id,
-                select: { selectedPullRequestID = pullRequest.id },
+                isSelected: (store.batch.isSelecting ? store.batch.selectedIDs.contains(pullRequest.id)
+                    : selectedPullRequestID == pullRequest.id) || revealedPullRequestID == pullRequest.id,
+                select: { revealedPullRequestID = nil; selectedPullRequestID = pullRequest.id },
                 isIgnored: store.isIgnored(pullRequest),
                 isActing: store.isActing(on: pullRequest),
                 behindBy: store.behindCount(for: pullRequest),
@@ -492,6 +494,11 @@ struct GitHubSectionView: View {
                     Task { await store.openAgent(pullRequest, folder: folder) }
                 },
                 repositoryStore: store,
+                showActivity: {
+                    showActivity(.entries(Set(store.activity.entries.filter {
+                        $0.pullRequest?.id == pullRequest.id
+                    }.map(\.id))))
+                },
                 actionStatus: store.activity.status(for: pullRequest),
                 batchSelection: store.batch.isSelecting ? PullRequestBatchSelection(
                     isSelected: store.batch.selectedIDs.contains(pullRequest.id),
