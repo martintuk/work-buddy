@@ -92,7 +92,10 @@ struct GitHubSectionView: View {
                         .padding(.horizontal, 10)
                         .padding(.top, 8)
                 }
-            if store.batch.isSelecting {
+            if store.autopilot.isPresented {
+                Divider()
+                PullRequestAutopilotBar(autopilot: store.autopilot, setEnabled: store.setAutopilotEnabled)
+            } else if store.batch.isSelecting {
                 Divider()
                 PullRequestBatchBar(batch: store.batch) { action in
                     pendingAction = nil
@@ -159,9 +162,24 @@ struct GitHubSectionView: View {
                     .background(Color.accentColor.opacity(store.batch.isSelecting ? 0.12 : 0.05), in: RoundedRectangle(cornerRadius: 7))
             }
             .buttonStyle(.plain)
-            .disabled(store.batch.isRunning || (!store.batch.isSelecting && (store.viewerLogin == nil || store.batchCandidates.isEmpty)))
+            .disabled(store.autopilot.isActive || store.batch.isRunning || (!store.batch.isSelecting && (store.viewerLogin == nil || store.batchCandidates.isEmpty)))
             .help(L10n.text(store.batch.isSelecting ? .batchExitSelection : .batchSelect))
             .accessibilityLabel(L10n.text(store.batch.isSelecting ? .batchExitSelection : .batchSelect))
+            Button {
+                pendingAction = nil
+                configurationHint = nil
+                store.dismissOutcome()
+                store.openAutopilot()
+            } label: {
+                Image(systemName: store.autopilot.isPresented ? "bolt.fill" : "bolt")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(store.autopilot.isPresented ? Color.accentColor : Color.secondary)
+                    .frame(width: 28, height: 26)
+                    .background(Color.accentColor.opacity(store.autopilot.isPresented ? 0.12 : 0.05), in: RoundedRectangle(cornerRadius: 7))
+            }
+            .buttonStyle(.plain)
+            .disabled(store.batch.isRunning || store.viewerLogin == nil)
+            .help(L10n.text(.autopilotOpen)).accessibilityLabel(L10n.text(.autopilotOpen))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)

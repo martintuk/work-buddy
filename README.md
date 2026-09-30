@@ -87,6 +87,27 @@ uno, sin repetir acciones ya registradas. Si el límite persiste, omite el resto
 Errores de permisos, validación o transporte incierto no se reintentan.
 **Detener** interrumpe la espera y deja terminar una escritura ya enviada.
 
+El **rayito** junto a selección múltiple abre **Autopilot** apagado y con la
+cola expandida. Entrar en este modo no ejecuta ninguna acción. La barra inferior
+permite encenderlo o apagarlo y expandir la cola hacia arriba, con altura limitada
+y scroll. Muestra la operación actual y los pendientes; el historial de resultados
+se consulta desde su icono. Las filas principales conservan su presentación.
+
+Autopilot procesa **sólo Dependabot**, primero los merges y luego las aprobaciones,
+con los mismos criterios, filtros, ignorados, validaciones y reintentos del batch.
+La cola se actualiza con las publicaciones del refresh general, incluso estando
+apagado. El PR en curso conserva su snapshot hasta terminar; los pendientes se
+agregan o retiran según su estado actual. Una aprobación puede entrar después como
+merge cuando GitHub confirme que está listo. Sin pendientes queda esperando.
+
+El modo sigue activo al cerrar el panel y arranca apagado al reiniciar la app.
+Mientras está activo, la selección manual queda deshabilitada. Apagarlo interrumpe
+esperas y deja terminar una escritura ya enviada. Un cambio de cuenta o un error
+tras agotar los reintentos lo detiene. Los éxitos y errores inciertos no se repiten
+para el mismo commit, acción, base y método durante la sesión de la app, ni al
+volver a encenderlo; los errores quedan para revisión manual. Un PR omitido por
+no estar listo puede volver cuando la cola general lo retire y vuelva a admitirlo.
+
 Refresca cada 5 minutos y notifica lo nuevo que te bloquea.
 
 La sección **Jira** reutiliza la sesión del CLI oficial de Atlassian. Si no hay

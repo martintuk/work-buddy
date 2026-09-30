@@ -24,6 +24,7 @@ final class ReviewQueueStore {
     let agentCLI = AgentCLIStore()
     let projectOpener = ProjectOpener()
     let batch: PullRequestBatch
+    let autopilot = PullRequestAutopilot()
 
     init(batch: PullRequestBatch = PullRequestBatch(runner: .shared)) { self.batch = batch }
     private(set) var viewerLogin: String?
@@ -134,21 +135,24 @@ final class ReviewQueueStore {
 
     var batchCandidates: [PullRequestBatch.Candidate] {
         PullRequestBatch.candidates(reviews: reviewSections.first { $0.bucket == .needsReview }?.items ?? [], merges: readyToMerge)
-            .filter { !inFlightActions.contains($0.id) || batch.runningIDs.contains($0.id) }
+            .filter { !inFlightActions.contains($0.id) || batch.runningIDs.contains($0.id) || autopilot.current?.id == $0.id }
     }
 
     func toggleBatchSelection() {
+        guard !autopilot.isActive else { return }
+        autopilot.close()
         if batch.isSelecting { batch.exit() }
         else if let viewerLogin { batch.enter(batchCandidates, viewer: viewerLogin) }
     }
 
     func reconcileBatch() {
         batch.reconcile(batchCandidates, viewer: viewerLogin ?? "")
+        autopilot.reconcile(batchCandidates, viewer: viewerLogin ?? "")
     }
 
     func startBatch(_ action: PullRequestBatchAction) {
         reconcileBatch()
-        guard !batch.isRunning, let viewerLogin, batch.viewer == viewerLogin else { return }
+        guard !autopilot.isActive, !batch.isRunning, let viewerLogin, batch.viewer == viewerLogin else { return }
         let ids = Set(batch.selected(action).map(\.id))
         guard !ids.isEmpty, ids.isDisjoint(with: inFlightActions) else { return }
         let revision = configurationRevision
@@ -175,6 +179,41 @@ final class ReviewQueueStore {
         )
         if task == nil { inFlightActions.subtract(ids) }
         onChange?()
+    }
+
+    func openAutopilot() {
+        guard !batch.isRunning, let viewerLogin else { return }
+        batch.exit()
+        autopilot.present(batchCandidates, viewer: viewerLogin)
+    }
+
+    func setAutopilotEnabled(_ enabled: Bool) {
+        guard enabled else { autopilot.stop(); return }
+        guard !batch.isRunning, let viewerLogin else { return }
+        batch.exit()
+        outcome = nil
+        let revision = configurationRevision
+        let machineAccounts = configuration.machineAccounts
+        autopilot.enable(batchCandidates, viewer: viewerLogin, operations: .init(
+            read: { candidate, viewer in
+                try await PullRequestActionCheck.fetch(candidate.pullRequest, viewer: viewer,
+                    action: candidate.action, machineAccounts: machineAccounts)
+            },
+            write: { try await GitHubActionRunner.submit($0.pullRequest, action: $0.action) },
+            reserve: { [self] candidate in inFlightActions.insert(candidate.id).inserted },
+            isAllowed: { [self] candidate in
+                revision == configurationRevision && batchCandidates.contains { $0.fingerprint == candidate.fingerprint }
+            },
+            finished: { [self] candidate, completed in
+                inFlightActions.remove(candidate.id)
+                if revision == configurationRevision {
+                    if completed { removeCompleted(candidate.pullRequest, action: candidate.action) }
+                    reconcileBatch()
+                    refresh(force: true)
+                }
+                onChange?()
+            }
+        ))
     }
 
     private func removeCompleted(_ pr: PullRequest, action: PullRequestBatchAction) {
@@ -531,6 +570,8 @@ final class ReviewQueueStore {
                     let viewer = try await Viewer.fetch()
                     guard requestedRevision == configurationRevision, !Task.isCancelled else { return }
                     viewerLogin = viewer.login
+                    // Detenemos inmediatamente si la cuenta cambió, incluso si falla una query.
+                    autopilot.reconcile(batchCandidates, viewer: viewer.login)
 
                     let completed = try await GitHubQueueRefresh.load(queries: .live(
                         configuration: requestedConfiguration, viewer: viewer,

@@ -244,6 +244,25 @@ struct PullRequestMergeBatchTests {
             for scheme in [ColorScheme.light, .dark] {
                 try render(store, defaults: defaults, directory: directory, name: "result-\(language.rawValue)-\(scheme)", scheme: scheme)
             }
+            store.openAutopilot()
+            for scheme in [ColorScheme.light, .dark] {
+                try render(store, defaults: defaults, directory: directory, name: "autopilot-preview-\(language.rawValue)-\(scheme)", scheme: scheme)
+            }
+            let autopilotGate = MergeGate()
+            store.autopilot.enable(store.batchCandidates, viewer: "me", operations: .init(
+                read: { candidate, viewer in
+                    if candidate.id == "batch-4" { await autopilotGate.enter() }
+                    return .init(viewer: viewer, pullRequest: candidate.pullRequest, isOpen: true)
+                }, write: { _ in }))
+            await autopilotGate.waitUntilEntered()
+            for scheme in [ColorScheme.light, .dark] {
+                try render(store, defaults: defaults, directory: directory, name: "autopilot-running-\(language.rawValue)-\(scheme)", scheme: scheme)
+            }
+            store.autopilot.isExpanded = false
+            try render(store, defaults: defaults, directory: directory, name: "autopilot-collapsed-\(language.rawValue)", scheme: .light)
+            store.autopilot.stop()
+            await autopilotGate.release()
+            await store.autopilot.waitUntilIdle()
         }
     }
 

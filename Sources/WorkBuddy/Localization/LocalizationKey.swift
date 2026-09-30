@@ -152,6 +152,15 @@ extension L10n {
         case githubWaiting
         case githubAutomation
         case githubAutomationNotReady
+        case autopilotOpen
+        case autopilotHelp
+        case autopilotEmpty
+        case autopilotWaiting
+        case autopilotPaused
+        case autopilotQueue
+        case autopilotExpanded
+        case autopilotCollapsed
+        case autopilotClose
         case batchSelect
         case batchExitSelection
         case batchSelectedCount
