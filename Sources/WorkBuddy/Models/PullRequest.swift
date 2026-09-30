@@ -101,7 +101,7 @@ struct PullRequest: Identifiable, Sendable {
     let reviewedByMe: Bool
     let approvals: Int
     /// Tu última decisión de review es APPROVED y no fue descartada.
-    let approvedByMe: Bool
+    var approvedByMe: Bool
     /// Commit incluido en el snapshot. Las acciones en lote conservan este commit.
     var headRefOID: String? = nil
 
@@ -139,7 +139,7 @@ struct PullRequest: Identifiable, Sendable {
 
     /// GitHub no deja aprobar tus propios PRs. Ofrecer el botón igual sólo
     /// entrenaría a ignorar errores.
-    var canApprove: Bool { !authoredByMe }
+    var canApprove: Bool { !authoredByMe && !approvedByMe }
 
     /// El atraso tiene que estar medido. Otros bots también pueden usar el
     /// rebase nativo; sólo Dependabot queda excluido de esta acción.

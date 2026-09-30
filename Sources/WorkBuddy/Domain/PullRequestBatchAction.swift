@@ -4,6 +4,7 @@ import Foundation
 enum PullRequestBatchAction: String, CaseIterable, Sendable {
     case approve, merge
 
+    var action: PullRequestAction { self == .approve ? .approve : .merge }
     var title: String { L10n.text(self == .approve ? .prApprove : .prMerge) }
     var symbol: String { self == .approve ? "checkmark.circle" : "arrow.triangle.merge" }
     var runningText: String { L10n.text(self == .approve ? .batchApproving : .batchMerging) }

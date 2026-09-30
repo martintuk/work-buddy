@@ -81,6 +81,7 @@ final class ReviewQueueStore {
     private var hasPendingRefresh = false
     /// Invalida resultados de una consulta que empezó con otra configuración.
     private var configurationRevision = 0
+    private var actionEffects = PullRequestActionEffects()
 
     // MARK: - Vistas de la data
     //
@@ -161,7 +162,7 @@ final class ReviewQueueStore {
                     && filtered(allKnown).excluding(ignoreList.ids).contains { $0.id == pr.id }
             },
             didComplete: { [self] pr in
-                removeCompleted(pr, action: action)
+                if revision == configurationRevision { applyCompletedAction(action.action, on: pr) }
                 onChange?()
             },
             didFinish: { [self] in
@@ -204,7 +205,7 @@ final class ReviewQueueStore {
             finished: { [self] candidate, completed in
                 inFlightActions.remove(candidate.id)
                 if revision == configurationRevision {
-                    if completed { removeCompleted(candidate.pullRequest, action: candidate.action) }
+                    if completed { applyCompletedAction(candidate.action.action, on: candidate.pullRequest) }
                     reconcileBatch()
                     refresh(force: true)
                 }
@@ -213,19 +214,18 @@ final class ReviewQueueStore {
         ))
     }
 
-    private func removeCompleted(_ pr: PullRequest, action: PullRequestBatchAction) {
-        let matches: (PullRequest) -> Bool = { $0.id == pr.id && $0.headRefOID == pr.headRefOID }
-        pullRequests.removeAll(where: matches)
-        dependabotPullRequests.removeAll(where: matches)
-        teamDependabotPullRequests.removeAll(where: matches)
-        // Una aprobación no retira un PR que ya está listo para mergear.
-        if action == .merge {
-            requestedMergeCandidates.removeAll(where: matches)
-            fixCandidates.removeAll(where: matches)
-            replyCandidates.removeAll(where: matches)
-            waitingReplyCandidates.removeAll(where: matches)
-            behindCounts.removeValue(forKey: pr.id)
-        }
+    /// El mismo efecto visible para acciones manuales, lotes y Autopilot.
+    func applyCompletedAction(_ action: PullRequestAction, on pr: PullRequest) {
+        let previousRevision = actionEffects.revision
+        actionEffects.record(action, on: pr)
+        pullRequests = actionEffects.applying(to: pullRequests, readRevision: previousRevision)
+        dependabotPullRequests = actionEffects.applying(to: dependabotPullRequests, readRevision: previousRevision)
+        teamDependabotPullRequests = actionEffects.applying(to: teamDependabotPullRequests, readRevision: previousRevision)
+        requestedMergeCandidates = actionEffects.applying(to: requestedMergeCandidates, readRevision: previousRevision)
+        fixCandidates = actionEffects.applying(to: fixCandidates, readRevision: previousRevision)
+        replyCandidates = actionEffects.applying(to: replyCandidates, readRevision: previousRevision)
+        waitingReplyCandidates = actionEffects.applying(to: waitingReplyCandidates, readRevision: previousRevision)
+        behindCounts = actionEffects.applying(to: behindCounts, readRevision: previousRevision)
     }
 
     var readyToMerge: [PullRequest] {
@@ -487,6 +487,7 @@ final class ReviewQueueStore {
         configuration = updated
         configuration.persist()
         configurationRevision += 1
+        actionEffects = PullRequestActionEffects()
         viewerLogin = nil
         inFlight?.cancel()
         inFlight = nil
@@ -522,12 +523,12 @@ final class ReviewQueueStore {
         let viewer = viewerLogin
         Task {
             do {
-                if case .approve = operation {
+                if let action = operation.action.batchAction {
                     guard let viewer else { throw GH.Failure.badJSON("Missing viewer") }
                     let result = try await GitHubActionRunner.shared.perform(
-                        pullRequest, viewer: viewer, batch: false,
-                        read: { try await PullRequestActionCheck.fetch($0, viewer: $1) },
-                        write: { try await GitHubActionRunner.submit($0, action: .approve) },
+                        pullRequest, viewer: viewer, action: action, batch: false,
+                        read: { try await PullRequestActionCheck.fetch($0, viewer: $1, action: action) },
+                        write: { try await GitHubActionRunner.submit($0, action: action) },
                         isAllowed: { [self] _ in revision == configurationRevision },
                         progress: { [activity] progress in
                             switch progress {
@@ -538,7 +539,7 @@ final class ReviewQueueStore {
                             }
                         }
                     )
-                    if case .skipped(let reason) = result, reason != .alreadyApproved {
+                    if case .skipped(let reason) = result, reason != .alreadyApproved && reason != .alreadyMerged {
                         throw PullRequestActionSkipped(reason: reason)
                     }
                 } else {
@@ -547,24 +548,8 @@ final class ReviewQueueStore {
                     _ = try await GH.run(operation.arguments)
                 }
 
-                switch operation {
-                case .merge:
-                    // Sacamos el PR del snapshot local apenas GitHub confirma.
-                    // Sin exclusión persistente: cada consulta puede traerlo de nuevo.
-                    pullRequests.removeAll { $0.id == pullRequest.id }
-                    dependabotPullRequests.removeAll { $0.id == pullRequest.id }
-                    requestedMergeCandidates.removeAll { $0.id == pullRequest.id }
-                    teamDependabotPullRequests.removeAll { $0.id == pullRequest.id }
-                    fixCandidates.removeAll { $0.id == pullRequest.id }
-                    replyCandidates.removeAll { $0.id == pullRequest.id }
-                    waitingReplyCandidates.removeAll { $0.id == pullRequest.id }
-                    behindCounts.removeValue(forKey: pullRequest.id)
-                case .rebase, .dependabotRebase:
-                    // La comparación anterior ya no describe la rama actual.
-                    // No ofrecemos otro rebase hasta volver a medir el atraso.
-                    behindCounts.removeValue(forKey: pullRequest.id)
-                default:
-                    break
+                if revision == configurationRevision {
+                    applyCompletedAction(operation.action, on: pullRequest)
                 }
 
                 activity.update(activityID, status: .succeeded)
@@ -598,6 +583,7 @@ final class ReviewQueueStore {
 
         let requestedConfiguration = configuration
         let requestedRevision = configurationRevision
+        let readRevision = actionEffects.revision
         let requestedTeamDiscovery = forceTeamDiscovery
         forceTeamDiscovery = false
         isLoadingTeamDependabot = !requestedConfiguration.effectiveDependabotTeams.isEmpty
@@ -620,7 +606,7 @@ final class ReviewQueueStore {
                         forceTeamDiscovery: requestedTeamDiscovery
                     )) { update in
                         guard requestedRevision == self.configurationRevision, !Task.isCancelled else { return }
-                        self.publish(update, firstContent: &firstContent)
+                        self.publish(update, readRevision: readRevision, firstContent: &firstContent)
                     }
                     guard requestedRevision == configurationRevision, !Task.isCancelled else { return }
                     // Publicar es independiente; las notificaciones esperan las
@@ -645,7 +631,8 @@ final class ReviewQueueStore {
                     onChange?()
                     let counts = await Diagnostics.measure(.behind) { await BehindCount.fetch(for: allKnown) }
                     guard requestedRevision == configurationRevision, !Task.isCancelled else { return }
-                    behindCounts = counts
+                    behindCounts = actionEffects.applying(to: counts, readRevision: readRevision)
+                    actionEffects.finishRefresh(startedAt: readRevision)
                 } catch {
                     guard requestedRevision == configurationRevision else { return }
                     Diagnostics.record(.failed, error: error)
@@ -663,36 +650,36 @@ final class ReviewQueueStore {
         }
     }
 
-    private func publish(_ update: GitHubQueueRefresh.Update, firstContent: inout Bool) {
+    private func publish(_ update: GitHubQueueRefresh.Update, readRevision: Int, firstContent: inout Bool) {
         let phase: Diagnostics.Phase
         let count: Int
         switch update {
         case .review(let prs):
-            pullRequests = prs
+            pullRequests = actionEffects.applying(to: prs, readRevision: readRevision)
             phase = .review
             count = prs.count
         case .merge(let prs):
-            requestedMergeCandidates = prs
+            requestedMergeCandidates = actionEffects.applying(to: prs, readRevision: readRevision)
             phase = .merge
             count = prs.count
         case .own(let prs):
-            fixCandidates = prs
+            fixCandidates = actionEffects.applying(to: prs, readRevision: readRevision)
             phase = .own
             count = prs.count
         case .dependabot(let prs):
-            dependabotPullRequests = prs
+            dependabotPullRequests = actionEffects.applying(to: prs, readRevision: readRevision)
             phase = .dependabot
             count = prs.count
         case .team(let result):
             isLoadingTeamDependabot = false
             teamDependabotFailure = result.error.map { LocalizedMessage(L10n.text(.errorTeamDiscovery, $0)) }
             guard let prs = result.pullRequests else { onChange?(); return }
-            teamDependabotPullRequests = prs
+            teamDependabotPullRequests = actionEffects.applying(to: prs, readRevision: readRevision)
             phase = .teamDependabot
             count = prs.count
         case .replies(let replies):
-            replyCandidates = replies.needingReply
-            waitingReplyCandidates = replies.waitingForReply
+            replyCandidates = actionEffects.applying(to: replies.needingReply, readRevision: readRevision)
+            waitingReplyCandidates = actionEffects.applying(to: replies.waitingForReply, readRevision: readRevision)
             phase = .replies
             count = replies.needingReply.count + replies.waitingForReply.count
         }

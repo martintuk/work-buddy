@@ -224,7 +224,7 @@ extension L10n {
         case .githubAutomationHelp: "Automation PRs waiting for CI, conflict resolution, leaving draft status, or another approval.\nPRs ready for review or merge are in their own sections."
         case .githubIgnored: "Ignored"
         case .githubReview: "To review"
-        case .githubApproved: "Already approved"
+        case .githubApproved: "Optional review"
         case .githubApprovedHelp: "your review is optional; they already have the approvals"
         case .githubPullRequests: "pull requests"
 

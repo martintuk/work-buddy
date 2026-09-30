@@ -49,6 +49,10 @@ enum PullRequestAction: Identifiable, Hashable, Sendable {
         }
     }
 
+    var batchAction: PullRequestBatchAction? {
+        switch self { case .approve: .approve; case .merge: .merge; default: nil }
+    }
+
     var needsConfirmation: Bool {
         switch self {
         case .open, .ignore, .restore: false
