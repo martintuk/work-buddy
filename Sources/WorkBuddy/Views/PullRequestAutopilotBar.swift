@@ -8,60 +8,45 @@ struct PullRequestAutopilotBar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 8) {
-                HStack(spacing: 10) {
-                    Text("Autopilot")
-                        .font(.system(size: 11, weight: .medium))
-                    Button(L10n.text(autopilot.isActive ? .autopilotStop : .autopilotStart)) {
-                        setEnabled(!autopilot.isEnabled)
-                    }
-                    .buttonStyle(.borderedProminent).controlSize(.small)
-                    .tint(autopilot.isActive ? Color.secondary : Color.accentColor)
-                    .font(.system(size: 11, weight: .semibold))
-                    .disabled(!autopilot.isEnabled && autopilot.current != nil)
-                    .help(L10n.text(autopilot.isActive ? .batchStopHelp : .autopilotHelp))
-                    .accessibilityLabel("\(L10n.text(autopilot.isActive ? .autopilotStop : .autopilotStart)) · \(L10n.text(.autopilotHelp))")
-                    Spacer(minLength: 0)
-                    if !autopilot.history.isEmpty {
-                        Button { showingResults.toggle() } label: {
-                            Image(systemName: autopilot.notice == nil ? "clock.arrow.circlepath" : "exclamationmark.circle.fill")
-                                .foregroundStyle(autopilot.notice == nil ? Color.secondary : Color.red)
-                        }
-                        .buttonStyle(.plain)
-                        .help(L10n.text(.batchViewResults)).accessibilityLabel(L10n.text(.batchViewResults))
-                    }
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.18)) { autopilot.isExpanded.toggle() }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text(String(autopilot.queue.count)).monospacedDigit()
-                            Image(systemName: autopilot.isExpanded ? "chevron.down" : "chevron.up")
-                                .font(.system(size: 9, weight: .semibold))
-                        }.frame(minWidth: 30, minHeight: 24)
-                    }
-                    .buttonStyle(.plain).foregroundStyle(.secondary)
-                    .help(L10n.text(.autopilotQueue, String(autopilot.queue.count)))
-                    .accessibilityLabel(L10n.text(.autopilotQueue, String(autopilot.queue.count)))
-                    .accessibilityValue(L10n.text(autopilot.isExpanded ? .autopilotExpanded : .autopilotCollapsed))
+            HStack(spacing: 10) {
+                Text("Autopilot")
+                    .font(.system(size: 11, weight: .medium))
+                    .fixedSize()
+                Button(L10n.text(autopilot.isActive ? .autopilotStop : .autopilotStart)) {
+                    setEnabled(!autopilot.isEnabled)
                 }
-                if let current = autopilot.current {
-                    HStack(spacing: 8) {
-                        BatchStatusIcon(status: current.status).frame(width: 14, height: 14)
-                        Text("\(autopilot.isEnabled ? current.status.text : L10n.text(.batchStopping)) · \(current.pullRequest.shortRepository) #\(current.pullRequest.number)")
-                            .lineLimit(1).truncationMode(.middle)
-                        Spacer(minLength: 0)
+                .buttonStyle(.borderedProminent).controlSize(.small)
+                .fixedSize()
+                .tint(autopilot.isActive ? Color.secondary : Color.accentColor)
+                .font(.system(size: 11, weight: .semibold))
+                .disabled(!autopilot.isEnabled && autopilot.current != nil)
+                .help(L10n.text(autopilot.isActive ? .batchStopHelp : .autopilotHelp))
+                .accessibilityLabel("\(L10n.text(autopilot.isActive ? .autopilotStop : .autopilotStart)) · \(L10n.text(.autopilotHelp))")
+                headerStatus
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(-1)
+                if !autopilot.history.isEmpty {
+                    Button { showingResults.toggle() } label: {
+                        Image(systemName: autopilot.notice == nil ? "clock.arrow.circlepath" : "exclamationmark.circle.fill")
+                            .foregroundStyle(autopilot.notice == nil ? Color.secondary : Color.red)
                     }
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
-                    .help("\(current.pullRequest.repository) #\(current.pullRequest.number)\n\(current.status.text)")
-                } else if autopilot.isEnabled || autopilot.notice != nil {
+                    .buttonStyle(.plain)
+                    .help(L10n.text(.batchViewResults)).accessibilityLabel(L10n.text(.batchViewResults))
+                }
+                Button {
+                    withAnimation(.easeInOut(duration: 0.18)) { autopilot.isExpanded.toggle() }
+                } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: autopilot.notice == nil ? "clock" : "exclamationmark.circle")
-                        Text(L10n.text(autopilot.notice == nil ? .autopilotWaiting : .autopilotPaused))
-                        Spacer(minLength: 0)
-                    }
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
-                    .help(autopilot.notice?.text ?? L10n.text(.autopilotWaiting))
+                        Text(String(autopilot.queue.count)).monospacedDigit()
+                        Image(systemName: autopilot.isExpanded ? "chevron.down" : "chevron.up")
+                            .font(.system(size: 9, weight: .semibold))
+                    }.frame(minWidth: 30, minHeight: 24)
                 }
+                .buttonStyle(.plain).foregroundStyle(.secondary)
+                .fixedSize()
+                .help(L10n.text(.autopilotQueue, String(autopilot.queue.count)))
+                .accessibilityLabel(L10n.text(.autopilotQueue, String(autopilot.queue.count)))
+                .accessibilityValue(L10n.text(autopilot.isExpanded ? .autopilotExpanded : .autopilotCollapsed))
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
             if autopilot.isExpanded {
@@ -96,9 +81,34 @@ struct PullRequestAutopilotBar: View {
         }
     }
 
+    @ViewBuilder
+    private var headerStatus: some View {
+        if !autopilot.isExpanded, let current = autopilot.current {
+            HStack(spacing: 6) {
+                Image(systemName: current.candidate.action.symbol)
+                    .foregroundStyle(Color.accentColor)
+                Text("\(autopilot.isEnabled ? current.status.text : L10n.text(.batchStopping)) · \(current.pullRequest.shortRepository) #\(current.pullRequest.number)")
+                    .lineLimit(1).truncationMode(.middle)
+            }
+            .font(.system(size: 10)).foregroundStyle(.secondary)
+            .help("\(current.candidate.action.title) · \(current.pullRequest.repository) #\(current.pullRequest.number)\n\(current.status.text)")
+        } else if autopilot.current == nil && (autopilot.isEnabled || autopilot.notice != nil) {
+            HStack(spacing: 6) {
+                Image(systemName: autopilot.notice == nil ? "clock" : "exclamationmark.circle")
+                Text(L10n.text(autopilot.notice == nil ? .autopilotWaiting : .autopilotPaused))
+                    .lineLimit(1).truncationMode(.tail)
+            }
+            .font(.system(size: 10)).foregroundStyle(.secondary)
+            .help(autopilot.notice?.text ?? L10n.text(.autopilotWaiting))
+        } else {
+            Spacer(minLength: 0)
+        }
+    }
+
     private func queueRow(_ candidate: PullRequestBatch.Candidate, status: PullRequestBatch.Status?) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: candidate.action.symbol).frame(width: 14).foregroundStyle(.secondary)
+            Image(systemName: candidate.action.symbol).frame(width: 14)
+                .foregroundStyle(status.map { !$0.isComplete } ?? false ? Color.accentColor : Color.secondary)
             Text(candidate.pullRequest.title)
                 .lineLimit(1).truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
