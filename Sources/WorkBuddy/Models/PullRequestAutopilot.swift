@@ -29,13 +29,23 @@ final class PullRequestAutopilot {
     // Conservamos éxitos y errores inciertos durante toda la sesión de la app.
     // Un refresh atrasado o apagar/encender no debe repetir una escritura.
     private var handled: Set<String> = []
-    private var deferred: Set<String> = []
+    // Un omitido se reintenta cuando un refresh lo sigue viendo listo, con
+    // espera creciente para no girar en bucle si GitHub insiste en que no.
+    // Sin esto quedaba afuera hasta reiniciar la app: tras mergear un hermano,
+    // GitHub recalcula la mergeabilidad y la lectura fresca lo ve no listo.
+    private var deferred: [String: (until: Date, delay: TimeInterval)] = [:]
+    static let retryDelay: TimeInterval = 60
+    static let maxRetryDelay: TimeInterval = 15 * 60
     private var operations: Operations?
     private var task: Task<Void, Never>?
     var onActivity: (Entry) -> Void = { _ in }
     private let runner: GitHubActionRunner
+    private let now: () -> Date
 
-    init(runner: GitHubActionRunner = .shared) { self.runner = runner }
+    init(runner: GitHubActionRunner = .shared, now: @escaping () -> Date = { .now }) {
+        self.runner = runner
+        self.now = now
+    }
 
     func present(_ candidates: [Candidate], viewer: String) {
         isPresented = true
@@ -52,7 +62,7 @@ final class PullRequestAutopilot {
     func enable(_ candidates: [Candidate], viewer: String, operations: Operations) {
         guard !isActive else { return }
         if self.viewer.lowercased() != viewer.lowercased() {
-            handled = []; deferred = []; history = []
+            handled = []; deferred = [:]; history = []
         }
         self.viewer = viewer
         isPresented = true
@@ -77,22 +87,32 @@ final class PullRequestAutopilot {
                 return
             }
             self.viewer = viewer
-            handled = []; deferred = []; history = []
+            handled = []; deferred = [:]; history = []
         }
         var seen: Set<String> = []
         latest = candidates.filter {
             $0.pullRequest.author.isDependabot && $0.action.isEligible($0.pullRequest) && seen.insert($0.id).inserted
         }
-        // Un omitido puede volver cuando la cola general lo vio salir y estar listo otra vez.
-        deferred.formIntersection(Set(latest.map(\.fingerprint)))
+        // Al salir de la cola general se olvida la espera: si vuelve, va directo.
+        let fingerprints = Set(latest.map(\.fingerprint))
+        deferred = deferred.filter { fingerprints.contains($0.key) }
         rebuildQueue()
         pump()
     }
 
     private func rebuildQueue() {
         queue = isPresented ? latest.filter {
-            $0.id != current?.id && !handled.contains($0.fingerprint) && !deferred.contains($0.fingerprint)
+            $0.id != current?.id && !handled.contains($0.fingerprint) && !isDeferred($0.fingerprint)
         } : []
+    }
+
+    private func isDeferred(_ fingerprint: String) -> Bool {
+        deferred[fingerprint].map { $0.until > now() } ?? false
+    }
+
+    private func deferRetry(_ fingerprint: String) {
+        let delay = deferred[fingerprint].map { min($0.delay * 2, Self.maxRetryDelay) } ?? Self.retryDelay
+        deferred[fingerprint] = (now().addingTimeInterval(delay), delay)
     }
 
     private func setStatus(_ status: PullRequestBatch.Status) {
@@ -107,7 +127,7 @@ final class PullRequestAutopilot {
         task = Task {
             while isEnabled, let candidate = queue.first {
                 guard operations.reserve(candidate) else {
-                    deferred.insert(candidate.fingerprint)
+                    deferRetry(candidate.fingerprint)
                     rebuildQueue()
                     continue
                 }
@@ -147,7 +167,7 @@ final class PullRequestAutopilot {
                         switch reason {
                         case .alreadyApproved, .alreadyMerged, .closed: handled.insert(candidate.fingerprint)
                         case .stopped: break
-                        default: deferred.insert(candidate.fingerprint)
+                        default: deferRetry(candidate.fingerprint)
                         }
                         if reason == .accountChanged {
                             notice = LocalizedMessage(reason.text)

@@ -152,6 +152,43 @@ struct PullRequestAutopilotTests {
         #expect(await calls.values == prs.map(\.fingerprint))
     }
 
+    @Test("Un omitido que sigue listo se reintenta tras la espera, que crece con cada omisión")
+    func deferredRetriesWhileStillReady() async {
+        // Caso real: mergear un hermano deja a los demás UNKNOWN unos segundos y
+        // la lectura fresca los omite, pero nunca salen de la cola general.
+        let clock = AutopilotClock()
+        let autopilot = PullRequestAutopilot(runner: clock.runner(), now: { clock.date })
+        let calls = AutopilotCalls()
+        let reads = AutopilotCalls()
+        let prs = candidates([fixture(1)])
+        var ready = false
+        autopilot.enable(prs, viewer: "me", operations: .init(
+            read: { candidate, viewer in
+                await reads.append(candidate.id)
+                let pr = await MainActor.run { ready } ? candidate.pullRequest : fixture(1, checks: .pending)
+                return .init(viewer: viewer, pullRequest: pr, isOpen: true)
+            },
+            write: { await calls.append($0.id) }))
+        await autopilot.waitUntilIdle()
+        #expect(await reads.values.count == 1 && autopilot.queue.isEmpty)
+
+        func refresh(after seconds: TimeInterval) async {
+            clock.date.addTimeInterval(seconds)
+            autopilot.reconcile(prs, viewer: "me")
+            await autopilot.waitUntilIdle()
+        }
+        await refresh(after: PullRequestAutopilot.retryDelay - 1)
+        #expect(await reads.values.count == 1)
+        await refresh(after: 1)
+        #expect(await reads.values.count == 2)
+        // La segunda omisión duplica la espera.
+        await refresh(after: PullRequestAutopilot.retryDelay)
+        #expect(await reads.values.count == 2)
+        ready = true
+        await refresh(after: PullRequestAutopilot.retryDelay)
+        #expect(await calls.values == ["batch-1"])
+    }
+
     @Test("Un rate limit agota tres intentos con espera compartida y detiene antes del siguiente PR")
     func rateLimitStops() async throws {
         let clock = AutopilotClock()
