@@ -75,6 +75,8 @@ final class ReviewQueueStore {
     private let notificationTracker = PullRequestNotificationTracker()
     private let ignoreList = IgnoreList()
     private var inFlight: Task<Void, Never>?
+    /// Incluye la medición de ramas que continúa después de publicar las colas.
+    var isRefreshing: Bool { inFlight != nil }
     /// Una acción durante una consulta necesita otra lectura al terminar.
     private var hasPendingRefresh = false
     /// Invalida resultados de una consulta que empezó con otra configuración.

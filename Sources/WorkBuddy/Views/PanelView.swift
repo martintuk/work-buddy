@@ -100,7 +100,6 @@ struct PanelView: View {
             Text("Work Buddy")
                 .font(.system(size: 13, weight: .semibold))
             Spacer()
-            RefreshButton(isRefreshing: isRefreshing, label: L10n.text(.panelRefresh)) { refresh() }
 
             Button {
                 showingActivity.toggle()
@@ -138,13 +137,7 @@ struct PanelView: View {
     }
 
     private var isRefreshing: Bool {
-        if case .loading = store.state { return true }
-        return jiraStore.isChecking
-    }
-
-    private func refresh() {
-        store.refresh(force: true)
-        jiraStore.refresh()
+        store.isRefreshing || jiraStore.isChecking
     }
 
     @ViewBuilder
@@ -162,7 +155,15 @@ struct PanelView: View {
 
     private var footer: some View {
         HStack {
-            if selectedCategory == .github, let lastUpdated = store.lastUpdated {
+            if isRefreshing {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .frame(width: 12, height: 12)
+                    Text(L10n.text(.commonRefreshing))
+                }
+                .accessibilityElement(children: .combine)
+            } else if selectedCategory == .github, let lastUpdated = store.lastUpdated {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Text(LastUpdatedText.format(lastUpdated, relativeTo: context.date))
                 }
