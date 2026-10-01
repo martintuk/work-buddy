@@ -39,26 +39,10 @@ struct ActivityLogTests {
         #expect(try #require(log.entries.last).target == "org/api #1")
     }
 
-    @Test("Limpiar conserva pendientes y permite que terminen después")
-    func clearWhileRunning() {
-        let log = ActivityLog()
-        let running = log.record(.merge, on: fixture(1), status: .running)
-        log.record(.approve, on: fixture(2))
-        log.record(.approve, on: fixture(3), status: .skipped(LocalizedMessage("Stopped")))
-        log.record(.approve, on: fixture(4), status: .failed(LocalizedMessage("Failed")))
-        log.clearCompleted()
-        #expect(log.entries.map(\.id) == [running] && log.unreadIDs == [running])
-        log.update(running, status: .succeeded)
-        #expect(log.runningCount == 0 && log.entries.count == 1)
-        log.clearCompleted()
-        #expect(log.entries.isEmpty && log.unreadIDs.isEmpty)
-    }
-
-    @Test("Un error tardío vuelve al historial aunque se haya limpiado la apertura exitosa")
+    @Test("Un error tardío actualiza la apertura exitosa sin duplicarla")
     func lateFailure() {
         let log = ActivityLog()
         let id = log.record(title: LocalizedMessage("Agent"), target: "org/api #1", symbol: "terminal")
-        log.clearCompleted()
         log.record(id: id, title: LocalizedMessage("Agent"), target: "org/api #1", symbol: "terminal",
                    status: .failed(LocalizedMessage("Launch failed")))
         #expect(log.entries.count == 1 && log.entries.first?.id == id)

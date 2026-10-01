@@ -20,7 +20,6 @@ extension L10n {
         case activityNotRecorded
         case activityTitle
         case activityClose
-        case activityClear
         case activityEmpty
         case activityManual
         case activityBatch

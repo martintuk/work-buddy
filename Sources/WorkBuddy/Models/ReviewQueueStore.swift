@@ -441,7 +441,6 @@ final class ReviewQueueStore {
             case .failure(let error): status = .failed(LocalizedMessage(error.localizedDescription))
             }
             // Una terminal personalizada puede fallar después de arrancar.
-            // Si se limpió el historial mientras tanto, volvemos a mostrar el error.
             activity.record(id: id, title: LocalizedMessage(title), target: "\(pr.repository) #\(pr.number)",
                 detail: pr.title, url: pr.url, symbol: "terminal", status: status)
         }

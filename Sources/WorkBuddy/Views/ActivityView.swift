@@ -3,7 +3,6 @@ import SwiftUI
 
 struct ActivityView: View {
     let activity: ActivityLog
-    let close: () -> Void
     @State private var selectedID: UUID?
 
     var body: some View {
@@ -16,9 +15,6 @@ struct ActivityView: View {
                     Text(String(activity.runningCount)).font(.system(size: 10)).monospacedDigit()
                 }
                 Spacer(minLength: 0)
-                iconButton("trash", title: L10n.text(.activityClear)) { activity.clearCompleted() }
-                    .disabled(!activity.entries.contains { $0.status.isClearable })
-                iconButton("xmark", title: L10n.text(.activityClose), action: close)
             }
             .padding(.horizontal, 14).padding(.vertical, 9)
             Divider()

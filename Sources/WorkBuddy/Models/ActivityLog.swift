@@ -26,7 +26,6 @@ final class ActivityLog {
         }
         var isError: Bool { switch self { case .failed, .uncertain: true; default: false } }
         var needsVerification: Bool { if case .uncertain = self { true } else { false } }
-        var isClearable: Bool { isComplete && !needsVerification }
         var text: String {
             switch self {
             case .pending: L10n.text(.batchPending)
@@ -142,9 +141,4 @@ final class ActivityLog {
         if isVisible { unreadIDs = [] }
     }
 
-    /// Limpiar no oculta operaciones en curso ni interrumpe su ejecución.
-    func clearCompleted() {
-        entries.removeAll { $0.status.isClearable }
-        unreadIDs.formIntersection(Set(entries.map(\.id)))
-    }
 }

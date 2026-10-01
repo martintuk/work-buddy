@@ -32,13 +32,12 @@ struct PullRequestRecoveryTests {
         }
     }
 
-    @Test("Limpiar actividad no permite que un lote repita una escritura incierta")
+    @Test("Una escritura incierta impide que un lote repita la acción")
     func uncertainActionsStayBlocked() {
         let pr = fixture(1)
         let store = ReviewQueueStore.preview(reviews: [pr], merges: [])
         let id = store.activity.record(.approve, on: pr, status: .uncertain(LocalizedMessage("Connection lost")), viewer: "me")
         #expect(store.batchCandidates.isEmpty && store.availableWriteActions(for: pr).isEmpty)
-        store.activity.clearCompleted()
         #expect(store.activity.entries.map(\.id) == [id])
         #expect(store.batchCandidates.isEmpty)
         #expect(store.activity.needsVerification(for: pr, viewer: "someone-else") == false)
@@ -57,8 +56,6 @@ struct PullRequestRecoveryTests {
         #expect(store.actionToVerify(for: fixture(2)) == nil)
         // Una actividad posterior sobre el mismo PR no esconde el resultado pendiente.
         store.activity.record(.open, on: pr)
-        #expect(store.actionToVerify(for: pr)?.id == id)
-        store.activity.clearCompleted()
         #expect(store.actionToVerify(for: pr)?.id == id)
     }
 
