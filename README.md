@@ -206,6 +206,11 @@ La computadora de uso también necesita las Command Line Tools y sus propias
 sesiones de `gh` y `acli`. El watch no pushea commits locales y pausa si encuentra
 conflictos o si el checkout está en otro branch.
 
+También compara el commit del checkout con el de la app instalada: si hiciste
+un pull manual, falta instalarla o una compilación anterior falló, la actualiza
+sin necesitar otro commit. Los errores se reintentan cada 60 segundos y quedan
+en `build/watch-main.log`. Espera a que el checkout esté limpio antes de compilar.
+
 ## Tests
 
 ```bash

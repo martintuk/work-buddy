@@ -12,6 +12,13 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INTERVAL="${1:-5}"
+APP="${WORK_BUDDY_APP_DIR:-$HOME/Applications}/Work Buddy.app"
+UPDATE_LOG="$ROOT/build/watch-main.log"
+
+if [[ ! "$INTERVAL" =~ ^[1-9][0-9]*$ ]]; then
+    echo "El intervalo debe ser un número entero de segundos mayor a cero." >&2
+    exit 1
+fi
 
 cd "$ROOT"
 
@@ -33,15 +40,40 @@ in_progress() {
     return 1
 }
 
-restart() {
+report_commits() {
     last_status=""
     log "↓ Entraron $behind commit(s):"
     git log --format='      %h %s (%an)' "$before..origin/main"
-    log "↻ Reiniciando la app…"
-    if ./Scripts/run.sh >/dev/null 2>&1; then
+}
+
+# Comparar con el bundle instalado también cubre un pull manual o un reinicio
+# del watch después de que falló la compilación. HEAD ya puede estar al día
+# aunque la app todavía sea una versión anterior.
+failed_install=""
+retry_after=0
+update_app() {
+    local revision installed now
+    [[ "$(git branch --show-current)" == main ]] || return 0
+    in_progress && return 0
+    # No instalar un estado parcial mientras se está editando en este checkout.
+    [[ -z "$(git status --porcelain)" ]] || return 0
+    revision="$(git rev-parse --short=12 HEAD)"
+    installed="$(/usr/libexec/PlistBuddy -c 'Print :WorkBuddyRevision' "$APP/Contents/Info.plist" 2>/dev/null || true)"
+    [[ "$revision" != "$installed" ]] || return 0
+    now="$(date +%s)"
+    if [[ "$revision" == "$failed_install" && "$now" -lt "$retry_after" ]]; then
+        return 0
+    fi
+
+    mkdir -p "$ROOT/build" || return 1
+    log "↻ Instalando la app en ${revision}…"
+    if ./Scripts/run.sh >"$UPDATE_LOG" 2>&1; then
+        failed_install=""
         log "✓ App reiniciada en $(git log -1 --format='%h')."
     else
-        log "✗ Falló ./Scripts/run.sh; corrélo a mano para ver el error."
+        failed_install="$revision"
+        retry_after=$(( $(date +%s) + 60 ))
+        log "✗ Falló la actualización; reintento en 60s. Detalle: $UPDATE_LOG"
     fi
 }
 
@@ -80,7 +112,7 @@ while true; do
             before="$(git merge-base HEAD origin/main)"
             if git rebase -q origin/main >/dev/null 2>&1; then
                 log "↺ Rebaseé $ahead commit(s) local(es) sobre origin/main (siguen sin pushear)."
-                restart
+                report_commits
             else
                 files="$(git diff --name-only --diff-filter=U | paste -sd ',' - | sed 's/,/, /g')"
                 in_progress && git rebase --abort >/dev/null 2>&1
@@ -92,8 +124,9 @@ while true; do
         files="$(sed -n 's/^[[:space:]]\{1,\}//p' <<<"$error" | grep -v '^Please\|^Aborting' | paste -sd ',' - | sed 's/,/, /g')"
         status "⏸ origin/main tiene $behind commit(s) nuevo(s); cambios locales impiden avanzar: ${files:-${error%%$'\n'*}}"
     else
-        restart
+        report_commits
     fi
 
+    update_app
     sleep "$INTERVAL"
 done
