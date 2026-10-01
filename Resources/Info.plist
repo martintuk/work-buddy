@@ -22,9 +22,9 @@
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
-	<!-- Solo barra de menú: sin icono en el Dock ni en el conmutador de apps. -->
+	<!-- Visible en el Dock y en el conmutador, además de la barra de menú. -->
 	<key>LSUIElement</key>
-	<true/>
+	<false/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Work Buddy abre sesiones de agentes CLI en la terminal que elijas.</string>
 	<key>NSHighResolutionCapable</key>

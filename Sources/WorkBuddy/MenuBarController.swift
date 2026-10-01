@@ -4,8 +4,7 @@ import UniformTypeIdentifiers
 
 /// Dueño del icono en la barra de menú y del panel que se despliega al clickearlo.
 ///
-/// Click izquierdo abre/cierra el panel. Click derecho abre un menú contextual
-/// (la app no tiene icono en el Dock, así que el menú es la salida de emergencia).
+/// Click izquierdo abre/cierra el panel. Click derecho abre un menú contextual.
 @MainActor
 final class MenuBarController: NSObject, NSPopoverDelegate {
     /// Ventana de gracia tras un cierre automático, para que el click que hizo
@@ -34,6 +33,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         configureStatusItem()
         store.activity.setPanelVisible(false)
         configurePopover()
+        configureApplicationMenu()
 
         store.onChange = { [weak self] in self?.updateBadge() }
         Task { await store.notifier.refreshAuthorization() }
@@ -73,7 +73,10 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             rootView: PanelView(
                 store: store,
                 jiraStore: jiraStore,
-                onLanguageChange: { [weak self] in self?.updateBadge() },
+                onLanguageChange: { [weak self] in
+                    self?.updateBadge()
+                    self?.configureApplicationMenu()
+                },
                 onPinChange: { [weak self] isPinned in
                     self?.isPinned = isPinned
                     self?.popover.behavior = isPinned ? .applicationDefined : .transient
@@ -172,7 +175,14 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         }
     }
 
-    private func showPanel() {
+    func showPanel() {
+        // Reabrir desde el Dock trae el panel al frente sin cerrarlo ni reiniciar
+        // sus mediciones cuando ya estaba abierto (por ejemplo, con el pin activo).
+        guard !hasModalPanel else { return }
+        if popover.isShown {
+            popover.contentViewController?.view.window?.makeKeyAndOrderFront(nil)
+            return
+        }
         guard let button = statusItem.button else { return }
 
         panelDiagnostics.begin(hasSnapshot: store.lastUpdated != nil)
@@ -188,8 +198,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
 
-        // Al ser una app .accessory el panel no recibe foco de teclado por su
-        // cuenta; sin esto los campos de texto que agreguemos no van a andar.
+        // El popover necesita foco de teclado explícito para sus campos de texto.
         popover.contentViewController?.view.window?.makeKey()
 
         observeFocusLoss()
@@ -247,17 +256,29 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
         closePanel()
 
+        applicationMenu().popUp(
+            positioning: nil,
+            at: NSPoint(x: 0, y: button.bounds.height + 4),
+            in: button
+        )
+    }
+
+    private func configureApplicationMenu() {
         let menu = NSMenu()
+        let item = NSMenuItem()
+        item.submenu = applicationMenu()
+        menu.addItem(item)
+        NSApp.mainMenu = menu
+    }
+
+    private func applicationMenu() -> NSMenu {
+        let menu = NSMenu(title: "work-buddy")
         menu.addItem(menuItem(title: L10n.text(.menuAbout), action: #selector(showAbout)))
         menu.addItem(menuItem(title: L10n.text(.menuExportDiagnostics), action: #selector(exportDiagnostics)))
         menu.addItem(.separator())
         menu.addItem(menuItem(title: L10n.text(.menuQuit), action: #selector(quit), keyEquivalent: "q"))
 
-        menu.popUp(
-            positioning: nil,
-            at: NSPoint(x: 0, y: button.bounds.height + 4),
-            in: button
-        )
+        return menu
     }
 
     private func menuItem(title: String, action: Selector, keyEquivalent: String = "") -> NSMenuItem {

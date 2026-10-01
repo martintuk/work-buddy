@@ -174,8 +174,9 @@ los permisos siguen a cargo de la sesión activa del CLI `gh`.
 
 La app queda instalada en `~/Applications/Work Buddy.app`, con su propio icono.
 Podés abrirla desde Finder y agregarla a los ítems de inicio de macOS. Corre como
-proceso `WorkBuddy`, independiente de la terminal, y sigue fuera del Dock y de
-⌘Tab. El icono de órbita aparece en la barra de menú, a la derecha.
+proceso `WorkBuddy`, independiente de la terminal, y aparece en el Dock y en
+⌘Tab. Clickear su icono en el Dock abre el panel. El icono de órbita también
+aparece en la barra de menú, a la derecha.
 
 Cada ejecución reemplaza esa misma copia después de compilar y verificar su
 firma. Si la compilación falla, la app abierta sigue funcionando. Para instalar
@@ -185,8 +186,7 @@ en otra carpeta, usá `WORK_BUDDY_APP_DIR` tanto al correr como al hacer watch.
 - **Click derecho** → menú contextual (Acerca de / Salir)
 - El panel se cierra solo al perder el foco (se oculta, no sale)
 
-Como la app no tiene icono en el Dock, para cerrarla usá el botón "Salir" del panel,
-el menú contextual, o `pkill -x WorkBuddy`.
+Para cerrarla, usá ⌘Q, el botón "Salir" del panel, el menú de la app o el del Dock.
 
 ### Usar en otra computadora y actualizar desde Git
 
@@ -354,7 +354,7 @@ si un PR sale y vuelve a entrar, vuelve a avisar.
 
 ```
 Sources/WorkBuddy/
-├── main.swift               Punto de entrada. NSApplication en modo .accessory.
+├── main.swift               Punto de entrada. NSApplication en modo .regular.
 ├── AppDelegate.swift        Ciclo de vida. Instancia el MenuBarController.
 ├── MenuBarController.swift  NSStatusItem + NSPopover, clicks, badge, foco.
 ├── GitHub/

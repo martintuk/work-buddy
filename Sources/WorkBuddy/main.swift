@@ -19,7 +19,6 @@ let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
 
-// .accessory = sin icono en el Dock ni en el conmutador de apps. Duplica el
-// LSUIElement del Info.plist para que también valga al correr el binario pelado.
-app.setActivationPolicy(.accessory)
+// Icono propio en el Dock y en el conmutador de apps, también al correr el binario.
+app.setActivationPolicy(.regular)
 app.run()
