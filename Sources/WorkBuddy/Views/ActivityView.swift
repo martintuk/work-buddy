@@ -3,7 +3,6 @@ import SwiftUI
 
 struct ActivityView: View {
     let activity: ActivityLog
-    @Binding var isExpanded: Bool
     let close: () -> Void
     @State private var selectedID: UUID?
 
@@ -19,10 +18,6 @@ struct ActivityView: View {
                 Spacer(minLength: 0)
                 iconButton("trash", title: L10n.text(.activityClear)) { activity.clearCompleted() }
                     .disabled(!activity.entries.contains { $0.status.isClearable })
-                iconButton(isExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
-                           title: L10n.text(isExpanded ? .activityCollapse : .activityExpand)) {
-                    isExpanded.toggle()
-                }
                 iconButton("xmark", title: L10n.text(.activityClose), action: close)
             }
             .padding(.horizontal, 14).padding(.vertical, 9)

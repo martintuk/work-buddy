@@ -6,7 +6,7 @@ import Testing
 @Suite("Presentación de actividad")
 @MainActor
 struct ActivityViewTests {
-    @Test("Render compacto y ampliado con errores, omisiones y operaciones en curso")
+    @Test("Render de actividad con errores, omisiones y operaciones en curso")
     func renderActivity() throws {
         guard let directory = ProcessInfo.processInfo.environment["ACTIVITY_SNAPSHOTS"] else { return }
         try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
@@ -21,18 +21,15 @@ struct ActivityViewTests {
         log.record(.dependabotRebase, on: fixture(5), status: .running)
         log.record(.merge, on: fixture(6), status: .uncertain(LocalizedMessage("Connection lost")), viewer: "me")
         for scheme in [ColorScheme.light, .dark] {
-            for expanded in [false, true] {
-                let height: CGFloat = expanded ? 480 : 220
-                let content = ActivityView(activity: log, isExpanded: .constant(expanded), close: {})
-                    .frame(width: 420, height: height).environment(\.colorScheme, scheme)
-                try render(content, size: NSSize(width: 420, height: height), scheme: scheme,
-                           path: "\(directory)/activity-\(expanded ? "expanded" : "compact")-\(scheme).png")
-            }
+            let content = ActivityView(activity: log, close: {})
+                .frame(width: 420, height: 480).environment(\.colorScheme, scheme)
+            try render(content, size: NSSize(width: 420, height: 480), scheme: scheme,
+                       path: "\(directory)/activity-\(scheme).png")
             let store = ReviewQueueStore.preview(reviews: [], merges: [])
             store.autopilot.enable([], viewer: "me", operations: .init(
                 read: { _, _ in fatalError("Sin candidatos") }, write: { _ in fatalError("Sin escrituras") }))
             try render(VStack(spacing: 0) {
-                ActivityView(activity: log, isExpanded: .constant(true), close: {})
+                ActivityView(activity: log, close: {})
                 PullRequestExecutionControls(store: store, compact: true)
             }.frame(width: 420, height: 480), size: NSSize(width: 420, height: 480), scheme: scheme,
                 path: "\(directory)/activity-with-autopilot-\(scheme).png")

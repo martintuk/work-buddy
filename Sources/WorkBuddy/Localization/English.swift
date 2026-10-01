@@ -20,8 +20,6 @@ extension L10n {
         case .activityNotRecorded: "GitHub does not show the action. You can retry it."
         case .activityTitle: "Activity"
         case .activityClose: "Close activity"
-        case .activityExpand: "Expand activity"
-        case .activityCollapse: "Collapse activity"
         case .activityClear: "Clear completed actions"
         case .activityEmpty: "No activity"
         case .activityManual: "Manual"

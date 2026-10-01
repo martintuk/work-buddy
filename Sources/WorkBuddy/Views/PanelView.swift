@@ -15,7 +15,6 @@ struct PanelView: View {
     @State private var showingConfiguration = false
     @State private var showingRepositories = false
     @State private var showingActivity = false
-    @State private var activityExpanded = false
     @State private var isPinned = false
 
     private enum Category: String, CaseIterable, Identifiable {
@@ -39,14 +38,8 @@ struct PanelView: View {
             header
 
             if showingActivity {
-                ActivityView(activity: store.activity, isExpanded: $activityExpanded,
-                             close: { showingActivity = false })
-                    .frame(maxHeight: activityExpanded ? .infinity : 220)
-                if !activityExpanded { Divider() }
-            }
-
-            if showingActivity && activityExpanded {
-                // El historial ocupa el mismo panel, sin otra ventana flotante.
+                ActivityView(activity: store.activity, close: { showingActivity = false })
+                    .frame(maxHeight: .infinity)
             } else if showingConfiguration {
                 navigationHeader(title: L10n.text(.settingsTitle)) { showingConfiguration = false }
                 Divider()
@@ -81,7 +74,7 @@ struct PanelView: View {
 
     private var showingGitHub: Bool {
         selectedCategory == .github && !showingConfiguration && !showingRepositories
-            && !(showingActivity && activityExpanded)
+            && !showingActivity
     }
 
     private func navigationHeader(title: String, back: @escaping () -> Void) -> some View {
