@@ -30,6 +30,7 @@ mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
 
 cp "$BIN" "$BUNDLE/Contents/MacOS/$EXECUTABLE"
 cp "$ROOT/Resources/Info.plist" "$BUNDLE/Contents/Info.plist"
+cp "$ROOT/Resources/AppIcon.icns" "$BUNDLE/Contents/Resources/AppIcon.icns"
 # Permite identificar la versión exacta instalada en otra máquina.
 REVISION="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
 if [[ "$REVISION" != unknown ]] && [[ -n "$(git status --porcelain)" ]]; then

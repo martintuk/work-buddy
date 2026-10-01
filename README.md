@@ -168,11 +168,18 @@ los permisos siguen a cargo de la sesión activa del CLI `gh`.
 ## Correr
 
 ```bash
-./Scripts/run.sh          # compila (debug), mata la instancia previa y lanza
+./Scripts/run.sh          # compila (debug), instala y reinicia
 ./Scripts/run.sh release  # igual pero optimizado
 ```
 
-El icono de órbita aparece en la barra de menú, a la derecha.
+La app queda instalada en `~/Applications/Work Buddy.app`, con su propio icono.
+Podés abrirla desde Finder y agregarla a los ítems de inicio de macOS. Corre como
+proceso `WorkBuddy`, independiente de la terminal, y sigue fuera del Dock y de
+⌘Tab. El icono de órbita aparece en la barra de menú, a la derecha.
+
+Cada ejecución reemplaza esa misma copia después de compilar y verificar su
+firma. Si la compilación falla, la app abierta sigue funcionando. Para instalar
+en otra carpeta, usá `WORK_BUDDY_APP_DIR` tanto al correr como al hacer watch.
 
 - **Click izquierdo** → abre/cierra el panel
 - **Click derecho** → menú contextual (Acerca de / Salir)
@@ -181,11 +188,35 @@ El icono de órbita aparece en la barra de menú, a la derecha.
 Como la app no tiene icono en el Dock, para cerrarla usá el botón "Salir" del panel,
 el menú contextual, o `pkill -x WorkBuddy`.
 
+### Usar en otra computadora y actualizar desde Git
+
+En la computadora donde se usa la app, con el repositorio clonado y las
+dependencias instaladas:
+
+```bash
+./Scripts/run.sh
+./Scripts/watch-main.sh
+```
+
+El watch consulta `origin/main` cada 5 segundos. Cuando pusheás commits desde la
+computadora de desarrollo, actualiza el checkout, compila e instala la nueva
+versión en la misma ubicación. No hace falta copiar el `.app` a mano. El watch
+necesita seguir corriendo para recibir actualizaciones; cerrarlo no cierra la app.
+La computadora de uso también necesita las Command Line Tools y sus propias
+sesiones de `gh` y `acli`. El watch no pushea commits locales y pausa si encuentra
+conflictos o si el checkout está en otro branch.
+
 ## Tests
 
 ```bash
 ./Scripts/test.sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s Tests/Scripts
 ```
+
+Con las Command Line Tools y SDK 27, corré los tests Swift con
+`SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk ./Scripts/test.sh`.
+Los tests de scripts verifican la instalación y la recuperación ante errores
+sin tocar la app instalada.
 
 Usá el script y no `swift test` directo: SwiftPM no le pasa el search path de
 `Testing.framework` ni el rpath de `lib_TestingInterop.dylib` cuando el
@@ -345,6 +376,7 @@ Sources/WorkBuddy/
 └── Debug/                   Volcados y diagnósticos por CLI.
 
 Resources/Info.plist         LSUIElement, bundle id, versión.
+Resources/AppIcon.icns       Icono de la app (generador en Scripts/).
 Scripts/                     build.sh, run.sh, test.sh.
 Tests/WorkBuddyTests/        Clasificación, agrupación, merge, ignorados.
 ```
