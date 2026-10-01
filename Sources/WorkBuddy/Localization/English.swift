@@ -19,6 +19,7 @@ extension L10n {
         case .prVerifyResult: "Verify result on GitHub"
         case .activityNotRecorded: "GitHub does not show the action. You can retry it."
         case .activityTitle: "Activity"
+        case .activityInterrupted: "Interrupted when the app closed"
         case .activityClose: "Close activity"
         case .activityEmpty: "No activity"
         case .activityManual: "Manual"

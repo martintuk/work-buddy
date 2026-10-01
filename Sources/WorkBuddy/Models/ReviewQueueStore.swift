@@ -26,10 +26,12 @@ final class ReviewQueueStore {
     let batch: PullRequestBatch
     let autopilot = PullRequestAutopilot()
 
-    let activity = ActivityLog()
+    let activity: ActivityLog
 
-    init(batch: PullRequestBatch = PullRequestBatch(runner: .shared)) {
+    init(batch: PullRequestBatch = PullRequestBatch(runner: .shared),
+         activity: ActivityLog = ActivityLog(storageURL: ActivityLog.defaultStorageURL)) {
         self.batch = batch
+        self.activity = activity
         batch.onActivity = { [activity, weak batch] in activity.record($0, source: .batch, viewer: batch?.viewer) }
         autopilot.onActivity = { [activity, weak autopilot] in activity.record($0, source: .autopilot, viewer: autopilot?.viewer) }
     }
@@ -774,8 +776,9 @@ final class ReviewQueueStore {
 extension ReviewQueueStore {
     /// Datos en memoria para previews del panel, sin consultas ni escrituras remotas.
     static func preview(reviews: [PullRequest], merges: [PullRequest],
-                        batch: PullRequestBatch = PullRequestBatch(), viewer: String = "me") -> ReviewQueueStore {
-        let store = ReviewQueueStore(batch: batch)
+                        batch: PullRequestBatch = PullRequestBatch(), viewer: String = "me",
+                        activity: ActivityLog = ActivityLog()) -> ReviewQueueStore {
+        let store = ReviewQueueStore(batch: batch, activity: activity)
         store.viewerLogin = viewer
         store.repositoryFilter = RepositoryFilter()
         store.automationFilter = .all

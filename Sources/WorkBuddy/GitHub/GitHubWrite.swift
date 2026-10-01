@@ -5,7 +5,7 @@ import Foundation
 /// No lo elegís vos: sale de `viewerDefaultMergeMethod`, que es el método que
 /// GitHub te daría en la web. En estos repos es siempre `SQUASH`, porque es el
 /// único habilitado, y ahí la web muestra un solo botón.
-enum MergeMethod: String, CaseIterable, Sendable {
+enum MergeMethod: String, Codable, CaseIterable, Sendable {
     case squash
     case merge
     case rebase

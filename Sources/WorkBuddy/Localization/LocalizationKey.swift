@@ -19,6 +19,7 @@ extension L10n {
         case prVerifyResult
         case activityNotRecorded
         case activityTitle
+        case activityInterrupted
         case activityClose
         case activityEmpty
         case activityManual

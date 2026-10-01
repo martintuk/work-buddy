@@ -49,8 +49,11 @@ final class Localization: Sendable {
 }
 
 enum L10n {
+    // Permite guardar ambas traducciones sin cambiar el idioma de la UI.
+    @TaskLocal static var renderLanguage: AppLanguage?
+
     static func text(_ key: Key, _ arguments: String..., language: AppLanguage? = nil) -> String {
-        let selected = language ?? Localization.shared.language
+        let selected = language ?? renderLanguage ?? Localization.shared.language
         let template = selected == .spanish ? spanish(key) : english(key)
         guard !arguments.isEmpty else { return template }
         return String(format: template, locale: Locale(identifier: selected.rawValue), arguments: arguments)

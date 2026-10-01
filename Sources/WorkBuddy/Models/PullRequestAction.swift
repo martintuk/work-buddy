@@ -5,7 +5,7 @@ import Foundation
 /// Algunas son locales (ignorar) y otras van a pegarle a GitHub (aprobar,
 /// comentar, mergear). El panel sólo declara la intención: quién la ejecuta y
 /// cómo es responsabilidad del store, así una acción nueva no toca las vistas.
-enum PullRequestAction: Identifiable, Hashable, Sendable {
+enum PullRequestAction: String, Codable, Identifiable, Hashable, Sendable {
     case open
     case ignore
     case restore

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Estado agregado de los checks de CI del último commit.
-enum CheckState: String, Sendable {
+enum CheckState: String, Codable, Sendable {
     case success = "SUCCESS"
     case failure = "FAILURE"
     case error = "ERROR"
@@ -15,14 +15,14 @@ enum CheckState: String, Sendable {
 }
 
 /// Decisión de review agregada que reporta GitHub.
-enum ReviewDecision: String, Sendable {
+enum ReviewDecision: String, Codable, Sendable {
     case approved = "APPROVED"
     case changesRequested = "CHANGES_REQUESTED"
     case reviewRequired = "REVIEW_REQUIRED"
 }
 
 /// Si la rama se puede fusionar sin conflictos.
-enum MergeableState: String, Sendable {
+enum MergeableState: String, Codable, Sendable {
     case mergeable = "MERGEABLE"
     case conflicting = "CONFLICTING"
     /// GitHub lo calcula de forma diferida: la primera consulta puede devolver
@@ -31,7 +31,7 @@ enum MergeableState: String, Sendable {
 }
 
 /// Veredicto de GitHub sobre si el botón de merge estaría habilitado.
-enum MergeStateStatus: String, Sendable {
+enum MergeStateStatus: String, Codable, Sendable {
     /// Todo en orden.
     case clean = "CLEAN"
     /// Mergeable, pero falla algún check **no requerido**.
@@ -49,7 +49,7 @@ enum MergeStateStatus: String, Sendable {
 }
 
 /// Quién abrió el PR.
-struct Author: Sendable {
+struct Author: Codable, Sendable {
     let login: String
     /// `true` si GitHub lo tipa como `Bot`, o si la configuración lo declara
     /// como cuenta de máquina.
@@ -67,7 +67,7 @@ struct Author: Sendable {
     }
 }
 
-struct PullRequest: Identifiable, Sendable {
+struct PullRequest: Codable, Identifiable, Sendable {
     let id: String
     let number: Int
     let title: String

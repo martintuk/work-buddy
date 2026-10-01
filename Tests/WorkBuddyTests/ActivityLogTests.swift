@@ -99,7 +99,7 @@ struct ActivityLogTests {
     @Test("El store conecta los lotes al historial y registra errores al abrir el agente")
     func storeIntegration() async throws {
         let batch = PullRequestBatch(runner: runner())
-        let store = ReviewQueueStore(batch: batch)
+        let store = ReviewQueueStore(batch: batch, activity: ActivityLog())
         batch.prepare([fixture(1)], viewer: "me")
         let started = batch.start(.approve,
             read: { .init(viewer: $1, pullRequest: $0, isOpen: true) },
