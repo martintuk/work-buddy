@@ -130,10 +130,11 @@ struct JiraSectionView: View {
             select: { selectedWorkItemID = workItem.id },
             open: {
                 guard let url = store.url(for: workItem) else { return }
-                let opened = NSWorkspace.shared.open(url)
-                activity?.record(title: LocalizedMessage(L10n.text(.activityOpen)), target: workItem.key,
-                    detail: workItem.title, url: url, symbol: "arrow.up.forward.square",
-                    status: opened ? .succeeded : .failed(LocalizedMessage(L10n.text(.activityOpenFailed))))
+                if !NSWorkspace.shared.open(url) {
+                    activity?.record(title: LocalizedMessage(L10n.text(.activityOpen)), target: workItem.key,
+                        detail: workItem.title, url: url, symbol: "arrow.up.forward.square",
+                        status: .failed(LocalizedMessage(L10n.text(.activityOpenFailed))))
+                }
             }
         ))
         .help(L10n.text(.jiraOpen, workItem.key))
