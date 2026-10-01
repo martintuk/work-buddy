@@ -180,9 +180,6 @@ struct PullRequestRow: View {
         Button {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(pullRequest.url.absoluteString, forType: .string)
-            repositoryStore.activity.record(title: LocalizedMessage(L10n.text(.commonCopyLink)),
-                target: "\(pullRequest.repository) #\(pullRequest.number)", detail: pullRequest.title,
-                url: pullRequest.url, symbol: "link")
         } label: {
             Label(L10n.text(.commonCopyLink), systemImage: "link")
         }

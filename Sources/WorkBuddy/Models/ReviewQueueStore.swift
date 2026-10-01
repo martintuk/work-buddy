@@ -346,9 +346,7 @@ final class ReviewQueueStore {
         }
         switch action {
         case .open:
-            let opened = NSWorkspace.shared.open(pullRequest.url)
-            activity.record(action, on: pullRequest, status: opened ? .succeeded
-                : .failed(LocalizedMessage(L10n.text(.activityOpenFailed))))
+            NSWorkspace.shared.open(pullRequest.url)
         case .ignore:
             ignoreList.ignore(pullRequest)
             activity.record(action, on: pullRequest)
