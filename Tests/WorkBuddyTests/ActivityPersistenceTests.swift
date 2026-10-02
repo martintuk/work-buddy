@@ -93,14 +93,14 @@ struct ActivityPersistenceTests {
         #expect(ActivityLog(storageURL: url).entries.count { $0.status.needsVerification } == 3)
     }
 
-    @Test("Retiene las últimas 200 actividades, en el orden del historial")
+    @Test("Retiene las últimas 50 actividades, en el orden del historial")
     func defaultRetention() {
         let log = ActivityLog()
-        for number in 0..<240 {
+        for number in 0..<90 {
             log.record(title: LocalizedMessage("Open"), target: String(number), symbol: "link")
         }
-        #expect(log.entries.count == 200 && log.unreadIDs.count == 200)
-        #expect(log.entries.first?.target == "239" && log.entries.last?.target == "40")
+        #expect(log.entries.count == 50 && log.unreadIDs.count == 50)
+        #expect(log.entries.first?.target == "89" && log.entries.last?.target == "40")
     }
 
     @Test("La retención en disco protege operaciones activas e inciertas y poda al resolverlas")

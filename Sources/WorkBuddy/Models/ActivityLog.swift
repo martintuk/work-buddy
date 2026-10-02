@@ -6,7 +6,7 @@ import Observation
 @MainActor
 @Observable
 final class ActivityLog {
-    static let historyLimit = 200
+    static let historyLimit = 50
     static var defaultStorageURL: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("work-buddy/Activity/history-v1.json")
