@@ -41,12 +41,10 @@ struct PanelView: View {
                 ActivityView(activity: store.activity) { showingActivity = false }
                     .frame(maxHeight: .infinity)
             } else if showingConfiguration {
-                navigationHeader(title: L10n.text(.settingsTitle)) { showingConfiguration = false }
-                Divider()
+                SubsectionHeader(title: L10n.text(.settingsTitle)) { showingConfiguration = false }
                 ConfigurationView(store: store)
             } else if showingRepositories {
-                navigationHeader(title: L10n.text(.repositoriesTitle)) { showingRepositories = false }
-                Divider()
+                SubsectionHeader(title: L10n.text(.repositoriesTitle)) { showingRepositories = false }
                 RepositoryFilterView(store: store, parentWindow: repositoryPickerWindow)
             } else {
                 Picker(L10n.text(.panelCategory), selection: $selectedCategory) {
@@ -75,26 +73,6 @@ struct PanelView: View {
     private var showingGitHub: Bool {
         selectedCategory == .github && !showingConfiguration && !showingRepositories
             && !showingActivity
-    }
-
-    private func navigationHeader(title: String, back: @escaping () -> Void) -> some View {
-        HStack {
-            Button(action: back) {
-                Image(systemName: "chevron.left")
-            }
-            .buttonStyle(.borderless)
-            .help(L10n.text(.commonBack))
-            .accessibilityLabel(L10n.text(.commonBack))
-            Spacer()
-        }
-        .overlay {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .accessibilityAddTraits(.isHeader)
-        }
-        .frame(height: 24)
-        .padding(.horizontal, 14)
-        .padding(.bottom, 10)
     }
 
     private var header: some View {

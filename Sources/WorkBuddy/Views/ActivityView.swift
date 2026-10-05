@@ -8,23 +8,14 @@ struct ActivityView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                }
-                .buttonStyle(.borderless)
-                .help(L10n.text(.commonBack))
-                .accessibilityLabel(L10n.text(.commonBack))
-                Text(L10n.text(.activityTitle)).font(.system(size: 12, weight: .semibold))
-                    .accessibilityAddTraits(.isHeader)
+            SubsectionHeader(title: L10n.text(.activityTitle), onBack: onBack) {
                 if activity.runningCount > 0 {
-                    ProgressView().controlSize(.mini)
-                    Text(String(activity.runningCount)).font(.system(size: 10)).monospacedDigit()
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.mini)
+                        Text(String(activity.runningCount)).font(.system(size: 10)).monospacedDigit()
+                    }
                 }
-                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 14).padding(.vertical, 9)
-            Divider()
             if activity.entries.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "clock.arrow.circlepath").font(.system(size: 22))
