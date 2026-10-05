@@ -3,11 +3,18 @@ import SwiftUI
 
 struct ActivityView: View {
     let activity: ActivityLog
+    var onBack: () -> Void
     @State private var selectedID: UUID?
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
+                Button(action: onBack) {
+                    Image(systemName: "chevron.left")
+                }
+                .buttonStyle(.borderless)
+                .help(L10n.text(.commonBack))
+                .accessibilityLabel(L10n.text(.commonBack))
                 Text(L10n.text(.activityTitle)).font(.system(size: 12, weight: .semibold))
                     .accessibilityAddTraits(.isHeader)
                 if activity.runningCount > 0 {

@@ -38,7 +38,7 @@ struct PanelView: View {
             header
 
             if showingActivity {
-                ActivityView(activity: store.activity)
+                ActivityView(activity: store.activity) { showingActivity = false }
                     .frame(maxHeight: .infinity)
             } else if showingConfiguration {
                 navigationHeader(title: L10n.text(.settingsTitle)) { showingConfiguration = false }

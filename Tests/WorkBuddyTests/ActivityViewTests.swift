@@ -21,7 +21,7 @@ struct ActivityViewTests {
         log.record(.dependabotRebase, on: fixture(5), status: .running)
         log.record(.merge, on: fixture(6), status: .uncertain(LocalizedMessage("Connection lost")), viewer: "me")
         for scheme in [ColorScheme.light, .dark] {
-            let content = ActivityView(activity: log)
+            let content = ActivityView(activity: log, onBack: {})
                 .frame(width: 420, height: 480).environment(\.colorScheme, scheme)
             try render(content, size: NSSize(width: 420, height: 480), scheme: scheme,
                        path: "\(directory)/activity-\(scheme).png")
@@ -29,7 +29,7 @@ struct ActivityViewTests {
             store.autopilot.enable([], viewer: "me", operations: .init(
                 read: { _, _ in fatalError("Sin candidatos") }, write: { _ in fatalError("Sin escrituras") }))
             try render(VStack(spacing: 0) {
-                ActivityView(activity: log)
+                ActivityView(activity: log, onBack: {})
                 PullRequestExecutionControls(store: store, compact: true)
             }.frame(width: 420, height: 480), size: NSSize(width: 420, height: 480), scheme: scheme,
                 path: "\(directory)/activity-with-autopilot-\(scheme).png")
