@@ -418,6 +418,11 @@ final class ReviewQueueStore {
     func openProjectWithoutBranch() async {
         guard !projectOpener.isOpening, let warning = projectOpener.warning else { return }
         let request = warning.request
+        if warning.target == .agent {
+            let title = currentPullRequest(id: request.pullRequestID)?.title
+            await projectOpener.openWithoutBranch { await self.launchAgent(request, title: title, folder: $0) }
+            return
+        }
         await projectOpener.openWithoutBranch { try await self.editor.open($0) }
         if let error = projectOpener.error {
             activity.record(title: LocalizedMessage(L10n.text(.editorOpenProject)),
@@ -428,14 +433,26 @@ final class ReviewQueueStore {
     }
 
     func openAgent(_ pr: PullRequest, folder: URL) async {
-        guard !agentCLI.isOpening else { return }
+        guard !agentCLI.isOpening, !projectOpener.isOpening else { return }
+        let request = LocalBranchCheckout.Request(pullRequest: pr, folder: folder)
+        await projectOpener.open(request, target: .agent) {
+            await self.launchAgent(request, title: pr.title, folder: $0)
+        }
+        if let warning = projectOpener.warning {
+            activity.record(title: LocalizedMessage(self.agentCLI.openTitle), target: "\(pr.repository) #\(pr.number)",
+                detail: pr.title, url: pr.url, symbol: "terminal", status: .skipped(LocalizedMessage(warning.text)))
+        }
+    }
+
+    private func launchAgent(_ request: LocalBranchCheckout.Request, title detail: String?, folder: URL) async {
         let title = agentCLI.openTitle
         let id = UUID()
-        await agentCLI.open(folder, id: pr.id) { [activity] result in
+        await agentCLI.open(folder, id: request.pullRequestID) { [activity] result in
             guard case .failure(let error) = result else { return }
             // Una terminal personalizada puede fallar después de arrancar.
-            activity.record(id: id, title: LocalizedMessage(title), target: "\(pr.repository) #\(pr.number)",
-                detail: pr.title, url: pr.url, symbol: "terminal",
+            activity.record(id: id, title: LocalizedMessage(title),
+                target: "\(request.repository) #\(request.url.lastPathComponent)",
+                detail: detail ?? "", url: request.url, symbol: "terminal",
                 status: .failed(LocalizedMessage(error.localizedDescription)))
         }
     }

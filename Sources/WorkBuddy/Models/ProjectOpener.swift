@@ -5,8 +5,12 @@ import Observation
 @MainActor
 @Observable
 final class ProjectOpener {
+    /// El fallback reabre con lo mismo que pidió el usuario: editor o agente.
+    enum Target { case editor, agent }
+
     struct Warning {
         let request: LocalBranchCheckout.Request
+        let target: Target
         let reason: Error
         var text: String { L10n.text(.editorBranchUnavailable, request.branch) }
     }
@@ -24,7 +28,8 @@ final class ProjectOpener {
         self.checkout = checkout
     }
 
-    func open(_ request: LocalBranchCheckout.Request, launch: (URL) async throws -> Void) async {
+    func open(_ request: LocalBranchCheckout.Request, target: Target = .editor,
+              launch: (URL) async throws -> Void) async {
         guard !isOpening else { return }
         dismissNotice()
         openingID = request.pullRequestID
@@ -32,7 +37,7 @@ final class ProjectOpener {
         do {
             try await checkout(request)
         } catch {
-            warning = Warning(request: request, reason: error)
+            warning = Warning(request: request, target: target, reason: error)
             return // Abrir sin el branch siempre requiere el click del usuario.
         }
         await launchProject(request.folder, launch: launch)

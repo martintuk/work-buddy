@@ -242,7 +242,7 @@ struct GitHubSectionView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .help(warning.reason.localizedDescription)
             Spacer(minLength: 0)
-            Button(L10n.text(.editorOpenProject)) {
+            Button(warning.target == .agent ? store.agentCLI.openTitle : L10n.text(.editorOpenProject)) {
                 Task { await store.openProjectWithoutBranch() }
             }
             .controlSize(.small)

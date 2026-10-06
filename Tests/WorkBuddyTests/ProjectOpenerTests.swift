@@ -41,6 +41,17 @@ struct ProjectOpenerTests {
         #expect(await attempts.count == 1)
     }
 
+    @Test("The fallback remembers whether the editor or the agent was requested", arguments: [
+        ProjectOpener.Target.editor, .agent,
+    ])
+    func fallbackTarget(target: ProjectOpener.Target) async {
+        let opener = ProjectOpener(checkout: { _ in
+            throw LocalBranchCheckout.Failure(exitCode: 1, stderr: "Local changes would be overwritten")
+        })
+        await opener.open(request, target: target) { _ in Issue.record("Must not launch") }
+        #expect(opener.warning?.target == target)
+    }
+
     @Test("Dismissing the warning cancels the fallback")
     func dismiss() async {
         let opener = ProjectOpener(checkout: { _ in

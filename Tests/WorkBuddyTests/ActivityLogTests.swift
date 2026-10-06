@@ -109,6 +109,9 @@ struct ActivityLogTests {
         #expect(store.activity.entries.first?.source == .batch)
         await store.openAgent(fixture(1), folder: URL(fileURLWithPath: "/nonexistent-work-buddy-test-folder"))
         #expect(store.activity.entries.count == 2)
+        #expect(store.projectOpener.warning?.target == .agent)
+        await store.openProjectWithoutBranch()
+        #expect(store.activity.entries.count == 3)
         #expect(store.activity.entries.first?.status.isError == true)
         #expect(store.activity.entries.first?.source == .manual)
     }
