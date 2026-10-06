@@ -243,6 +243,12 @@ final class ReviewQueueStore {
         )
     }
 
+    var needingRebase: [PullRequest] {
+        repositoryFilter.prioritizingFavorites(
+            in: filtered(mergeCandidates).excluding(ignoreList.ids).needingRebase
+        )
+    }
+
     var needingReply: [PullRequest] {
         repositoryFilter.prioritizingFavorites(
             in: filtered(replyCandidates).excluding(ignoreList.ids)
@@ -257,12 +263,13 @@ final class ReviewQueueStore {
 
     /// Lo que va en el badge: todo lo que espera una acción tuya.
     ///
-    /// Suma review, merge, CI por corregir y respuestas pendientes. Deduplica por id porque un check
+    /// Suma review, merge, CI por corregir, conflictos y respuestas pendientes. Deduplica por id porque un check
     /// opcional fallido puede aparecer tanto para fixear como para mergear.
     var actionableCount: Int {
         Set(awaitingYourReview.map(\.id))
             .union(readyToMerge.map(\.id))
             .union(needingCIFix.map(\.id))
+            .union(needingRebase.map(\.id))
             .union(needingReply.map(\.id))
             .count
     }
@@ -273,11 +280,13 @@ final class ReviewQueueStore {
         let review = awaitingYourReview.count
         let merge = readyToMerge.count
         let fix = needingCIFix.count
+        let rebase = needingRebase.count
         let reply = needingReply.count
         let parts = [
             review > 0 ? L10n.text(.summaryReview, String(review)) : nil,
             merge > 0 ? L10n.text(.summaryMerge, String(merge)) : nil,
             fix > 0 ? L10n.text(.summaryFix, String(fix)) : nil,
+            rebase > 0 ? L10n.text(.summaryRebase, String(rebase)) : nil,
             reply > 0 ? L10n.text(.summaryReply, String(reply)) : nil
         ].compactMap(\.self)
         return parts.isEmpty ? L10n.text(.commonNothingPending) : parts.joined(separator: " · ")
@@ -781,7 +790,7 @@ final class ReviewQueueStore {
         Diagnostics.record(.published, phase: phase, metrics: [.items: count])
         if !firstContent,
            !reviewSections.isEmpty || !readyToMerge.isEmpty || !needingCIFix.isEmpty
-            || !needingReply.isEmpty || !waitingForReply.isEmpty || !automation.isEmpty || !ignored.isEmpty {
+            || !needingRebase.isEmpty || !needingReply.isEmpty || !waitingForReply.isEmpty || !automation.isEmpty || !ignored.isEmpty {
             firstContent = true
             Diagnostics.record(.firstContent)
         }

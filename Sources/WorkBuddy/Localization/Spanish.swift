@@ -166,6 +166,7 @@ extension L10n {
         case .githubNoReviews: "No hay PRs esperando tu review."
         case .githubMerge: "Para mergear"
         case .githubFix: "Para Fixear"
+        case .githubRebase: "Para rebasear"
         case .githubReply: "Para responder"
         case .githubWaiting: "Esperando respuesta"
         case .githubAutomation: "Automatización"
@@ -284,6 +285,7 @@ extension L10n {
         case .summaryReview: "%@ para revisar"
         case .summaryMerge: "%@ para mergear"
         case .summaryFix: "%@ para fixear"
+        case .summaryRebase: "%@ para rebasear"
         case .summaryReply: "%@ para responder"
 
         // MARK: - Confirm

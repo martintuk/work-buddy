@@ -88,6 +88,16 @@ extension [PullRequest] {
             .sorted { $0.updatedAt > $1.updatedAt }
     }
 
+    /// Autoría personal con conflictos y CI verde: GitHub no puede actualizar la
+    /// rama solo. Con CI roja queda en Para Fixear; los drafts no esperan merge.
+    var needingRebase: [PullRequest] {
+        filter {
+            $0.authoredByMe && !$0.author.isBot && !$0.isDraft
+                && $0.checks == .success && $0.mergeable == .conflicting
+        }
+            .sorted { $0.updatedAt > $1.updatedAt }
+    }
+
     /// Los mismos PRs que muestra Para revisar cuentan en el badge y notifican.
     var awaitingYourReview: [PullRequest] {
         filter { $0.bucket()?.needsYourReview == true }

@@ -527,6 +527,42 @@ struct FixQueueTests {
     }
 }
 
+@Suite("Para rebasear")
+struct RebaseQueueTests {
+    @Test("Un PR propio aprobado, con CI verde y conflictos, necesita rebase")
+    func aprobadoConConflictos() {
+        let pr = makePullRequest(reviewDecision: .approved, checks: .success, authoredByMe: true,
+                                 mergeable: .conflicting, mergeStateStatus: .dirty)
+        #expect([pr].needingRebase.map(\.id) == [pr.id])
+        #expect([pr].readyToMerge.isEmpty)
+        #expect([pr].needingCIFix.isEmpty)
+    }
+
+    @Test("Sólo los conflictos confirmados cuentan",
+          arguments: [MergeableState.mergeable, .conflicting, .unknown])
+    func estadosDeMergeabilidad(mergeable: MergeableState) {
+        let pr = makePullRequest(authoredByMe: true, mergeable: mergeable)
+        #expect([pr].needingRebase.map(\.id) == (mergeable == .conflicting ? [pr.id] : []))
+    }
+
+    @Test("Con CI que no está verde no aparece; la roja queda en Para Fixear",
+          arguments: [CheckState.failure, .error, .pending, .expected, .unknown])
+    func soloConCIVerde(checks: CheckState) {
+        let pr = makePullRequest(checks: checks, authoredByMe: true, mergeable: .conflicting)
+        #expect([pr].needingRebase.isEmpty)
+        #expect([pr].needingCIFix.map(\.id) == (checks.isRed ? [pr.id] : []))
+    }
+
+    @Test("Excluye drafts, otros autores y automatización")
+    func soloAutoriaPersonal() {
+        let mine = makePullRequest(authoredByMe: true, mergeable: .conflicting)
+        let draft = makePullRequest(authoredByMe: true, isDraft: true, mergeable: .conflicting)
+        let other = makePullRequest(requestedFromMe: true, mergeable: .conflicting)
+        let bot = makePullRequest(authorLogin: "dependabot", authorTypename: "Bot", mergeable: .conflicting)
+        #expect([mine, draft, other, bot].needingRebase.map(\.id) == [mine.id])
+    }
+}
+
 // MARK: - Helper
 
 private func makePullRequest(

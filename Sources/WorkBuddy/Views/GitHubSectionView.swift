@@ -23,6 +23,7 @@ struct GitHubSectionView: View {
     private enum QueueSection: Hashable {
         case readyToMerge
         case needingCIFix
+        case needingRebase
         case needingReply
         case waitingForReply
         case review(ReviewBucket)
@@ -47,6 +48,7 @@ struct GitHubSectionView: View {
             switch self {
             case .readyToMerge: "readyToMerge"
             case .needingCIFix: "needingCIFix"
+            case .needingRebase: "needingRebase"
             case .needingReply: "needingReply"
             case .waitingForReply: "waitingForReply"
             case .review(.needsReview): "needsReview"
@@ -60,6 +62,7 @@ struct GitHubSectionView: View {
             switch self {
             case .readyToMerge: "arrow.triangle.merge"
             case .needingCIFix: "wrench.and.screwdriver"
+            case .needingRebase: "arrow.triangle.branch"
             case .needingReply, .waitingForReply: "bubble.left.and.bubble.right"
             case .review(.needsReview): "eye"
             case .review(.approvedAlready): "checkmark.circle"
@@ -72,6 +75,7 @@ struct GitHubSectionView: View {
             switch self {
             case .readyToMerge: .green
             case .needingCIFix: .red
+            case .needingRebase: .purple
             case .needingReply: .orange
             case .waitingForReply: .gray
             case .review(.needsReview): .blue
@@ -346,7 +350,7 @@ struct GitHubSectionView: View {
 
     private var hasVisiblePullRequests: Bool {
         !store.reviewSections.isEmpty || !store.readyToMerge.isEmpty || !store.needingCIFix.isEmpty
-            || !store.needingReply.isEmpty || !store.waitingForReply.isEmpty || !store.automation.isEmpty || !store.ignored.isEmpty
+            || !store.needingRebase.isEmpty || !store.needingReply.isEmpty || !store.waitingForReply.isEmpty || !store.automation.isEmpty || !store.ignored.isEmpty
     }
 
     @ViewBuilder
@@ -403,6 +407,7 @@ struct GitHubSectionView: View {
                 // Primero, porque es lo que se resuelve con un click.
                 queueSection(.readyToMerge, title: L10n.text(.githubMerge), items: merge)
                 queueSection(.needingCIFix, title: L10n.text(.githubFix), items: store.needingCIFix)
+                queueSection(.needingRebase, title: L10n.text(.githubRebase), items: store.needingRebase)
                 queueSection(.needingReply, title: L10n.text(.githubReply), items: store.needingReply)
                 queueSection(.waitingForReply, title: L10n.text(.githubWaiting), items: store.waitingForReply)
                 ForEach(ReviewBucket.allCases, id: \.self) { bucket in

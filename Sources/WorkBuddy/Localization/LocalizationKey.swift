@@ -165,6 +165,7 @@ extension L10n {
         case githubNoReviews
         case githubMerge
         case githubFix
+        case githubRebase
         case githubReply
         case githubWaiting
         case githubAutomation
@@ -283,6 +284,7 @@ extension L10n {
         case summaryReview
         case summaryMerge
         case summaryFix
+        case summaryRebase
         case summaryReply
 
         // MARK: - Confirm
