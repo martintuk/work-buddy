@@ -137,11 +137,13 @@ struct PullRequest: Codable, Identifiable, Sendable {
     /// GitHub forbids approving your own PR; do not offer an action that must fail.
     var canApprove: Bool { !authoredByMe && !approvedByMe }
 
-    /// Require a measured behind count. Other bots can use native rebase;
-    /// only Dependabot is excluded from this action.
+    /// Require confirmed lag: a measured behind count, or GitHub's `BEHIND`
+    /// verdict until the measurement arrives. A measurement, even zero, overrides
+    /// the verdict. Other bots can use native rebase; only Dependabot is excluded.
     func canRebase(behindBy: Int?) -> Bool {
-        guard let behindBy, behindBy > 0 else { return false }
-        return !author.isDependabot
+        guard !author.isDependabot else { return false }
+        guard let behindBy else { return mergeStateStatus == .behind }
+        return behindBy > 0
     }
 
     /// Offer the command only after comparison confirms the branch is behind.

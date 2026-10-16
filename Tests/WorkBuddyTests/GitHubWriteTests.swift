@@ -128,7 +128,7 @@ struct ActionAvailabilityTests {
         #expect(!pending.isAvailable(for: pr, behindBy: nil))
     }
 
-    @Test("Rebase requires measured lag and excludes only Dependabot")
+    @Test("Rebase requires measured lag or unmeasured BEHIND, and excludes only Dependabot")
     func rebaseAvailability() {
         for author in [
             Author(login: "human", typename: "User"),
@@ -139,10 +139,16 @@ struct ActionAvailabilityTests {
             #expect(!pr.canRebase(behindBy: 0))
             #expect(!pr.canRebase(behindBy: nil))
             #expect(!pr.canRebase(behindBy: -1))
+
+            let behind = makePullRequest(author: author, mergeStateStatus: .behind)
+            #expect(behind.canRebase(behindBy: nil))
+            #expect(!behind.canRebase(behindBy: 0))
         }
         for login in ["dependabot", "dependabot[bot]", "Dependabot"] {
             let pr = makePullRequest(author: Author(login: login, typename: "Bot"))
             #expect(!pr.canRebase(behindBy: 3))
+            #expect(!makePullRequest(author: Author(login: login, typename: "Bot"), mergeStateStatus: .behind)
+                .canRebase(behindBy: nil))
         }
     }
 
