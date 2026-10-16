@@ -122,6 +122,22 @@ struct PullRequestRow: View {
                 .accessibilityLabel(approvalHelp)
         }
         behindBadge
+        lineChanges
+    }
+
+    @ViewBuilder
+    private var lineChanges: some View {
+        if let additions = pullRequest.additions, let deletions = pullRequest.deletions {
+            let help = L10n.text(.prLineChanges, String(additions), String(deletions))
+            HStack(spacing: 3) {
+                Text("+\(additions)").foregroundStyle(.green)
+                Text("−\(deletions)").foregroundStyle(.red)
+            }
+            .monospacedDigit()
+            .help(help)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(help)
+        }
     }
 
     // El color refleja el veredicto global, independientemente del autor,

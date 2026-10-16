@@ -104,6 +104,10 @@ struct PullRequest: Codable, Identifiable, Sendable {
     var approvedByMe: Bool
     /// Commit incluido en el snapshot. Las acciones en lote conservan este commit.
     var headRefOID: String? = nil
+    /// Líneas agregadas y quitadas. Opcionales para leer snapshots guardados
+    /// antes de que existieran.
+    var additions: Int? = nil
+    var deletions: Int? = nil
 
     /// Tu parte está resuelta, pero GitHub todavía requiere otra aprobación.
     var awaitingOtherApproval: Bool {

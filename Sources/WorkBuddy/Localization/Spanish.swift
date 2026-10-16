@@ -257,6 +257,7 @@ extension L10n {
         case .prMerged: "Mergeado"
         case .prBehindOne: "%@ commit atrás de %@"
         case .prBehindMany: "%@ commits atrás de %@"
+        case .prLineChanges: "%@ líneas agregadas, %@ quitadas"
 
         // MARK: - Merge
         case .mergeSquash: "Squash y merge"

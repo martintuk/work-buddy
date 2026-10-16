@@ -256,6 +256,7 @@ extension L10n {
         case prMerged
         case prBehindOne
         case prBehindMany
+        case prLineChanges
 
         // MARK: - Merge
         case mergeSquash
