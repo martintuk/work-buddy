@@ -530,6 +530,14 @@ struct RebaseQueueTests {
         #expect([pr].needingCIFix.isEmpty)
     }
 
+    @Test("An approved own PR without conflicts but behind the required base needs a rebase")
+    func approvedBehind() {
+        let pr = makePullRequest(reviewDecision: .approved, checks: .success, authoredByMe: true,
+                                 mergeable: .mergeable, mergeStateStatus: .behind)
+        #expect([pr].needingRebase.map(\.id) == [pr.id])
+        #expect([pr].readyToMerge.isEmpty)
+    }
+
     @Test("Only confirmed conflicts count",
           arguments: [MergeableState.mergeable, .conflicting, .unknown])
     func mergeabilityStates(mergeable: MergeableState) {

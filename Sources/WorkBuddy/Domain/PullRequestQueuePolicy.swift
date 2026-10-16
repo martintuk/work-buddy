@@ -84,12 +84,13 @@ extension [PullRequest] {
             .sorted { $0.updatedAt > $1.updatedAt }
     }
 
-    /// Own PRs with conflicts and successful CI cannot be updated automatically.
-    /// Failed CI belongs in To fix; drafts are not waiting for merge.
+    /// Own PRs with successful CI that cannot merge without updating the branch:
+    /// they have conflicts, or branch protection requires them to be up to date
+    /// with the base (`BEHIND`). Failed CI belongs in To fix; drafts are not waiting for merge.
     var needingRebase: [PullRequest] {
         filter {
-            $0.authoredByMe && !$0.author.isBot && !$0.isDraft
-                && $0.checks == .success && $0.mergeable == .conflicting
+            $0.authoredByMe && !$0.author.isBot && !$0.isDraft && $0.checks == .success
+                && ($0.mergeable == .conflicting || $0.mergeStateStatus == .behind)
         }
             .sorted { $0.updatedAt > $1.updatedAt }
     }
