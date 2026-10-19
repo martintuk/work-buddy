@@ -56,7 +56,7 @@ extension L10n {
         // MARK: - Editor
         case .settingsEditor: "Editor"
         case .editorChoose: "Elegir editor…"
-        case .editorSelectInSettings: "Elegí un IDE en Configuración → GitHub → Editor."
+        case .editorSelectInSettings: "Elegí un IDE en Configuración → Editor."
         case .editorAssociateFolderInRepositories: "Asociá una carpeta a %@ en Repositorios."
         case .editorSelect: "Elegir"
         case .editorOther: "Elegir otra app…"
@@ -79,7 +79,7 @@ extension L10n {
         case .agentTerminalCommandMissing: "Ingresá un comando de apertura de terminal en Configuración."
         case .agentTitle: "Agente AI CLI"
         case .agentChoose: "Elegir agente"
-        case .agentSelectInSettings: "Elegí un agente y su comando en Configuración → GitHub → Agente AI CLI."
+        case .agentSelectInSettings: "Elegí un agente y su comando en Configuración → Agente AI CLI."
         case .agentCustom: "Personalizado…"
         case .agentCommand: "Comando CLI y argumentos"
         case .agentOpen: "Abrir agente AI"

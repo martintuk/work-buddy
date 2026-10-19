@@ -10,7 +10,6 @@ struct GitHubSettingsView: View {
         case teams
     }
 
-    @AppStorage("actions.autoConfirm") private var autoConfirmActions = false
     @State private var selectedOrganizations: Set<String> = []
     @State private var availableOrganizations: [String] = []
     @State private var isLoadingOrganizations = false
@@ -29,30 +28,6 @@ struct GitHubSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                HStack(spacing: 8) {
-                    Text(L10n.text(.settingsAutoConfirmActions))
-                        .font(.system(size: 12, weight: .semibold))
-                    Spacer()
-                    Toggle(L10n.text(.settingsAutoConfirmActions), isOn: $autoConfirmActions)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .help(L10n.text(.settingsAutoConfirmActionsHelp))
-                        .accessibilityLabel(L10n.text(.settingsAutoConfirmActions))
-                }
-                .controlSize(.small)
-
-                NotificationSettingsView(notifier: store.notifier)
-
-                HStack(spacing: 8) {
-                    Text(L10n.text(.settingsEditor))
-                        .font(.system(size: 12, weight: .semibold))
-                    Spacer()
-                    EditorPicker(store: store.editor)
-                }
-                .controlSize(.small)
-
-                AgentCLISettingsView(store: store.agentCLI)
-
                 organizationsSelector
 
                 teamDependabotSelector

@@ -152,7 +152,7 @@ paso solo guarda la carpeta elegida: no clona ni cambia de rama, y no verifica
 que el remoto corresponda al repo; las acciones locales lo validan antes de operar.
 
 Con una carpeta asociada, el menú `⋯` del PR ofrece **Abrir en editor**.
-Si todavía no elegiste uno, indica que lo configures en **Configuración → GitHub → Editor**.
+Si todavía no elegiste uno, indica que lo configures en **Configuración → Editor**.
 La elección se hace únicamente ahí y se guarda como preferencia global; después
 el menú muestra **Abrir en RubyMine**, por ejemplo.
 Detecta los IDEs de JetBrains (incluidas instalaciones de Toolbox), VS Code,

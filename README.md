@@ -13,11 +13,11 @@ de Jira mediante el CLI de Atlassian como función experimental, desactivada por
 
 ## Configuración
 
-El engranaje abre las preferencias generales de idioma y apariencia, con dos
-subsecciones navegables:
+El engranaje abre las preferencias generales de idioma, apariencia, confirmación
+automática de acciones, notificaciones, editor, terminal y agente AI. Las
+integraciones tienen dos subsecciones navegables:
 
-- **GitHub:** organizaciones, equipos de Dependabot, cuentas de automatización,
-  confirmación de acciones, notificaciones, editor y agente CLI.
+- **GitHub:** organizaciones, equipos de Dependabot y cuentas de automatización.
 - **Jira (experimental):** habilitar la integración, copiar el comando de inicio
   de sesión y editar las listas de tickets. Cada lista tiene un **Nombre en el
   panel** y un filtro **Qué tickets mostrar (JQL)**. Por defecto son **Asignados

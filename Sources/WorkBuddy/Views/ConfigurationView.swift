@@ -8,6 +8,7 @@ struct ConfigurationView: View {
 
     private enum Destination { case github, jira }
     @State private var destination: Destination?
+    @AppStorage("actions.autoConfirm") private var autoConfirmActions = false
     @AppStorage("appearance.showEmptySections") private var showEmptySections = true
 
     var body: some View {
@@ -68,6 +69,30 @@ struct ConfigurationView: View {
                         .help(L10n.text(.settingsEmptySectionsHelp))
                 }
                 .controlSize(.small)
+
+                HStack(spacing: 8) {
+                    Text(L10n.text(.settingsAutoConfirmActions))
+                        .font(.system(size: 12, weight: .semibold))
+                    Spacer()
+                    Toggle(L10n.text(.settingsAutoConfirmActions), isOn: $autoConfirmActions)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .help(L10n.text(.settingsAutoConfirmActionsHelp))
+                        .accessibilityLabel(L10n.text(.settingsAutoConfirmActions))
+                }
+                .controlSize(.small)
+
+                NotificationSettingsView(notifier: store.notifier)
+
+                HStack(spacing: 8) {
+                    Text(L10n.text(.settingsEditor))
+                        .font(.system(size: 12, weight: .semibold))
+                    Spacer()
+                    EditorPicker(store: store.editor)
+                }
+                .controlSize(.small)
+
+                AgentCLISettingsView(store: store.agentCLI)
 
                 VStack(spacing: 0) {
                     navigationRow("GitHub", destination: .github)
