@@ -30,35 +30,39 @@ struct ACLIStatusTests {
     }
 }
 
-@Suite("Cola de SHR")
-struct SHRQueueTests {
-    @Test("Busca sólo Stakeholder Review donde la cuenta activa es Stakeholder")
+@Suite("Consultas configurables de Jira")
+struct JiraQueueTests {
+    @Test("JQL configurable se pasa como un único argumento, sin interpolar shell")
     func query() {
-        #expect(SHRQueue.jql.contains("\"Stakeholder\" = currentUser()"))
-        #expect(!SHRQueue.jql.contains("assignee = currentUser()"))
-        #expect(SHRQueue.jql.contains("status = \"Stakeholder Review\""))
-        #expect(SHRQueue.jql.contains("ORDER BY updated DESC"))
-        #expect(SHRQueue.arguments.contains("--paginate"))
-        #expect(SHRQueue.arguments.contains("--json"))
+        let query = #"project = TEAM AND "Custom Field" = currentUser() ORDER BY updated DESC"#
+        let args = JiraQueue.arguments(jql: query, limit: nil)
+        #expect(args[4] == query)
+        #expect(args.contains("--paginate"))
+        #expect(args.contains("--json"))
+        #expect(args.contains("key,summary,issuetype,status"))
+        let recent = JiraQueue.arguments(jql: JiraConfiguration.defaultRecentJQL, limit: 10)
+        #expect(recent.contains("--limit"))
+        #expect(recent.contains("10"))
+        #expect(!recent.contains("--paginate"))
     }
 
     @Test("Los errores de configuración identifican el campo o estado sin ocultar el detalle", arguments: [
-        ("Field 'Stakeholder' does not exist or you do not have permission to view it.", SHRQueue.QueryFailure.Reason.fieldUnavailable),
-        ("Field \"Stakeholder\" is not searchable.", .fieldUnavailable),
-        ("Field 'Stakeholder' does not exist. Query: " + SHRQueue.jql, .fieldUnavailable),
+        ("Field 'Stakeholder' does not exist or you do not have permission to view it.", JiraQueue.QueryFailure.Reason.fieldUnavailable),
+        ("Field \"Reviewers\" is not searchable.", .fieldUnavailable),
+        ("Field 'Stakeholder' does not exist. Query: " + JiraConfiguration.defaultPrimaryJQL, .fieldUnavailable),
         ("The value 'Stakeholder Review' does not exist for the field 'status'.", .statusUnavailable),
         ("Could not resolve host example.atlassian.net", .other),
         ("Forbidden: insufficient permissions", .other),
-        ("Invalid JQL syntax: " + SHRQueue.jql, .other),
+        ("Invalid JQL syntax: " + JiraConfiguration.defaultPrimaryJQL, .other),
     ])
-    func queryErrors(output: String, reason: SHRQueue.QueryFailure.Reason) async throws {
+    func queryErrors(output: String, reason: JiraQueue.QueryFailure.Reason) async throws {
         do {
-            _ = try await SHRQueue.fetch { arguments in
-                #expect(arguments == SHRQueue.arguments)
+            _ = try await JiraQueue.fetch(jql: JiraConfiguration.defaultPrimaryJQL, title: "My queue") { arguments in
+                #expect(arguments == JiraQueue.arguments(jql: JiraConfiguration.defaultPrimaryJQL, limit: nil))
                 throw ACLI.Failure.commandFailed(exitCode: 2, output: output)
             }
             Issue.record("Expected query failure")
-        } catch let error as SHRQueue.QueryFailure {
+        } catch let error as JiraQueue.QueryFailure {
             #expect(error.reason == reason)
             #expect(Diagnostics.Failure(error).category == Diagnostics.Failure(error.underlying).category)
             #expect(Diagnostics.Failure(error).exitCode == 2)
@@ -75,7 +79,7 @@ struct SHRQueueTests {
     func authenticationErrors() async throws {
         for failure in [ACLI.Failure.notInstalled, .notAuthenticated] {
             do {
-                _ = try await SHRQueue.fetch { _ in throw failure }
+                _ = try await JiraQueue.fetch(jql: JiraConfiguration.defaultPrimaryJQL, title: "My queue") { _ in throw failure }
                 Issue.record("Expected authentication failure")
             } catch let error as ACLI.Failure {
                 switch (failure, error) {
@@ -89,10 +93,10 @@ struct SHRQueueTests {
     @Test("Cancelación y respuestas inválidas no se atribuyen al campo Stakeholder")
     func otherErrors() async {
         await #expect(throws: CancellationError.self) {
-            _ = try await SHRQueue.fetch { _ in throw CancellationError() }
+            _ = try await JiraQueue.fetch(jql: JiraConfiguration.defaultPrimaryJQL, title: "My queue") { _ in throw CancellationError() }
         }
         do {
-            _ = try await SHRQueue.fetch { _ in Data("not JSON".utf8) }
+            _ = try await JiraQueue.fetch(jql: JiraConfiguration.defaultPrimaryJQL, title: "My queue") { _ in Data("not JSON".utf8) }
             Issue.record("Expected decoding failure")
         } catch ACLI.Failure.badJSON { }
         catch { Issue.record("Unexpected failure: \(error)") }
@@ -100,11 +104,11 @@ struct SHRQueueTests {
 
     @Test("Una consulta válida mantiene los tickets y una respuesta vacía sigue siendo válida")
     func successfulFetch() async throws {
-        let items = try await SHRQueue.fetch { _ in
+        let items = try await JiraQueue.fetch(jql: JiraConfiguration.defaultPrimaryJQL, title: "My queue") { _ in
             Data(#"[{"key":"LABOS-42","fields":{"summary":"Revisar cambio","issuetype":{"name":"Story"}}}]"#.utf8)
         }
         #expect(items.map(\.key) == ["LABOS-42"])
-        let empty = try await SHRQueue.fetch { _ in Data("[]".utf8) }
+        let empty = try await JiraQueue.fetch(jql: JiraConfiguration.defaultPrimaryJQL, title: "My queue") { _ in Data("[]".utf8) }
         #expect(empty.isEmpty)
     }
 
@@ -116,17 +120,5 @@ struct SHRQueueTests {
         #expect(item.key == "LABOS-42")
         #expect(item.title == "Revisar cambio")
         #expect(item.issueType == "Story")
-    }
-}
-
-@Suite("Creados recientemente")
-struct RecentlyCreatedQueueTests {
-    @Test("Busca los últimos diez tickets creados por la cuenta activa")
-    func query() {
-        #expect(RecentlyCreatedQueue.jql == "creator = currentUser() ORDER BY created DESC")
-        #expect(RecentlyCreatedQueue.limit == 10)
-        #expect(RecentlyCreatedQueue.arguments.contains("--limit"))
-        #expect(RecentlyCreatedQueue.arguments.contains("10"))
-        #expect(RecentlyCreatedQueue.arguments.contains("--json"))
     }
 }

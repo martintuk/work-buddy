@@ -10,7 +10,7 @@ struct JiraSectionView: View {
     @AppStorage("appearance.showEmptySections") private var showEmptySections = true
     @State private var copiedLoginCommand = false
     @State private var selectedWorkItemID: String?
-    @AppStorage("jira.shrExpanded") private var isSHRExpanded = true
+    @AppStorage("jira.primaryExpanded") private var isPrimaryExpanded = true
     @AppStorage("jira.recentlyCreatedExpanded") private var isRecentlyCreatedExpanded = true
 
     var body: some View {
@@ -47,32 +47,32 @@ struct JiraSectionView: View {
     private var queue: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
-                if !showEmptySections && store.shrItems.isEmpty && store.recentlyCreatedItems.isEmpty {
+                if !showEmptySections && store.primaryItems.isEmpty && store.recentlyCreatedItems.isEmpty {
                     ContentUnavailableView {
                         Label(L10n.text(.commonNothingPending), systemImage: "checkmark.circle")
                     }
                 }
 
-                if showEmptySections || !store.shrItems.isEmpty {
+                if showEmptySections || !store.primaryItems.isEmpty {
                     Section {
-                        if isSHRExpanded {
-                            ForEach(store.shrItems) { workItem in
+                        if isPrimaryExpanded {
+                            ForEach(store.primaryItems) { workItem in
                                 workItemRow(workItem)
                                     .padding(.top, QueueLayout.rowSpacing)
                             }
                         }
                     } header: {
                         QueueSectionHeader(
-                            title: L10n.text(.jiraAwaitingSHR),
+                            title: store.configuration.primaryTitle,
                             subtitle: nil,
                             symbol: "person.2",
                             tint: .orange,
-                            count: store.shrItems.count,
-                            isExpanded: isSHRExpanded,
+                            count: store.primaryItems.count,
+                            isExpanded: isPrimaryExpanded,
                             accessibilityItemName: L10n.text(.jiraTickets)
                         ) {
                             withAnimation(.easeInOut(duration: 0.18)) {
-                                isSHRExpanded.toggle()
+                                isPrimaryExpanded.toggle()
                             }
                         }
                     }
@@ -88,7 +88,7 @@ struct JiraSectionView: View {
                         }
                     } header: {
                         QueueSectionHeader(
-                            title: L10n.text(.jiraRecentlyCreated),
+                            title: store.configuration.recentTitle,
                             subtitle: nil,
                             symbol: "clock",
                             tint: .blue,

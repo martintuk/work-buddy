@@ -81,10 +81,11 @@ Sources/WorkBuddy/
 │   ├── MergeQueue.swift     Candidatos a merge (tres búsquedas, una request).
 │   ├── BehindCount.swift    Cuántos commits atrás está cada PR (batches de 20).
 │   └── GitHubWrite.swift    Escrituras: rebase, aprobar y mergear.
-├── Jira/ACLI.swift          Estado de autenticación del CLI de Atlassian.
+├── Jira/                   Autenticación ACLI y ejecución de consultas JQL configurables.
 ├── Domain/PullRequestQueuePolicy.swift Reglas de clasificación y agrupación.
 ├── Models/
-│   ├── AppConfiguration.swift Configuración persistente del entorno.
+│   ├── AppConfiguration.swift Configuración persistente de GitHub.
+│   ├── JiraConfiguration.swift Opt-in experimental y consultas de Jira.
 │   ├── PullRequest.swift    Datos y estado del PR.
 │   ├── ReviewQueueStore.swift Estado del panel, refresh, acciones.
 │   ├── IgnoreList.swift     PRs ignorados, persistidos.

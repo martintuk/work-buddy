@@ -3,6 +3,7 @@ import SwiftUI
 /// Configuración accesible desde el encabezado general.
 struct ConfigurationView: View {
     let store: ReviewQueueStore
+    let jiraStore: JiraStore
 
     private enum Field: Hashable {
         case organization
@@ -82,6 +83,8 @@ struct ConfigurationView: View {
                 .controlSize(.small)
 
                 AgentCLISettingsView(store: store.agentCLI)
+
+                JiraSettingsView(store: jiraStore)
 
                 organizationsSelector
 

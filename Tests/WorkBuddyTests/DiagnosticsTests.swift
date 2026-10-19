@@ -174,7 +174,7 @@ struct DiagnosticsTests {
         }
         let jira = Task {
             await Diagnostics.refresh(.jira, log: log) {
-                await Diagnostics.measure(.jiraSHR) {
+                await Diagnostics.measure(.jiraPrimary) {
                     async let request: Void = Diagnostics.measure(.acli) {
                         Diagnostics.record(.counts, metrics: [.bytes: 222])
                         await gate.suspend()
@@ -200,7 +200,7 @@ struct DiagnosticsTests {
         #expect(pending.text.components(separatedBy: "· in_progress").count - 1 == 2)
         for (service, parentPhase, childPhase, itemCount, byteCount) in [
             (Diagnostics.Service.github, Diagnostics.Phase.review, Diagnostics.Phase.gh, 11, 111),
-            (.jira, .jiraSHR, .acli, 22, 222)
+            (.jira, .jiraPrimary, .acli, 22, 222)
         ] {
             let start = try #require(finished.records.first { $0.metadata?.service == service })
             let records = finished.records.filter { $0.refresh == start.refresh }
@@ -231,7 +231,7 @@ struct DiagnosticsTests {
             GH.Failure.missingThreads(sentinel),
             ACLI.Failure.commandFailed(exitCode: 17, output: "HTTP 403 \(sentinel)"),
             ACLI.Failure.badJSON(sentinel),
-            SHRQueue.QueryFailure(exitCode: 17, output: "HTTP 403 \(sentinel)"),
+            JiraQueue.QueryFailure(title: "PRIVATE-SENTINEL-token-repository-user", exitCode: 17, output: "HTTP 403 \(sentinel)"),
             NSError(domain: sentinel, code: 88, userInfo: [NSLocalizedDescriptionKey: sentinel])
         ]
 

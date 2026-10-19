@@ -107,14 +107,28 @@ no estar listo puede volver cuando la cola general lo retire y vuelva a admitirl
 
 Refresca cada 5 minutos y notifica lo nuevo que te bloquea.
 
-La sección **Jira** reutiliza la sesión del CLI oficial de Atlassian. Si no hay
-una sesión activa, muestra `acli jira auth login` para copiar y ejecutar en
-Terminal; work-buddy no solicita ni almacena credenciales. **Esperan mi SHR**
-muestra los tickets cuyo campo `Stakeholder` contiene la cuenta activa y cuyo
-estado es `Stakeholder Review`. Si Jira rechaza la consulta porque el campo o el
-estado no están disponibles, el error indica qué revisar y conserva el detalle
-del CLI. **Creados recientemente** muestra los últimos
-10 tickets creados por la cuenta activa.
+### Jira experimental
+
+Se habilita desde **Configuración → Jira (experimental)** y empieza apagado,
+incluso si ya usabas una versión anterior. Apagado no muestra pestañas de
+categorías: el panel abre GitHub directamente y no inicia consultas a Jira.
+Al apagarlo se descarta la carga pendiente y se limpian los tickets visibles;
+las consultas guardadas se conservan para la próxima vez.
+
+La configuración permite editar el nombre y JQL de dos colas. Por defecto:
+
+- **Asignados a mí:** `assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC`.
+- **Creados recientemente:** `creator = currentUser() ORDER BY created DESC`, con un máximo de 10 tickets.
+
+**Guardar consultas** aplica los cambios y recarga. El botón de restablecer
+recupera los valores predeterminados en los campos; hay que guardarlos para
+aplicarlos. El orden de cada cola lo define su JQL. Los errores indican qué cola
+falló, qué configuración revisar y conservan el detalle del CLI.
+
+La cuenta y el sitio son los de la sesión activa de `acli`. Desde Configuración
+podés copiar `acli jira auth login` para conectar o cambiar de sitio en Terminal
+y después volver a verificar. Work Buddy no solicita ni almacena credenciales.
+No requiere campos personalizados ni estados propios de un equipo.
 
 Dentro de la categoría **GitHub**, el botón **Repositorios** abre una lista con búsqueda
 y scroll que ocupa todo el panel. Se obtiene de los repositorios distintos de

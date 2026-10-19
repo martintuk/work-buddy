@@ -30,6 +30,9 @@ struct PanelView: View {
         // La misma base opaca que los encabezados fijos, también en márgenes y pie.
         .background(Color(nsColor: .windowBackgroundColor))
         .environment(\.locale, Locale(identifier: Localization.shared.language.rawValue))
+        .onChange(of: jiraStore.isEnabled) { _, enabled in
+            if !enabled { selectedCategory = .github }
+        }
         .onChange(of: Localization.shared.language) { _, _ in onLanguageChange() }
     }
 
@@ -42,22 +45,24 @@ struct PanelView: View {
                     .frame(maxHeight: .infinity)
             } else if showingConfiguration {
                 SubsectionHeader(title: L10n.text(.settingsTitle)) { showingConfiguration = false }
-                ConfigurationView(store: store)
+                ConfigurationView(store: store, jiraStore: jiraStore)
             } else if showingRepositories {
                 SubsectionHeader(title: L10n.text(.repositoriesTitle)) { showingRepositories = false }
                 RepositoryFilterView(store: store, parentWindow: repositoryPickerWindow)
             } else {
-                Picker(L10n.text(.panelCategory), selection: $selectedCategory) {
-                    ForEach(Category.allCases) { category in
-                        Text(category.rawValue).tag(category)
+                if jiraStore.isEnabled {
+                    Picker(L10n.text(.panelCategory), selection: $selectedCategory) {
+                        ForEach(Category.allCases) { category in
+                            Text(category.rawValue).tag(category)
+                        }
                     }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .padding(.horizontal, 14)
-                .padding(.bottom, 10)
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 10)
 
-                Divider()
+                    Divider()
+                }
                 categoryContent
             }
 
@@ -70,8 +75,10 @@ struct PanelView: View {
         .frame(width: Self.preferredSize.width, height: Self.preferredSize.height)
     }
 
+    private var effectiveCategory: Category { jiraStore.isEnabled ? selectedCategory : .github }
+
     private var showingGitHub: Bool {
-        selectedCategory == .github && !showingConfiguration && !showingRepositories
+        effectiveCategory == .github && !showingConfiguration && !showingRepositories
             && !showingActivity
     }
 
@@ -117,12 +124,12 @@ struct PanelView: View {
     }
 
     private var isRefreshing: Bool {
-        store.isRefreshing || jiraStore.isChecking
+        store.isRefreshing || (jiraStore.isEnabled && jiraStore.isChecking)
     }
 
     @ViewBuilder
     private var categoryContent: some View {
-        switch selectedCategory {
+        switch effectiveCategory {
         case .github:
             GitHubSectionView(store: store, showsExecutionControls: false) {
                 showingActivity = false
@@ -143,11 +150,11 @@ struct PanelView: View {
                     Text(L10n.text(.commonRefreshing))
                 }
                 .accessibilityElement(children: .combine)
-            } else if selectedCategory == .github, let lastUpdated = store.lastUpdated {
+            } else if effectiveCategory == .github, let lastUpdated = store.lastUpdated {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Text(LastUpdatedText.format(lastUpdated, relativeTo: context.date))
                 }
-            } else if selectedCategory == .jira, let lastUpdated = jiraStore.lastUpdated {
+            } else if effectiveCategory == .jira, let lastUpdated = jiraStore.lastUpdated {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Text(LastUpdatedText.format(lastUpdated, relativeTo: context.date))
                 }

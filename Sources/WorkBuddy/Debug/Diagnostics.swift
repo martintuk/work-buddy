@@ -6,7 +6,8 @@ enum Diagnostics {
     enum Phase: String, Codable, Sendable {
         case preflight, viewer, review, merge, own, conversationCandidates, replies
         case dependabot, teamDependabot, ownership, teamSearch, behind, notifications
-        case gh, jiraAuth, jiraSHR, jiraRecent, acli
+        case gh, jiraAuth, jiraRecent, acli
+        case jiraPrimary = "jiraSHR" // Conserva la lectura de diagnósticos anteriores.
         case panelOpen, panelRefresh, panelLayout, panelShow, panelResponsiveness
     }
     enum Kind: String, Codable, Sendable {
@@ -26,7 +27,7 @@ enum Diagnostics {
         var exitCode: Int32?
 
         init(_ error: Error) {
-            if let query = error as? SHRQueue.QueryFailure {
+            if let query = error as? JiraQueue.QueryFailure {
                 self = Failure(query.underlying)
                 return
             }

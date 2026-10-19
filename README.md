@@ -2,14 +2,14 @@
 
 App para macOS que reúne los PRs que requieren tu atención y permite revisarlos,
 aprobarlos, mergearlos o abrirlos en tu editor o agente. También integra tickets
-de Jira mediante el CLI de Atlassian.
+de Jira mediante el CLI de Atlassian como función experimental, desactivada por defecto.
 
 ## Requisitos
 
 - macOS 14+
 - Command Line Tools de Xcode (`xcode-select --install`). **No** hace falta Xcode completo.
 - GitHub CLI (`gh`) instalado y autenticado con `gh auth login`.
-- Atlassian CLI (`acli`) autenticado con `acli jira auth login` para Jira.
+- Opcional: Atlassian CLI (`acli`) autenticado con `acli jira auth login` para habilitar Jira.
 
 ## Configuración
 
@@ -22,6 +22,10 @@ El engranaje del panel abre la configuración del entorno:
   seleccionados. Sin selección se conserva el alcance global de `@me`.
 - **Cuentas de automatización:** logins que GitHub reporta como `User`, pero que
   deben tratarse como bots. Los GitHub Apps ya se detectan automáticamente.
+
+- **Jira (experimental):** apagado por defecto. Al habilitarlo aparecen las pestañas
+  GitHub/Jira y los campos para editar los nombres y consultas JQL de sus dos colas.
+  Sin Jira, el panel muestra GitHub directamente y no inicia consultas a Atlassian.
 
 Se guardan identificadores en `UserDefaults`, nunca tokens. La autenticación y
 los permisos siguen a cargo de la sesión activa del CLI `gh`.

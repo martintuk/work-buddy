@@ -140,12 +140,28 @@ extension L10n {
         case menuExportDiagnostics
         case menuQuit
 
+        case settingsJiraExperimental
+        case settingsJiraAccount
+        case settingsJiraAccountHelp
+        case settingsJiraCopyLogin
+        case settingsJiraPrimary
+        case settingsJiraRecent
+        case settingsJiraReset
+        case settingsJiraSave
+        case settingsJiraQueueName
+        case settingsJiraQuery
+        case settingsJiraQueryHelp
+        case errorJiraEmptyQuery
+        case errorJiraFieldUnavailable
+        case errorJiraStatusUnavailable
+        case errorJiraQuery
+
         // MARK: - Jira
         case jiraLoading
         case jiraMissingCLI
         case jiraInstallCLI
         case jiraLoadFailed
-        case jiraAwaitingSHR
+        case jiraAssignedToMe
         case jiraRecentlyCreated
         case jiraTickets
         case jiraConnect
@@ -276,9 +292,6 @@ extension L10n {
         case errorGHCommand
         case errorGHResponse
         case errorACLICommand
-        case errorSHRFieldUnavailable
-        case errorSHRStatusUnavailable
-        case errorSHRQuery
         case errorACLIResponse
         case errorMissingThreads
         case errorMissingComments
