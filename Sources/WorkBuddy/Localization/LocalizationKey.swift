@@ -279,6 +279,9 @@ extension L10n {
         case errorGHCommand
         case errorGHResponse
         case errorACLICommand
+        case errorSHRFieldUnavailable
+        case errorSHRStatusUnavailable
+        case errorSHRQuery
         case errorACLIResponse
         case errorMissingThreads
         case errorMissingComments

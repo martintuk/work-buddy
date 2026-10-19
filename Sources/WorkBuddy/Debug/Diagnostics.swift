@@ -26,6 +26,10 @@ enum Diagnostics {
         var exitCode: Int32?
 
         init(_ error: Error) {
+            if let query = error as? SHRQueue.QueryFailure {
+                self = Failure(query.underlying)
+                return
+            }
             switch error {
             case is CancellationError: category = "cancelled"
             case GH.Failure.notInstalled, ACLI.Failure.notInstalled: category = "not_installed"

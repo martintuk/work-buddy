@@ -231,6 +231,7 @@ struct DiagnosticsTests {
             GH.Failure.missingThreads(sentinel),
             ACLI.Failure.commandFailed(exitCode: 17, output: "HTTP 403 \(sentinel)"),
             ACLI.Failure.badJSON(sentinel),
+            SHRQueue.QueryFailure(exitCode: 17, output: "HTTP 403 \(sentinel)"),
             NSError(domain: sentinel, code: 88, userInfo: [NSLocalizedDescriptionKey: sentinel])
         ]
 
