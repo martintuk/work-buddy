@@ -9,10 +9,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEVELOPER="$(xcode-select -p)"
-FRAMEWORKS="$DEVELOPER/Library/Developer/Frameworks"
-LIBS="$DEVELOPER/Library/Developer/usr/lib"
-PLUGINS="$DEVELOPER/usr/lib/swift/host/plugins/testing"
+source "$ROOT/scripts/lib/toolchain.sh"
+FRAMEWORKS="$DEVELOPER_DIR_PATH/Library/Developer/Frameworks"
+LIBS="$DEVELOPER_DIR_PATH/Library/Developer/usr/lib"
+PLUGINS="$DEVELOPER_DIR_PATH/usr/lib/swift/host/plugins/testing"
 
 cd "$ROOT"
 

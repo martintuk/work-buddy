@@ -9,9 +9,9 @@ Run commands from the repository root.
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s Tests/scripts
 ```
 
-With the Command Line Tools and SDK 27, run Swift tests using
-`SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk ./scripts/test.sh`.
-Script tests verify installation and error recovery without touching the
+With the Command Line Tools, SDK 27 lacks the `SwiftUIMacros` plugin, so the
+build and test scripts fall back to SDK 26 when it is installed. Set `SDKROOT`
+to override. Script tests verify installation and error recovery without touching the
 installed app.
 
 Use the script instead of plain `swift test`: with the Command Line Tools as the
