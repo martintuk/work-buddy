@@ -1,6 +1,6 @@
-# Instrucciones de trabajo
+# Working instructions
 
-- Después de cada cambio, reiniciá la app ejecutando `./Scripts/run.sh`.
-- Después de cada cambio lógico, creá automáticamente un commit individual con un mensaje descriptivo, sin pedir confirmación.
-- Priorizá interfaces compactas. No agregues labels informativos ni subtextos explicativos salvo que el usuario los solicite. Conservá tooltips y etiquetas de accesibilidad para que los controles con iconos se entiendan sin recargar la UI.
-- Corré los tests con `SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk ./Scripts/test.sh`. Con las Command Line Tools, el SDK 27 no trae el plugin `SwiftUIMacros` y `@State` no compila. `build.sh` ya cae al SDK 26 solo; `test.sh` no.
+- After each change, restart the app with `./Scripts/run.sh`.
+- After each logical change, automatically create a separate commit with a descriptive message. Do not ask for confirmation.
+- Prefer compact interfaces. Do not add informational labels or explanatory subtext unless the user requests them. Keep tooltips and accessibility labels so icon controls remain understandable without cluttering the UI.
+- Run tests with `SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk ./Scripts/test.sh`. With the Command Line Tools, SDK 27 lacks the `SwiftUIMacros` plugin and `@State` does not compile. `build.sh` already falls back to SDK 26; `test.sh` does not.

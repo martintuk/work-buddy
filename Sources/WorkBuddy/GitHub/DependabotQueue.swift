@@ -13,7 +13,7 @@ import Foundation
 /// fuente de verdad que se desactualiza cuando cambian los equipos o repos.
 enum DependabotQueue {
     /// Confirmar ausencia de conflictos exige `mergeable`. Con 50 PRs produce
-    /// 502; con 25 funciona (ver docs/supuestos.md).
+    /// 502; con 25 funciona (ver docs/assumptions.md).
     private static let pageSize = 25
 
     /// Conserva la capacidad anterior de 200 PRs al reducir el tamaño de página.
