@@ -145,7 +145,6 @@ extension L10n {
         case settingsJiraCopyLogin
         case settingsJiraReset
         case settingsJiraSave
-        case settingsJiraQueueName
         case settingsJiraQuery
         case settingsJiraQueryHelp
         case errorJiraEmptyQuery

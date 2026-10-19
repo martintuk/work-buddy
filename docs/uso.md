@@ -115,9 +115,9 @@ categorías: el panel abre GitHub directamente y no inicia consultas a Jira.
 Al apagarlo se descarta la carga pendiente y se limpian los tickets visibles;
 las consultas guardadas se conservan para la próxima vez.
 
-Cada lista se identifica por su nombre en el panel. **Nombre en el panel** cambia
-su título; **Qué tickets mostrar (JQL)** define qué tickets incluye y su orden.
-Las listas predeterminadas son:
+Los nombres **Asignados a mí** y **Creados recientemente** son fijos.
+**Qué tickets mostrar (JQL)** permite cambiar los tickets incluidos y su orden.
+Las consultas predeterminadas son:
 
 - **Asignados a mí:** `assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC`.
 - **Creados recientemente:** `creator = currentUser() ORDER BY created DESC`, con un máximo de 10 tickets.

@@ -7,13 +7,11 @@ struct JiraConfiguration: Codable, Equatable, Sendable {
     static let defaultRecentJQL = "creator = currentUser() ORDER BY created DESC"
 
     var isEnabled = false
-    var primaryName = ""
     var primaryJQL = defaultPrimaryJQL
-    var recentName = ""
     var recentJQL = defaultRecentJQL
 
-    var primaryTitle: String { primaryName.isEmpty ? L10n.text(.jiraAssignedToMe) : primaryName }
-    var recentTitle: String { recentName.isEmpty ? L10n.text(.jiraRecentlyCreated) : recentName }
+    var primaryTitle: String { L10n.text(.jiraAssignedToMe) }
+    var recentTitle: String { L10n.text(.jiraRecentlyCreated) }
 
     enum ValidationError: LocalizedError {
         case emptyQuery
@@ -22,8 +20,6 @@ struct JiraConfiguration: Codable, Equatable, Sendable {
 
     func validated() throws -> Self {
         var result = self
-        result.primaryName = primaryName.trimmingCharacters(in: .whitespacesAndNewlines)
-        result.recentName = recentName.trimmingCharacters(in: .whitespacesAndNewlines)
         result.primaryJQL = primaryJQL.trimmingCharacters(in: .whitespacesAndNewlines)
         result.recentJQL = recentJQL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !result.primaryJQL.isEmpty, !result.recentJQL.isEmpty else { throw ValidationError.emptyQuery }

@@ -146,7 +146,6 @@ extension L10n {
         case .settingsJiraCopyLogin: "Copiar comando para iniciar sesión"
         case .settingsJiraReset: "Restablecer valores iniciales"
         case .settingsJiraSave: "Guardar cambios"
-        case .settingsJiraQueueName: "Nombre en el panel"
         case .settingsJiraQuery: "JQL de %@"
         case .settingsJiraQueryHelp: "JQL es el lenguaje de búsqueda de Jira. Este filtro elige los tickets de la lista; ORDER BY define su orden."
         case .errorJiraEmptyQuery: "Las dos consultas JQL deben tener contenido."
@@ -157,10 +156,10 @@ extension L10n {
         case .settingsJiraEnable: "Habilitar Jira (experimental)"
         case .settingsJiraVerifyConnection: "Verificar conexión con Jira"
         case .settingsJiraConnectedSite: "Sitio conectado: %@"
-        case .settingsJiraListsHelp: "Cada lista del panel tiene un nombre y un filtro JQL que define qué tickets muestra."
+        case .settingsJiraListsHelp: "El filtro JQL de cada lista define qué tickets muestra."
         case .settingsJiraListLimit: "%@ · hasta 10 tickets"
         case .settingsJiraQueryLabel: "Qué tickets mostrar (JQL)"
-        case .settingsJiraResetHelp: "Recupera los nombres y filtros iniciales. Guardá los cambios para aplicarlos."
+        case .settingsJiraResetHelp: "Recupera los filtros iniciales. Guardá los cambios para aplicarlos."
 
         // MARK: - Jira
         case .jiraLoading: "Consultando Jira…"

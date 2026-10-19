@@ -60,10 +60,9 @@ struct JiraSettingsView: View {
                 Text(L10n.text(.settingsJiraListsHelp))
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
-                queryFields(title: store.configuration.primaryTitle, name: $draft.primaryName,
-                            query: $draft.primaryJQL, placeholder: .jiraAssignedToMe)
-                queryFields(title: L10n.text(.settingsJiraListLimit, store.configuration.recentTitle),
-                            name: $draft.recentName, query: $draft.recentJQL, placeholder: .jiraRecentlyCreated)
+                queryField(title: store.configuration.primaryTitle, query: $draft.primaryJQL)
+                queryField(title: L10n.text(.settingsJiraListLimit, store.configuration.recentTitle),
+                           query: $draft.recentJQL)
 
                 HStack {
                     Button(L10n.text(.settingsJiraReset)) {
@@ -93,14 +92,9 @@ struct JiraSettingsView: View {
         .onAppear { draft = store.configuration }
     }
 
-    private func queryFields(title: String, name: Binding<String>, query: Binding<String>,
-                             placeholder: L10n.Key) -> some View {
+    private func queryField(title: String, query: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title).font(.system(size: 11, weight: .semibold))
-            Text(L10n.text(.settingsJiraQueueName))
-                .font(.system(size: 10)).foregroundStyle(.secondary)
-            TextField(L10n.text(placeholder), text: name)
-                .accessibilityLabel(L10n.text(.settingsJiraQueueName))
             Text(L10n.text(.settingsJiraQueryLabel))
                 .font(.system(size: 10)).foregroundStyle(.secondary)
             TextField("JQL", text: query, axis: .vertical)

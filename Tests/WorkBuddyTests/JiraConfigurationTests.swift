@@ -14,22 +14,42 @@ struct JiraConfigurationTests {
         #expect(!config.primaryJQL.contains("Stakeholder"))
     }
 
-    @Test("Guarda nombres y consultas del usuario sin depender de un equipo")
+    @Test("Guarda las consultas del usuario sin depender de un equipo")
     func persistence() throws {
         let suite = "jira-persistence-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         var config = JiraConfiguration()
         config.isEnabled = true
-        config.primaryName = "  Revisiones del equipo  "
         config.primaryJQL = #" "Reviewers" = currentUser() AND status = "In Review" "#
-        config.recentName = "Proyecto ABC"
         config.recentJQL = "project = ABC ORDER BY created DESC"
         try config.persist(defaults: defaults)
         let loaded = JiraConfiguration.load(defaults: defaults)
         #expect(loaded == (try config.validated()))
-        #expect(loaded.primaryTitle == "Revisiones del equipo")
         #expect(loaded.recentJQL == config.recentJQL)
+    }
+
+    @Test("Las preferencias anteriores conservan las consultas y descartan los nombres personalizados")
+    func legacyNames() throws {
+        let suite = "jira-legacy-names-\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let data = Data(#"{"isEnabled":true,"primaryName":"Custom review","primaryJQL":"project = ABC","recentName":"Custom recent","recentJQL":"creator = currentUser()"}"#.utf8)
+        defaults.set(data, forKey: JiraConfiguration.preferenceKey)
+        let loaded = JiraConfiguration.load(defaults: defaults)
+        #expect(loaded.isEnabled)
+        #expect(loaded.primaryJQL == "project = ABC")
+        #expect(loaded.recentJQL == "creator = currentUser()")
+        for language in [AppLanguage.spanish, .english] {
+            L10n.$renderLanguage.withValue(language) {
+                #expect(loaded.primaryTitle == L10n.text(.jiraAssignedToMe))
+                #expect(loaded.recentTitle == L10n.text(.jiraRecentlyCreated))
+            }
+        }
+        try loaded.persist(defaults: defaults)
+        let saved = try #require(defaults.data(forKey: JiraConfiguration.preferenceKey))
+        let fields = try #require(JSONSerialization.jsonObject(with: saved) as? [String: Any])
+        #expect(fields["primaryName"] == nil && fields["recentName"] == nil)
     }
 
     @Test("Una consulta vacía no reemplaza la configuración válida")
@@ -90,7 +110,6 @@ struct JiraStoreTests {
             return [jiraItem(limit == nil ? "ABC-1" : "ABC-2")]
         })
         var config = store.configuration
-        config.primaryName = "Review queue"
         config.primaryJQL = "project = ABC ORDER BY updated DESC"
         try store.configure(config)
         #expect(await calls.count == 0)

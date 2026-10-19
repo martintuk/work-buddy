@@ -19,9 +19,8 @@ integraciones tienen dos subsecciones navegables:
 
 - **GitHub:** organizaciones, equipos de Dependabot y cuentas de automatización.
 - **Jira (experimental):** habilitar la integración, copiar el comando de inicio
-  de sesión y editar las listas de tickets. Cada lista tiene un **Nombre en el
-  panel** y un filtro **Qué tickets mostrar (JQL)**. Por defecto son **Asignados
-  a mí** y **Creados recientemente** (hasta 10 tickets).
+  de sesión y editar **Qué tickets mostrar (JQL)** para las listas **Asignados
+  a mí** y **Creados recientemente** (hasta 10 tickets). Sus nombres son fijos.
 
 Jira empieza apagado. Sin Jira, el panel muestra GitHub directamente, sin pestañas
 superiores ni nuevas consultas a Atlassian. Las credenciales permanecen en los
