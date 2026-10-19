@@ -8,7 +8,7 @@ struct QueueSectionItemTests {
         let ready: Bool
     }
 
-    @Test("Promover un PR cambia la identidad de la fila, no la del recurso")
+    @Test("Promoting a PR changes row identity without changing resource identity")
     func promotion() {
         let review = QueueSectionItem(section: "needsReview", item: PR(id: "PR_239", ready: false))
         let merge = QueueSectionItem(section: "readyToMerge", item: PR(id: "PR_239", ready: true))
@@ -16,14 +16,14 @@ struct QueueSectionItemTests {
         #expect(review.id != merge.id)
     }
 
-    @Test("Actualizar datos en una categoría conserva la identidad de la fila")
+    @Test("Updating data within a category preserves row identity")
     func refresh() {
         let before = QueueSectionItem(section: "automation", item: PR(id: "PR_239", ready: false))
         let after = QueueSectionItem(section: "automation", item: PR(id: "PR_239", ready: true))
         #expect(before.id == after.id)
     }
 
-    @Test("Un PR puede coexistir en merge, fix y respuestas sin colisiones")
+    @Test("A PR can coexist in merge, fix, and replies without collisions")
     func simultaneousCategories() {
         let items = ["readyToMerge", "needingCIFix", "needingReply"].flatMap { section in
             ["PR_239", "PR_240"].map { id in

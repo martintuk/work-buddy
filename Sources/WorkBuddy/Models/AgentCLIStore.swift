@@ -107,7 +107,7 @@ final class AgentCLIStore {
                 )
                 try launch.start()
                 onResult(.success(()))
-                // Algunos ejecutables de terminal permanecen abiertos toda la sesión: no bloquear el panel.
+                // Some terminal executables stay open for the whole session; do not block the panel.
                 Task { [weak self] in
                     do {
                         _ = try await Task.detached(priority: .utility) { try launch.finish() }.value
@@ -169,10 +169,10 @@ enum AgentTerminalLauncher {
         }
     }
 
-    // El comando personalizado es shell explícito del usuario; la carpeta siempre es un argumento literal.
+    // Custom commands are explicit user shell code; the folder remains a literal argument.
     static func shellCommand(folder: URL, command: String) -> String {
-        // eval mantiene todo el comando del usuario detrás del cd, incluso si contiene varios comandos.
-        // También funciona con fish, sin imponer sintaxis de agrupación exclusiva de shells POSIX.
+        // eval keeps the entire user command after cd, including multiple commands.
+        // It also works with fish without requiring POSIX-only grouping syntax.
         "cd \(shellQuote(folder.path)) && eval \(shellQuote(command))"
     }
 
@@ -193,7 +193,7 @@ enum AgentTerminalLauncher {
         let body: String
         switch terminal {
         case .terminal:
-            // Sin un destino, do script crea una ventana, nunca escribe en una sesión existente.
+            // Without a target, do script creates a window instead of writing to an existing session.
             body = "do script \(appleScriptQuote(input))\nactivate"
         case .iterm:
             body = """
@@ -219,7 +219,7 @@ enum AgentTerminalLauncher {
 
     @discardableResult
     static func execute(_ source: String) throws -> String {
-        // Un proceso separado evita bloquear la UI y compartir el runtime de AppleScript entre hilos.
+        // A separate process avoids blocking the UI or sharing AppleScript runtime across threads.
         let process = Process()
         let input = Pipe()
         let output = Pipe()
@@ -242,7 +242,7 @@ enum AgentTerminalLauncher {
     }
 }
 
-/// El template se ejecuta en zsh. Los valores viajan como variables de entorno, nunca como código interpolado.
+/// Execute the template in zsh. Values travel through environment variables, not interpolated code.
 final class CustomTerminalLaunch: Sendable {
     private let process: Process
     private let output: Pipe
@@ -268,7 +268,7 @@ final class CustomTerminalLaunch: Sendable {
     func start() throws { try process.run() }
 
     func finish() throws -> String {
-        // Drenar toda la salida sin retener logs ilimitados de una terminal que siga ejecutándose.
+        // Drain output without retaining unlimited logs from a long-running terminal.
         var captured = Data()
         while let chunk = try output.fileHandleForReading.read(upToCount: 4096), !chunk.isEmpty {
             captured.append(chunk.prefix(max(0, 8192 - captured.count)))

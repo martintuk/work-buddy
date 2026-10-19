@@ -1,9 +1,7 @@
 import Foundation
 
-/// Invoca el CLI `gh`.
-///
-/// Usamos el CLI en vez de hablarle a la API de GitHub directamente para
-/// reusar la sesión que ya tenés en el keyring: la app nunca ve un token.
+/// Invoke gh to reuse its existing keychain session
+/// instead of handling a GitHub API token in the app.
 enum GH {
     enum Failure: LocalizedError {
         case notInstalled
@@ -37,10 +35,8 @@ enum GH {
         }
     }
 
-    /// Rutas donde buscar `gh`, en orden.
-    ///
-    /// No alcanza con confiar en PATH: una app lanzada desde Finder **no** hereda
-    /// el PATH del shell, así que `gh` a secas no resuelve. Buscamos a mano.
+    /// Executable search paths, in order. Finder-launched apps may not inherit
+    /// the shell's PATH, so do not rely on bare gh resolution.
     private static let candidatePaths = [
         "/opt/homebrew/bin/gh", // Homebrew en Apple Silicon
         "/usr/local/bin/gh", // Homebrew en Intel
@@ -48,7 +44,7 @@ enum GH {
         "/run/current-system/sw/bin/gh" // Nix
     ]
 
-    /// Ruta al ejecutable, resuelta una sola vez.
+    /// Resolve the executable path once.
     static let executableURL: URL? = {
         let fileManager = FileManager.default
         let fromPath = (ProcessInfo.processInfo.environment["PATH"] ?? "")
@@ -60,7 +56,7 @@ enum GH {
         return nil
     }()
 
-    /// Verifica que `gh` exista y tenga sesión activa. Llamar antes de consultar.
+    /// Verify gh exists and is authenticated before querying.
     static func preflight() async throws {
         guard executableURL != nil else { throw Failure.notInstalled }
         do {
@@ -70,11 +66,9 @@ enum GH {
         }
     }
 
-    /// Igual que `run`, pero reintenta ante fallas transitorias.
-    ///
-    /// GitHub devuelve **502** de forma intermitente en queries GraphQL con
-    /// conexiones anidadas: medido contra la API real, falla más o menos 1 de
-    /// cada 4 intentos. Sin reintentar, el panel mostraría un error al azar.
+    /// Like run, with retries for transient failures. Nested GraphQL connections
+    /// produced intermittent 502 responses in roughly one of four measured attempts;
+    /// retrying avoids random panel failures from those responses.
     static func runRetrying(_ arguments: [String], attempts: Int = 4) async throws -> Data {
         var lastError: Error = Failure.noAttempts
         for attempt in 0 ..< attempts {
@@ -92,15 +86,15 @@ enum GH {
                 }
                 guard transient else { throw error }
                 lastError = error
-                // Backoff exponencial: 300ms, 600ms, 1.2s…
+                // Exponential backoff: 300 ms, 600 ms, 1.2 s, ...
                 try? await Task.sleep(for: .milliseconds(300 << attempt))
             }
         }
         throw lastError
     }
 
-    /// Sólo API: headers de respuesta para distinguir rate limits de permisos.
-    /// Las escrituras nunca usan el retry genérico de errores inciertos.
+    /// API calls only: response headers distinguish rate limits from permission failures.
+    /// Writes never use generic retries for uncertain errors.
     static func runAPI(_ arguments: [String], retryingRead: Bool = false) async throws -> Data {
         let included = arguments + ["--include"]
         let data = try await (retryingRead ? runRetrying(included) : run(included))
@@ -112,16 +106,14 @@ enum GH {
             .contains { stderr.localizedCaseInsensitiveContains($0) }
     }
 
-    /// Corre `gh` con estos argumentos y devuelve stdout.
-    ///
-    /// Los argumentos van directo al proceso, sin pasar por un shell: no hay que
-    /// escapar nada ni hay riesgo de inyección al interpolar valores.
+    /// Run gh with separate process arguments and return stdout.
+    /// No shell is involved, so interpolated values require no shell escaping.
     static func run(_ arguments: [String], in directory: URL? = nil) async throws -> Data {
         try await Diagnostics.measure(.gh) {
             guard let executableURL else { throw Failure.notInstalled }
             let result = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
-                // Process y Pipe no son Sendable, así que viven enteros dentro de
-                // runBlocking, fuera del contexto de concurrencia.
+                // Process and Pipe are not Sendable; keep them inside runBlocking,
+                // outside the concurrency context.
                 DispatchQueue.global(qos: .userInitiated).async {
                     do {
                         continuation.resume(returning: try runBlocking(executableURL, arguments, directory: directory))
@@ -150,14 +142,12 @@ enum GH {
         let output = Pipe()
         process.standardOutput = output
 
-        // Sin stdin: si un comando de `gh` decide preguntar algo —`gh pr merge`
-        // sin flag de método lo hace— recibe EOF y falla, en vez de colgar el
-        // proceso esperando input que nunca va a llegar.
+        // Use no stdin. Interactive commands, such as gh pr merge without a method,
+        // receive EOF and fail instead of hanging for input that will never arrive.
         process.standardInput = FileHandle.nullDevice
 
-        // stderr va a un archivo temporal, no a un pipe: si los dos fueran pipes
-        // y llenáramos el buffer de stderr mientras drenamos stdout, `gh` se
-        // colgaría esperando que alguien lea.
+        // Write stderr to a temporary file. Two pipes could deadlock if stderr
+        // filled while the caller drained stdout.
         let errorURL = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("work-buddy-\(UUID().uuidString).stderr")
         FileManager.default.createFile(atPath: errorURL.path, contents: nil, attributes: nil)

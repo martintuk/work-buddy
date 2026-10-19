@@ -2,17 +2,17 @@ import Foundation
 import Testing
 @testable import WorkBuddy
 
-@Suite("Autopilot de Dependabot")
+@Suite("Dependabot Autopilot")
 @MainActor
 struct PullRequestAutopilotTests {
-    @Test("Un error de lectura permite volver a comprobar el mismo PR al pulsar Start")
+    @Test("Read errors allow checking the same PR again after Start")
     func readFailureCanResume() async {
         let autopilot = PullRequestAutopilot(runner: AutopilotClock().runner())
         let calls = AutopilotCalls()
         let prs = candidates([fixture(1)])
         autopilot.enable(prs, viewer: "me", operations: .init(
             read: { _, _ in throw GH.Failure.noAttempts },
-            write: { _ in Issue.record("La lectura falló: no debe escribir") }))
+            write: { _ in Issue.record("Read failed: must not write") }))
         await autopilot.waitUntilIdle()
         #expect(!autopilot.isEnabled && autopilot.queue.count == 1)
         autopilot.enable(prs, viewer: "me", operations: operations(calls))
@@ -20,7 +20,7 @@ struct PullRequestAutopilotTests {
         #expect(await calls.values.count == 1)
     }
 
-    @Test("Cambiar el filtro de automatización pausa hasta volver a pulsar Start")
+    @Test("Changing the automation filter pauses until Start is pressed again")
     func scopePause() {
         let store = ReviewQueueStore.preview(reviews: [], merges: [])
         let suite = UserDefaults.standard
@@ -52,7 +52,7 @@ struct PullRequestAutopilotTests {
         return calendar
     }
 
-    @Test("Se apaga a medianoche aun sin trabajo ni refresh, usando el día local", arguments: [
+    @Test("Stop at local midnight even without work or refresh", arguments: [
         ("America/Montevideo", "2026-10-19T23:59:59-03:00", "2026-10-20T00:00:00-03:00"),
         ("America/Montevideo", "2026-10-19T00:00:00-03:00", "2026-10-20T00:00:00-03:00"),
         ("America/New_York", "2026-03-08T00:00:00-05:00", "2026-03-09T00:00:00-04:00"),
@@ -75,7 +75,7 @@ struct PullRequestAutopilotTests {
         #expect(!autopilot.isActive && autopilot.isPresented && autopilot.history.isEmpty)
         #expect(!timer.isValid)
 
-        // El corte no se revierte por un refresh; Start habilita un día nuevo.
+        // Refresh does not reverse the cutoff; Start enables a new day.
         autopilot.reconcile([], viewer: "me")
         #expect(!autopilot.isEnabled)
         autopilot.enable([], viewer: "me", operations: operations(AutopilotCalls()))
@@ -85,7 +85,7 @@ struct PullRequestAutopilotTests {
         #expect(scheduled?.isValid == false)
     }
 
-    @Test("Una lectura que termina después de medianoche no envía la acción aunque el timer siga pendiente")
+    @Test("Reads finishing after midnight send no action even if the timer remains pending")
     func midnightDuringRead() async {
         let clock = AutopilotClock()
         clock.date = date("2026-10-19T23:59:59-03:00")
@@ -103,11 +103,11 @@ struct PullRequestAutopilotTests {
         await gate.release()
         await autopilot.waitUntilIdle()
         #expect(!autopilot.isActive && autopilot.queue.count == 2)
-        if case .skipped(.stopped)? = autopilot.history.last?.status {} else { Issue.record("Debe indicar el corte de Autopilot") }
+        if case .skipped(.stopped)? = autopilot.history.last?.status {} else { Issue.record("Must report the Autopilot cutoff") }
         #expect(await calls.values.isEmpty)
     }
 
-    @Test("El corte a medianoche deja terminar una escritura enviada y conserva los pendientes")
+    @Test("Midnight cutoff lets sent writes finish and retains pending items")
     func midnightDuringWrite() async throws {
         let clock = AutopilotClock()
         clock.date = date("2026-10-19T23:59:59-03:00")
@@ -129,11 +129,11 @@ struct PullRequestAutopilotTests {
         await gate.release()
         await autopilot.waitUntilIdle()
         #expect(!autopilot.isActive && autopilot.queue.map(\.id) == ["batch-2"])
-        if case .completed(.approve)? = autopilot.history.last?.status {} else { Issue.record("Debe registrar la aprobación enviada") }
+        if case .completed(.approve)? = autopilot.history.last?.status {} else { Issue.record("Must record the sent approval") }
         #expect(await calls.values == ["batch-1"])
     }
 
-    @Test("El cooldown que cruza medianoche detiene la cola antes de leer el próximo PR")
+    @Test("Cooldown crossing midnight stops before reading the next PR")
     func midnightDuringCooldown() async {
         let clock = AutopilotClock()
         clock.date = date("2026-10-19T23:59:59-03:00")
@@ -152,7 +152,7 @@ struct PullRequestAutopilotTests {
         #expect(await calls.values == ["batch-1"])
     }
 
-    @Test("Entrar sólo muestra la cola, que se mantiene viva estando apagado")
+    @Test("Opening only displays the queue, which stays live while disabled")
     func preview() {
         let autopilot = PullRequestAutopilot()
         #expect(!autopilot.isPresented && !autopilot.isEnabled)
@@ -166,7 +166,7 @@ struct PullRequestAutopilotTests {
         #expect(!autopilot.isPresented && autopilot.queue.isEmpty)
     }
 
-    @Test("Permanece encendido sin trabajo, recibe PRs nuevos y permite aprobar → mergear el mismo SHA")
+    @Test("Stay enabled without work, accept new PRs, and approve then merge the same SHA")
     func continuous() async {
         let clock = AutopilotClock()
         let autopilot = PullRequestAutopilot(runner: clock.runner())
@@ -188,7 +188,7 @@ struct PullRequestAutopilotTests {
         #expect(autopilot.isEnabled && autopilot.queue.isEmpty)
     }
 
-    @Test("Refresh reemplaza pendientes, conserva la operación en curso y revalida antes de escribir")
+    @Test("Refresh replaces pending items, retains active operations, and revalidates before writing")
     func refreshWhileReading() async {
         let autopilot = PullRequestAutopilot(runner: AutopilotClock().runner())
         let calls = AutopilotCalls()
@@ -208,7 +208,7 @@ struct PullRequestAutopilotTests {
         #expect(autopilot.history.count == 2)
     }
 
-    @Test("Apagar deja terminar la escritura enviada, mantiene la cola visible y no repite éxitos")
+    @Test("Stopping lets sent writes finish, keeps the queue visible, and never repeats successes")
     func stopDuringWrite() async {
         let autopilot = PullRequestAutopilot(runner: AutopilotClock().runner())
         let gate = AutopilotGate()
@@ -233,7 +233,7 @@ struct PullRequestAutopilotTests {
         #expect(await calls.values == ["batch-1", prs[1].fingerprint])
     }
 
-    @Test("Un error incierto detiene autopilot; refrescar o volver a encender no repite esa escritura")
+    @Test("Uncertain errors stop Autopilot; refresh and restart never repeat that write")
     func uncertainFailure() async {
         let autopilot = PullRequestAutopilot(runner: AutopilotClock().runner())
         let calls = AutopilotCalls()
@@ -253,7 +253,7 @@ struct PullRequestAutopilotTests {
         #expect(await calls.values == prs.map(\.fingerprint))
     }
 
-    @Test("Cambio de cuenta detiene incluso durante una lectura y no escribe con otra identidad")
+    @Test("Account changes stop even during reads and never write as another identity")
     func accountChanged() async {
         let autopilot = PullRequestAutopilot()
         let gate = AutopilotGate()
@@ -271,7 +271,7 @@ struct PullRequestAutopilotTests {
         #expect(await calls.values.isEmpty)
     }
 
-    @Test("Un omitido no gira en bucle; vuelve cuando la cola general lo vio dejar de estar listo")
+    @Test("Skipped items do not spin and return after the main queue observes them unready")
     func deferredReadiness() async {
         let autopilot = PullRequestAutopilot(runner: AutopilotClock().runner())
         let calls = AutopilotCalls()
@@ -291,10 +291,9 @@ struct PullRequestAutopilotTests {
         #expect(await calls.values == prs.map(\.fingerprint))
     }
 
-    @Test("Un omitido que sigue listo se reintenta tras la espera, que crece con cada omisión")
+    @Test("Still-ready skipped items retry after an increasing delay")
     func deferredRetriesWhileStillReady() async {
-        // Caso real: mergear un hermano deja a los demás UNKNOWN unos segundos y
-        // la lectura fresca los omite, pero nunca salen de la cola general.
+        // Observed case: merging a sibling leaves others UNKNOWN briefly. Fresh reads skip them, but they never leave the main queue.
         let clock = AutopilotClock()
         let autopilot = PullRequestAutopilot(runner: clock.runner(), now: { clock.date })
         let calls = AutopilotCalls()
@@ -320,7 +319,7 @@ struct PullRequestAutopilotTests {
         #expect(await reads.values.count == 1)
         await refresh(after: 1)
         #expect(await reads.values.count == 2)
-        // La segunda omisión duplica la espera.
+        // The second skip doubles the delay.
         await refresh(after: PullRequestAutopilot.retryDelay)
         #expect(await reads.values.count == 2)
         ready = true
@@ -328,7 +327,7 @@ struct PullRequestAutopilotTests {
         #expect(await calls.values == ["batch-1"])
     }
 
-    @Test("Un rate limit agota tres intentos con espera compartida y detiene antes del siguiente PR")
+    @Test("Rate limits exhaust three attempts with shared delays and stop before the next PR")
     func rateLimitStops() async throws {
         let clock = AutopilotClock()
         let autopilot = PullRequestAutopilot(runner: clock.runner())
@@ -344,7 +343,7 @@ struct PullRequestAutopilotTests {
         #expect(!autopilot.isEnabled && autopilot.queue.map(\.id) == ["batch-1", "batch-2"])
     }
 
-    @Test("La lectura fresca también impide ejecutar autores que no sean Dependabot")
+    @Test("Fresh reads also prevent executing actions on authors other than Dependabot")
     func freshAuthorRestriction() async {
         let autopilot = PullRequestAutopilot()
         let calls = AutopilotCalls()
@@ -356,7 +355,7 @@ struct PullRequestAutopilotTests {
         #expect(!autopilot.isEnabled && autopilot.notice != nil)
     }
 
-    @Test("El store abre el preview apagado y alterna con selección manual sin ejecutar acciones")
+    @Test("The store opens previews disabled and switches to manual selection without executing")
     func storePreview() {
         let store = ReviewQueueStore.preview(reviews: [fixture(1), fixture(2, author: "alice")], merges: [])
         store.toggleBatchSelection()

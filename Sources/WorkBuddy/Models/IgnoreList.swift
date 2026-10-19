@@ -1,9 +1,7 @@
 import Foundation
 
-/// PRs que decidiste no ver más.
-///
-/// Guarda el node id global de GitHub (`PR_kwDO…`), que es estable: no cambia
-/// si el PR se renombra ni si cambia de base branch.
+/// PRs the user chose to hide. Store GitHub's stable global node ID,
+/// which survives title and base-branch changes.
 @MainActor
 @Observable
 final class IgnoreList {
@@ -31,10 +29,9 @@ final class IgnoreList {
         persist()
     }
 
-    // No purgamos los ids de PRs ya cerrados: para saber si siguen abiertos
-    // habría que consultarlos, y un id de más cuesta ~50 bytes. Purgar contra la
-    // cola actual sería un bug, porque la query excluye dependabot y volverían a
-    // aparecer los que ignoraste de ahí.
+    // Do not purge closed PR IDs: checking them requires API calls and each costs
+    // roughly 50 bytes. Purging against an incomplete current queue could restore
+    // ignored PRs simply because one query did not return them.
     private func persist() {
         defaults.set(Array(ids), forKey: Self.key)
     }

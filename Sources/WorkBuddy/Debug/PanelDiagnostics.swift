@@ -1,7 +1,7 @@
 import Foundation
 
-/// Medición local mientras el panel está abierto. El timer observa retrasos del
-/// run loop, no frames renderizados ni duración exacta de cada bloqueo.
+/// Local measurements while the panel is open. The timer observes run-loop
+/// delays, not rendered frames or the exact duration of every stall.
 @MainActor
 final class PanelDiagnostics {
     private let log: DiagnosticLog
@@ -35,7 +35,7 @@ final class PanelDiagnostics {
         lastProbe = now()
         let timer = Timer(timeInterval: Self.probeInterval, repeats: true) { [weak self] timer in
             guard let self else { timer.invalidate(); return }
-            // Registrado únicamente en el run loop principal, también durante tracking.
+            // Registered only on the main run loop, including tracking modes.
             MainActor.assumeIsolated {
                 self.probe()
             }
@@ -56,7 +56,7 @@ final class PanelDiagnostics {
         return result
     }
 
-    /// AppKit notificó que mostró el popover; no equivale al primer frame del compositor.
+    /// AppKit reported the popover shown; this is not the compositor's first frame.
     func shown() {
         guard let opening else { return }
         log.record(.phaseEnded, context: opening.context,
@@ -68,7 +68,7 @@ final class PanelDiagnostics {
         guard var context, let previous = lastProbe else { return }
         let current = now()
         lastProbe = current
-        // SuspendingClock excluye el tiempo con la máquina dormida.
+        // SuspendingClock excludes time while the machine sleeps.
         let delay = Diagnostics.milliseconds(previous.duration(to: current)) - Self.probeInterval * 1_000
         guard delay >= 100 else { return }
         delays += 1

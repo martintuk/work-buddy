@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Acceso a los mismos filtros del panel, anclado al nombre del repo en un PR.
+/// Access the panel's filters, anchored to a PR's repository name.
 struct RepositoryQuickFilterButton: View {
     let repository: String
     let store: ReviewQueueStore
@@ -56,7 +56,7 @@ struct RepositoryQuickFilterButton: View {
         perform: @escaping () -> Void
     ) -> some View {
         Button {
-            // Cerrar antes de filtrar: mutear puede quitar la fila que ancla el popover.
+            // Close before filtering: muting can remove the row anchoring the popover.
             isPresented = false
             perform()
         } label: {

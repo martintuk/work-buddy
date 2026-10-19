@@ -3,15 +3,15 @@ import Testing
 
 @testable import WorkBuddy
 
-@Suite("Sync compartida en background")
+@Suite("Shared background synchronization")
 @MainActor
 struct SyncSchedulerTests {
-    @Test("El intervalo de producción es de cinco minutos")
+    @Test("The production interval is five minutes")
     func productionInterval() {
         #expect(SyncScheduler.autoRefreshInterval == .seconds(300))
     }
 
-    @Test("Carga ambos servicios al iniciar, sin vistas, y no duplica el arranque")
+    @Test("Load both services at startup without views or duplicate starts")
     func initialSync() {
         var githubRefreshes = 0
         var jiraRefreshes = 0
@@ -29,7 +29,7 @@ struct SyncSchedulerTests {
         #expect(jiraRefreshes == 1)
     }
 
-    @Test("Repite ambas consultas en background y se detiene al cancelar")
+    @Test("Repeat both queries in the background and stop on cancellation")
     func periodicSync() async throws {
         var githubRefreshes = 0
         var jiraRefreshes = 0
@@ -54,7 +54,7 @@ struct SyncSchedulerTests {
         #expect(githubRefreshes == stoppedCount)
     }
 
-    @Test("Cancelar inmediatamente no deja una sync pendiente")
+    @Test("Immediate cancellation leaves no pending synchronization")
     func immediateStop() async throws {
         var refreshes = 0
         let scheduler = SyncScheduler(interval: .milliseconds(10)) {

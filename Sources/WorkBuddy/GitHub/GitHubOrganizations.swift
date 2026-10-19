@@ -1,6 +1,6 @@
 import Foundation
 
-/// Organizaciones de la cuenta autenticada, incluyendo todas las páginas.
+/// All organizations for the authenticated account, including every page.
 enum GitHubOrganizations {
     private struct Organization: Decodable {
         let login: String

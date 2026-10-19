@@ -1,6 +1,6 @@
 import Foundation
 
-/// Estado agregado de los checks de CI del último commit.
+/// Aggregate CI checks for the latest commit.
 enum CheckState: String, Codable, Sendable {
     case success = "SUCCESS"
     case failure = "FAILURE"
@@ -9,50 +9,49 @@ enum CheckState: String, Codable, Sendable {
     case expected = "EXPECTED"
     case unknown
 
-    /// Incluye checks opcionales: organiza la automatización y señala fallas,
-    /// pero no determina mergeabilidad ni oculta reviews de personas.
+    /// Include optional checks to classify automation and indicate failures,
+    /// without deciding mergeability or hiding human review requests.
     var isRed: Bool { self == .failure || self == .error }
 }
 
-/// Decisión de review agregada que reporta GitHub.
+/// GitHub's aggregate review decision.
 enum ReviewDecision: String, Codable, Sendable {
     case approved = "APPROVED"
     case changesRequested = "CHANGES_REQUESTED"
     case reviewRequired = "REVIEW_REQUIRED"
 }
 
-/// Si la rama se puede fusionar sin conflictos.
+/// Whether the branch can merge without conflicts.
 enum MergeableState: String, Codable, Sendable {
     case mergeable = "MERGEABLE"
     case conflicting = "CONFLICTING"
-    /// GitHub lo calcula de forma diferida: la primera consulta puede devolver
-    /// UNKNOWN y resolverse en la siguiente. Medido, pasa en ~3 de 56 PRs.
+    /// GitHub computes this lazily. An initial UNKNOWN may resolve on the next
+    /// request; observed in roughly three of 56 PRs.
     case unknown = "UNKNOWN"
 }
 
-/// Veredicto de GitHub sobre si el botón de merge estaría habilitado.
+/// GitHub's verdict on whether merging is currently enabled.
 enum MergeStateStatus: String, Codable, Sendable {
-    /// Todo en orden.
+    /// All requirements are satisfied.
     case clean = "CLEAN"
-    /// Mergeable, pero falla algún check **no requerido**.
+    /// Mergeable despite a failing optional check.
     case unstable = "UNSTABLE"
-    /// Limpio, con pre-receive hooks configurados.
+    /// Clean, with pre-receive hooks configured.
     case hasHooks = "HAS_HOOKS"
-    /// Faltan reviews o checks requeridos. Es el estado más común en la cola.
+    /// Missing required reviews or checks; the most common measured queue state.
     case blocked = "BLOCKED"
-    /// Hay que actualizar la rama contra la base.
+    /// The branch must be updated against its base.
     case behind = "BEHIND"
-    /// Conflictos.
+    /// Merge conflicts.
     case dirty = "DIRTY"
     case draft = "DRAFT"
     case unknown = "UNKNOWN"
 }
 
-/// Quién abrió el PR.
+/// The PR author.
 struct Author: Codable, Sendable {
     let login: String
-    /// `true` si GitHub lo tipa como `Bot`, o si la configuración lo declara
-    /// como cuenta de máquina.
+    /// True when GitHub reports Bot or configuration lists this machine account.
     let isBot: Bool
 
     init(login: String, typename: String?, machineAccounts: Set<String> = []) {
@@ -60,8 +59,8 @@ struct Author: Codable, Sendable {
         isBot = typename == "Bot" || machineAccounts.contains(login.lowercased())
     }
 
-    /// El comando `@dependabot rebase` sólo tiene sentido para el GitHub App de
-    /// Dependabot, no para cualquier cuenta marcada como automatización.
+    /// The @dependabot rebase command applies only to the Dependabot GitHub App,
+    /// not every account classified as automation.
     var isDependabot: Bool {
         isBot && ["dependabot", "dependabot[bot]"].contains(login.lowercased())
     }
@@ -73,9 +72,9 @@ struct PullRequest: Codable, Identifiable, Sendable {
     let title: String
     let url: URL
     let repository: String
-    /// Rama contra la que se mergea.
+    /// Target branch for merging.
     let baseRefName: String
-    /// Rama del PR.
+    /// The PR's head branch.
     let headRefName: String
     let author: Author
     let updatedAt: Date
@@ -83,92 +82,83 @@ struct PullRequest: Codable, Identifiable, Sendable {
     let checks: CheckState
     let reviewDecision: ReviewDecision?
 
-    /// La cola de Dependabot pide `mergeable` para confirmar ausencia de conflictos.
-    /// `mergeStateStatus` también contempla las condiciones requeridas para mergear.
+    /// Dependabot requests mergeable to confirm no conflicts.
+    /// mergeStateStatus also accounts for requirements that block merging.
     let mergeable: MergeableState?
     let mergeStateStatus: MergeStateStatus?
 
-    /// El método que GitHub usaría en la web para este repo. No lo elegís vos: si
-    /// el repo habilita sólo squash, la web muestra un botón y acá también.
+    /// GitHub's web default for this repository. If only squash is enabled,
+    /// use that method here as GitHub does in the web interface.
     let defaultMergeMethod: MergeMethod?
 
-    /// Lo abriste vos.
+    /// You opened this PR.
     let authoredByMe: Bool
 
-    /// Pedido directo a vos. Los pedidos a tus equipos tienen la misma prioridad.
+    /// A direct request to you. Team requests have equal priority.
     let requestedFromMe: Bool
-    /// Ya dejaste un review en este PR.
+    /// You have reviewed this PR.
     let reviewedByMe: Bool
     let approvals: Int
-    /// Tu última decisión de review es APPROVED y no fue descartada.
+    /// Your latest review decision is APPROVED and has not been dismissed.
     var approvedByMe: Bool
-    /// Commit incluido en el snapshot. Las acciones en lote conservan este commit.
+    /// Commit captured by the snapshot; batch actions retain this commit.
     var headRefOID: String? = nil
-    /// Líneas agregadas y quitadas. Opcionales para leer snapshots guardados
-    /// antes de que existieran.
+    /// Added and deleted lines, optional for decoding older saved snapshots.
     var additions: Int? = nil
     var deletions: Int? = nil
 
-    /// Tu parte está resuelta, pero GitHub todavía requiere otra aprobación.
+    /// Your review is complete, but GitHub still requires another approval.
     var awaitingOtherApproval: Bool {
         author.isBot && approvedByMe && reviewDecision == .reviewRequired
     }
 
-    /// Condiciones previas para revisar Dependabot. No exige las aprobaciones
-    /// ajenas que GitHub pueda requerir para mergear.
+    /// Prerequisites for reviewing Dependabot. Does not require other approvals
+    /// that GitHub may need before merging.
     var isReadyForDependabotReview: Bool {
         !isDraft && checks == .success && mergeable == .mergeable
     }
 
-    /// GitHub habilitaría el botón de merge ahora mismo.
-    ///
-    /// Es el veredicto de GitHub y no una reconstrucción nuestra: `BLOCKED` ya
-    /// contempla reviews y checks requeridos, CODEOWNERS y branch protection.
-    /// Reconstruirlo a mano fue exactamente el bug que tuvimos con los approvals.
-    ///
-    /// `UNSTABLE` cuenta como listo porque GitHub deja mergear: significa que
-    /// falla un check **no requerido**. La fila lo muestra con el badge de CI.
+    /// GitHub would currently enable merging. Use its verdict rather than
+    /// reconstructing required reviews, checks, CODEOWNERS, or branch protection.
+    /// UNSTABLE qualifies because it means an optional check failed; the row still
+    /// shows that failure in its CI badge.
     var isReadyToMerge: Bool {
         guard !isDraft, mergeable == .mergeable else { return false }
         switch mergeStateStatus {
         case .clean, .unstable, .hasHooks:
             return true
-        // BEHIND, BLOCKED, DIRTY, DRAFT, UNKNOWN y nil no están listos. UNKNOWN
-        // no es un error: GitHub todavía no terminó de calcularlo y se resuelve
-        // en el refresh siguiente.
+        // BEHIND, BLOCKED, DIRTY, DRAFT, UNKNOWN, and nil are not ready.
+        // UNKNOWN is not an error: GitHub may finish calculating it by the next refresh.
         default:
             return false
         }
     }
 
-    /// GitHub no deja aprobar tus propios PRs. Ofrecer el botón igual sólo
-    /// entrenaría a ignorar errores.
+    /// GitHub forbids approving your own PR; do not offer an action that must fail.
     var canApprove: Bool { !authoredByMe && !approvedByMe }
 
-    /// El atraso tiene que estar medido. Otros bots también pueden usar el
-    /// rebase nativo; sólo Dependabot queda excluido de esta acción.
+    /// Require a measured behind count. Other bots can use native rebase;
+    /// only Dependabot is excluded from this action.
     func canRebase(behindBy: Int?) -> Bool {
         guard let behindBy, behindBy > 0 else { return false }
         return !author.isDependabot
     }
 
-    /// Sólo ofrecemos el comando cuando la comparación confirmó atraso. `nil`
-    /// significa que no se pudo medir y no debe confundirse con cero.
+    /// Offer the command only after comparison confirms the branch is behind.
+    /// nil means unmeasured, not zero.
     func canRequestDependabotRebase(behindBy: Int?) -> Bool {
         author.isDependabot && !isDraft && (behindBy ?? 0) > 0
     }
 
-    /// Se puede mergear **y** sabemos con qué método. Las dos condiciones salen
-    /// de GitHub; si falta cualquiera, no ofrecemos la acción.
+    /// Offer merge only when GitHub confirms eligibility and supplies a known method.
     var canMerge: Bool { isReadyToMerge && defaultMergeMethod != nil }
 
-    /// Nombre del repo sin la organización: en una lista de un solo org, el
-    /// prefijo se repite en todas las filas y no aporta nada.
+    /// Repository name without the organization prefix, avoiding repetition in single-org lists.
     var shortRepository: String {
         repository.split(separator: "/").last.map(String.init) ?? repository
     }
 
-    /// Clasifica un PR que pertenece a la cola de pedidos de review.
+    /// Classify a PR belonging to the review-request queue.
     func bucket() -> ReviewBucket? {
         PullRequestQueuePolicy.reviewBucket(for: self)
     }

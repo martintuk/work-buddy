@@ -1,7 +1,7 @@
 import Foundation
 
-/// Consulta hilos en lotes. En PRs ajenos recorre hacia atrás hasta encontrar una
-/// mención o un comentario propio seguido de respuestas; las páginas se piden sólo si hacen falta.
+/// Batch thread queries. On other authors' PRs, walk backward until finding
+/// a mention or your comment followed by replies; request more pages only when needed.
 enum ReplyQueue {
     struct Result: Sendable {
         let needingReply: [PullRequest]
@@ -25,8 +25,8 @@ enum ReplyQueue {
         let bodyHTML: String
         let state: String
 
-        /// GitHub marca las menciones reales en el HTML renderizado. Esto evita
-        /// confundir @me con @me-other, una dirección de email o código literal.
+        /// GitHub marks real mentions in rendered HTML, avoiding confusion with
+        /// longer logins, email addresses, or literal code.
         func mentions(_ login: String) -> Bool {
             guard !login.isEmpty else { return false }
             let user = NSRegularExpression.escapedPattern(for: login)
@@ -54,7 +54,7 @@ enum ReplyQueue {
                 if !hasNewerComments, published.last?.viewerDidAuthor == true {
                     return .waitingForReply
                 }
-                // Si el último no es mío, cualquier comentario propio ya tuvo respuesta.
+                // If the latest comment is not yours, any earlier comment of yours received a reply.
                 if published.contains(where: { $0.viewerDidAuthor || $0.mentions(me) }) {
                     return .needsReply
                 }
@@ -103,7 +103,7 @@ enum ReplyQueue {
 
         while !pending.isEmpty {
             try Task.checkCancellation()
-            // Máximo 10 x 50 x 20 comentarios por request inicial.
+            // At most 10 x 50 x 20 comments in the initial request.
             let batch = Array(pending.prefix(10))
             Diagnostics.record(.counts, metrics: [.batchSize: batch.count, .pages: 1])
             pending.removeFirst(batch.count)
@@ -178,8 +178,8 @@ enum ReplyQueue {
                     }
                 }
             }
-            // En PRs propios basta un hilo pendiente. En ajenos puede haber
-            // un hilo para responder y otro esperando respuesta.
+            // One pending thread is enough for your own PRs. Other authors' PRs can
+            // have one thread needing a reply and another awaiting a response.
             pending.removeAll { page in
                 needingReply.contains(page.prID)
                     && (ownIDs.contains(page.prID) || waitingForReply.contains(page.prID))

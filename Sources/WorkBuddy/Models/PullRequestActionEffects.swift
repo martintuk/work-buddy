@@ -1,8 +1,8 @@
 import Foundation
 
-/// Efectos confirmados que una lectura anterior todavía no conoce. Cada refresh
-/// conserva la revisión con la que empezó; una lectura posterior vuelve a ser
-/// autoritativa, incluyendo approvals descartados o commits nuevos.
+/// Confirmed effects absent from earlier reads. Each refresh retains its starting
+/// revision; a later read becomes authoritative again, including dismissed
+/// approvals or new commits.
 struct PullRequestActionEffects {
     private struct Effect {
         let revision: Int

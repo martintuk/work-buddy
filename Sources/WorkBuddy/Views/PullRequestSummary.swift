@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Identidad visual compartida por el listado principal y la cola de acciones.
+/// Shared visual identity for the main list and action queue.
 struct PullRequestSummary<Metadata: View>: View {
     let pullRequest: PullRequest
     var titleLineLimit = 2

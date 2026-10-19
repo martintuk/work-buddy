@@ -1,10 +1,9 @@
 import Foundation
 
-/// Campos de PullRequest que piden las queries.
+/// PullRequest fields shared by queries.
 enum PullRequestFields {
-    /// `viewerDefaultMergeMethod` es un setting del repo y no algo que GitHub
-    /// tenga que calcular, así que pedirlo en la query grande no la encarece —
-    /// a diferencia de `mergeable`, que sí.
+    /// viewerDefaultMergeMethod is a repository setting, not a computed verdict,
+    /// so unlike mergeable it does not add mergeability calculation to the query.
     static let base = """
     id number title url isDraft updatedAt reviewDecision additions deletions
     baseRefName headRefName headRefOid
@@ -20,20 +19,18 @@ enum PullRequestFields {
     commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
     """
 
-    /// Dependabot necesita confirmar ausencia de conflictos antes de ofrecer
-    /// review. Calcularlo es caro: esa cola usa páginas de 25.
+    /// Dependabot requires confirmed absence of conflicts before offering review.
+    /// That calculation is expensive, so its queue uses pages of 25.
     static let withMergeability = base + "\nmergeable"
 
-    /// Para mergear también necesitamos el veredicto sobre reviews y checks
-    /// requeridos. Las colas de personas no piden estos campos.
+    /// Merging also needs verdicts on required reviews and checks.
+    /// Human review queues do not request these fields.
     static let withMergeState = withMergeability + " mergeStateStatus"
 }
 
-/// Nodo de PullRequest tal como viene de GraphQL.
-///
-/// Todos los campos son opcionales porque `search` con un fragmento inline puede
-/// devolver nodos vacíos para resultados que no son PullRequest, y porque
-/// `mergeable` sólo se pide en algunas queries.
+/// GraphQL PullRequest node. Fields are optional because inline search
+/// fragments may return empty nodes for non-PR results, and some queries
+/// do not request mergeable.
 struct PullRequestNode: Decodable {
     let id: String?
     let number: Int?
@@ -44,7 +41,7 @@ struct PullRequestNode: Decodable {
     let reviewDecision: String?
     let additions: Int?
     let deletions: Int?
-    /// Ramas base y del PR, para poder compararlas contra la compare API.
+    /// PR and base branches for comparison requests.
     let baseRefName: String?
     let headRefName: String?
     let headRefOid: String?
@@ -54,19 +51,19 @@ struct PullRequestNode: Decodable {
     let author: AuthorDTO?
     let reviewRequests: ReviewRequests?
     let latestReviews: Reviews?
-    /// Última decisión personal; comentarios y borradores no reemplazan un approval.
-    /// Se consulta por autor para no depender de los primeros 10 reviewers.
+    /// Latest personal decision; comments and drafts do not replace an approval.
+    /// Query by author rather than relying on the first ten reviewers.
     let myReview: Reviews?
     let commits: Commits?
 
     struct Repository: Decodable {
         let nameWithOwner: String
-        /// El método que GitHub te daría en la web: `SQUASH`, `MERGE` o `REBASE`.
+        /// GitHub's default web merge method: SQUASH, MERGE, or REBASE.
         let viewerDefaultMergeMethod: String?
     }
 
-    /// `__typename` es la clasificación de GitHub: `Bot` para dependabot y
-    /// compañía, `User` para gente. Es más confiable que adivinar por el nombre.
+    /// GitHub's __typename classifies Bot versus User;
+    /// prefer that signal to guessing from the account name.
     struct AuthorDTO: Decodable {
         let login: String
         let typename: String?
@@ -81,8 +78,8 @@ struct PullRequestNode: Decodable {
         let nodes: [Item?]
         struct Item: Decodable {
             let requestedReviewer: Reviewer?
-            /// `login` viene poblado si el pedido es a una persona, `slug` si es
-            /// a un equipo. Nos alcanza para distinguirlos, sin `__typename`.
+            /// Person requests have login; team requests have slug.
+            /// That distinction is sufficient without __typename.
             struct Reviewer: Decodable {
                 let login: String?
                 let slug: String?
@@ -155,7 +152,7 @@ struct PullRequestNode: Decodable {
     }
 }
 
-/// Envoltorio común de las respuestas de GraphQL.
+/// Shared GraphQL response envelope.
 struct GraphQLResponse<Payload: Decodable>: Decodable {
     let data: Payload
     let errors: [GraphQLError]?
@@ -176,7 +173,7 @@ struct SearchPage: Decodable {
 struct Viewer: Decodable, Sendable {
     let login: String
 
-    /// Resuelve el login para filtrar la review personal en la consulta de PRs.
+    /// Resolve the login used to filter personal reviews in PR queries.
     static func fetch() async throws -> Viewer {
         try await Diagnostics.measure(.viewer) {
             struct Payload: Decodable { let viewer: Viewer }
@@ -189,10 +186,8 @@ struct Viewer: Decodable, Sendable {
 }
 
 extension GraphQLResponse {
-    /// Decodifica y convierte los errores de GraphQL en un throw.
-    ///
-    /// GraphQL responde 200 con un array `errors` cuando algo falla, así que sin
-    /// esto un error del servidor pasaría por respuesta vacía.
+    /// Decode GraphQL errors as thrown failures. A 200 response can contain
+    /// an errors array; without this check, a server failure could look like an empty result.
     static func decode(_ data: Data) throws -> Payload {
         do {
             let response = try JSONDecoder.github.decode(Self.self, from: data)
@@ -209,7 +204,7 @@ extension GraphQLResponse {
 }
 
 extension JSONDecoder {
-    /// Decoder para respuestas de GitHub, con fechas ISO 8601.
+    /// GitHub response decoder with ISO 8601 dates.
     static let github: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601

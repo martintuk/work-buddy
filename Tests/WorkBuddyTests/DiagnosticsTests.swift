@@ -3,9 +3,9 @@ import Testing
 
 @testable import WorkBuddy
 
-@Suite("Diagnóstico de sincronización")
+@Suite("Synchronization diagnostics")
 struct DiagnosticsTests {
-    @Test("Exporta una operación pendiente y distingue una sesión reabierta")
+    @Test("Export pending operations and distinguish reopened sessions")
     func pendingRefreshAndReopening() async throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -43,7 +43,7 @@ struct DiagnosticsTests {
         #expect(finished.records.contains { $0.kind == .phaseEnded && $0.durationMs != nil })
     }
 
-    @Test("Conserva diez ciclos y un resultado tardío no recrea el expulsado")
+    @Test("Retain ten cycles and prevent late results from recreating evicted cycles")
     func retentionAndLateEvents() async throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -71,7 +71,7 @@ struct DiagnosticsTests {
         #expect(!files.contains { $0.lastPathComponent.contains(old.refresh.uuidString) })
     }
 
-    @Test("Un ciclo pendiente sobrevive a las actualizaciones terminadas del otro servicio")
+    @Test("Pending cycles survive completed refreshes from the other service")
     func pendingRefreshSurvivesRetention() async throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -101,7 +101,7 @@ struct DiagnosticsTests {
         #expect(finished.records.filter { $0.refresh == pending.refresh && $0.kind == .refreshEnded }.count == 1)
     }
 
-    @Test("Si los ciclos activos exceden el límite, el expulsado no resucita con eventos tardíos")
+    @Test("Late events cannot revive active cycles evicted by the limit")
     func evictedActiveRefreshDoesNotReturn() async throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -129,7 +129,7 @@ struct DiagnosticsTests {
         #expect(finished.text.contains("Refresh \(newer.refresh) · finished"))
     }
 
-    @Test("El límite de bytes conserva JSON válido, truncamiento y finalización")
+    @Test("The byte limit preserves valid JSON, truncation, and completion")
     func boundedCycle() async throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -154,7 +154,7 @@ struct DiagnosticsTests {
         #expect(exported.records.filter { $0.kind == .counts }.count < 100)
     }
 
-    @Test("Los contextos concurrentes y sus fases anidadas no mezclan métricas")
+    @Test("Concurrent contexts and nested phases keep metrics separate")
     func concurrentContexts() async throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -216,7 +216,7 @@ struct DiagnosticsTests {
         }
     }
 
-    @Test("Los errores exportan categorías y códigos sin sus datos privados")
+    @Test("Errors export categories and codes without private data")
     func errorPrivacy() async throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -239,7 +239,7 @@ struct DiagnosticsTests {
             for failure in failures {
                 do {
                     try await Diagnostics.measure(.gh) { () async throws -> Void in throw failure }
-                    Issue.record("La instrumentación no debe absorber el error del loader")
+                    Issue.record("Instrumentation must not swallow loader errors")
                 } catch {
                     Diagnostics.record(.failed, error: error)
                 }
@@ -254,7 +254,7 @@ struct DiagnosticsTests {
         #expect(exported.records.filter { $0.kind == .phaseEnded && $0.failure != nil }.count == failures.count)
     }
 
-    @Test("Una falla del almacenamiento no altera el resultado del loader")
+    @Test("Storage failures do not change loader results")
     func unavailableStorage() async throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -273,7 +273,7 @@ struct DiagnosticsTests {
                 try await Diagnostics.measure(.merge) { () async throws -> Void in
                     throw DiagnosticFixtureFailure.expected
                 }
-                Issue.record("El error original debe conservarse aunque el log no pueda escribirse")
+                Issue.record("Preserve the original error even when logging fails")
             } catch {
                 #expect(error as? DiagnosticFixtureFailure == .expected)
             }

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Filtra por autor, independientemente de la sección donde aparezca el PR.
+/// Filter by author independently of the PR's displayed section.
 enum AutomationFilter: String, CaseIterable {
     case all
     case excludingAutomation

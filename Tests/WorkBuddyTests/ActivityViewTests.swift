@@ -3,10 +3,10 @@ import SwiftUI
 import Testing
 @testable import WorkBuddy
 
-@Suite("Presentación de actividad")
+@Suite("Activity presentation")
 @MainActor
 struct ActivityViewTests {
-    @Test("Render de actividad con errores, omisiones y operaciones en curso")
+    @Test("Render activity with errors, skipped items, and running operations")
     func renderActivity() throws {
         guard let directory = ProcessInfo.processInfo.environment["ACTIVITY_SNAPSHOTS"] else { return }
         try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
@@ -15,7 +15,7 @@ struct ActivityViewTests {
         log.record(PullRequestBatch.Entry(candidate: .init(pullRequest: fixture(2), action: .approve),
             status: .skipped(.changed)), source: .batch)
         log.record(PullRequestBatch.Entry(candidate: .init(pullRequest: fixture(3), action: .merge),
-            status: .failed(LocalizedMessage("GitHub rechazó la acción porque la rama cambió durante la operación. Reintentá con los datos actualizados."))), source: .autopilot)
+            status: .failed(LocalizedMessage("GitHub rejected the action because the branch changed during the operation. Retry with refreshed data."))), source: .autopilot)
         log.record(PullRequestBatch.Entry(candidate: .init(pullRequest: fixture(4), action: .approve),
             status: .waiting(seconds: 30, attempt: 2)), source: .autopilot)
         log.record(.dependabotRebase, on: fixture(5), status: .running)

@@ -1,14 +1,13 @@
 import Foundation
 
-/// Conserva la última sección observada, independientemente de que los envíos
-/// estén habilitados. Una consulta fallida no debe actualizar esta base.
+/// Retain the last observed section regardless of whether delivery is enabled. Failed queries must not update this baseline.
 @MainActor
 final class PullRequestNotificationTracker {
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        // Conserva la base de review de versiones anteriores.
+        // Preserve the review baseline from earlier versions.
         if defaults.object(forKey: key(for: .review)) == nil,
            defaults.bool(forKey: "notifier.hasSeededBaseline") {
             defaults.set(
@@ -28,7 +27,7 @@ final class PullRequestNotificationTracker {
         let notifications = PullRequestNotificationPolicy.entries(
             in: current, since: previousIDs, queue: queue
         )
-        // Reemplazar, no acumular: salir y volver a entrar debe notificar otra vez.
+        // Replace rather than accumulate: leaving and reentering must notify again.
         defaults.set(Array(Set(current.map(\.id))), forKey: key(for: queue))
         return notifications
     }

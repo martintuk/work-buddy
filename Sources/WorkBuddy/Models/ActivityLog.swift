@@ -1,8 +1,8 @@
 import Foundation
 import Observation
 
-/// Historial local persistente. Una operación conserva su identidad al
-/// actualizar el progreso; cada ejecución nueva genera una entrada distinta.
+/// Persistent local history. Progress updates preserve operation identity;
+/// each new execution creates a distinct entry.
 @MainActor
 @Observable
 final class ActivityLog {
@@ -58,7 +58,7 @@ final class ActivityLog {
         let action: PullRequestAction?
         let pullRequest: PullRequest?
         let viewer: String?
-        // Sigue activo durante una revalidación de una escritura incierta.
+        // Remain active while revalidating an uncertain write.
         private(set) var recoverAfterInterruption = false
 
         mutating func setStatus(_ status: Status) {
@@ -98,7 +98,7 @@ final class ActivityLog {
         let version: Int
     }
 
-    /// Sin URL, los previews y tests mantienen su historial aislado en memoria.
+    /// Without a URL, previews and tests keep isolated in-memory history.
     init(storageURL: URL? = nil, limit: Int = ActivityLog.historyLimit) {
         self.storageURL = storageURL
         self.limit = max(1, limit)
@@ -106,7 +106,7 @@ final class ActivityLog {
         do {
             let data = try Data(contentsOf: storageURL)
             guard try JSONDecoder().decode(Header.self, from: data).version == 1 else {
-                canPersist = false // No sobrescribir archivos de una versión futura.
+                canPersist = false // Do not overwrite files from a future version.
                 return
             }
             let history = try JSONDecoder().decode(History.self, from: data)
@@ -122,7 +122,7 @@ final class ActivityLog {
             persist()
         } catch {
             debugLog("Could not load activity history: \(error)")
-            // Apartar un archivo ilegible permite seguir guardando sin perder el original.
+            // Move an unreadable file aside so saving can continue without losing the original.
             let backup = storageURL.deletingPathExtension()
                 .appendingPathExtension("unreadable-\(UUID().uuidString).json")
             do { try FileManager.default.moveItem(at: storageURL, to: backup) }
@@ -217,7 +217,7 @@ final class ActivityLog {
     }
 
     private func prune() {
-        // Los resultados inciertos también impiden repetir escrituras: no vencen.
+        // Uncertain results also prevent duplicate writes and do not expire.
         entries = entries.enumerated().filter { index, entry in
             index < limit || !entry.status.isComplete || entry.status.needsVerification
         }.map(\.element)
@@ -229,7 +229,7 @@ final class ActivityLog {
         do {
             let data = try JSONEncoder().encode(History(version: 1, entries: entries, unreadIDs: unreadIDs))
             try FileManager.default.createDirectory(at: storageURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            // Guardar antes de enviar una escritura; un cierre abrupto conserva su estado.
+            // Persist before sending a write so an abrupt exit preserves its state.
             try data.write(to: storageURL, options: .atomic)
         } catch {
             debugLog("Could not save activity history: \(error)")

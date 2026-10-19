@@ -1,7 +1,7 @@
 import Foundation
 
-/// Volcado de la cola de review por stdout. Sólo para desarrollo: nos deja
-/// verificar la capa de datos y el bucketing sin depender de la GUI.
+/// Development-only review queue dump to stdout.
+/// Checks data loading and classification without the GUI.
 enum DumpQueue {
     @MainActor
     static func run() async {
@@ -11,9 +11,8 @@ enum DumpQueue {
             let configuration = AppConfiguration.load()
             let viewer = try await Viewer.fetch()
 
-            // Las consultas de las cuatro colas son independientes. La app las escalona (primero
-            // personas, después dependabot) para que el panel aparezca antes;
-            // acá van en paralelo porque sólo interesa el resultado.
+            // Queue requests are independent. The app publishes early results to show
+            // the panel sooner; this dump runs requests concurrently because only the final result matters.
             async let reviewQueue = ReviewQueue.fetch(configuration: configuration, viewer: viewer)
             async let dependabotQueue = DependabotQueue.fetch(configuration: configuration, viewer: viewer)
             async let teamQueue = TeamDependabot.load(configuration: configuration, viewer: viewer)
@@ -25,7 +24,7 @@ enum DumpQueue {
             let dependabot = try await dependabotQueue
             let teamResult = await teamQueue
             if let error = teamResult.error {
-                FileHandle.standardError.write(Data("Dependabot de equipos: \(error)\n".utf8))
+                FileHandle.standardError.write(Data("Team Dependabot: \(error)\n".utf8))
             }
             let teamPRs = teamResult.pullRequests ?? []
             let mergeCandidates = (try await mergeQueue + teamPRs).uniquedByID()
@@ -35,8 +34,7 @@ enum DumpQueue {
             let pullRequests = (humans + dependabot + teamPRs).uniquedByID()
             let elapsed = Date().timeIntervalSince(start)
 
-            // Aplicamos la lista de ignorados igual que el panel, así el volcado
-            // refleja lo que se ve en la app.
+            // Apply the same ignored-item list as the panel so the dump reflects the UI.
             let ignoredIDs = IgnoreList().ids
             let visible = pullRequests.excluding(ignoredIDs)
                 .excludingMergeableAutomation(in: mergeCandidates)
@@ -55,47 +53,47 @@ enum DumpQueue {
             let reviews = visible.reviewSections.flatMap(\.items)
             let bots = visible.automation
 
-            // Mismo cálculo que el badge: las cinco fuentes, deduplicadas por id.
+            // Match the badge calculation across action sources, deduplicated by ID.
             let awaiting = visible.awaitingYourReview
             let badge = Set(awaiting.map(\.id)).union(readyToMerge.map(\.id))
                 .union(needingCIFix.map(\.id)).union(needingRebase.map(\.id))
                 .union(needingReply.map(\.id)).count
 
-            print("\(pullRequests.count) PRs en la cola — \(format(elapsed))")
-            print("  personas: \(humans.count)  |  dependabot: \(dependabot.count)  |  dependabot de equipos: \(teamPRs.count)")
-            print("visibles → reviews: \(reviews.count)"
-                + "  |  automatización: \(bots.count)"
-                + "  |  ignorados: \(ignored.count)")
-            print("BADGE: \(badge)  (\(awaiting.count) para revisar + "
-                + "\(readyToMerge.count) para mergear + \(needingCIFix.count) para fixear + "
-                + "\(needingRebase.count) para rebasear + \(needingReply.count) para responder)\n")
+            print("\(pullRequests.count) PRs in queue — \(format(elapsed))")
+            print("  people: \(humans.count)  |  dependabot: \(dependabot.count)  |  team Dependabot: \(teamPRs.count)")
+            print("visible → reviews: \(reviews.count)"
+                + "  |  automation: \(bots.count)"
+                + "  |  ignored: \(ignored.count)")
+            print("BADGE: \(badge)  (\(awaiting.count) to review + "
+                + "\(readyToMerge.count) to merge + \(needingCIFix.count) to fix + "
+                + "\(needingRebase.count) to rebase + \(needingReply.count) to reply)\n")
 
-            print("── LISTOS PARA MERGEAR (\(readyToMerge.count)) ──")
+            print("── READY TO MERGE (\(readyToMerge.count)) ──")
             for pullRequest in readyToMerge {
                 print("  \(describe(pullRequest, behind: behind))  "
                     + "[\(pullRequest.mergeStateStatus?.rawValue ?? "?")]")
             }
             print("")
 
-            print("── PARA FIXEAR (\(needingCIFix.count)) ──")
+            print("── NEEDS FIXES (\(needingCIFix.count)) ──")
             for pullRequest in needingCIFix {
                 print("  \(describe(pullRequest, behind: behind))")
             }
             print("")
 
-            print("── PARA REBASEAR (\(needingRebase.count)) ──")
+            print("── NEEDS REBASE (\(needingRebase.count)) ──")
             for pullRequest in needingRebase {
                 print("  \(describe(pullRequest, behind: behind))")
             }
             print("")
 
-            print("── PARA RESPONDER (\(needingReply.count)) ──")
+            print("── NEEDS REPLY (\(needingReply.count)) ──")
             for pullRequest in needingReply {
                 print("  \(describe(pullRequest, behind: behind))")
             }
             print("")
 
-            print("── ESPERANDO RESPUESTA (\(waitingForReply.count)) ──")
+            print("── AWAITING REPLY (\(waitingForReply.count)) ──")
             for pullRequest in waitingForReply {
                 print("  \(describe(pullRequest, behind: behind))")
             }
@@ -104,17 +102,16 @@ enum DumpQueue {
             print("── REVIEWS ──")
             printBuckets(reviews, behind: behind, listing: true)
 
-            // Se listan igual que las personas: desde que dependabot entra al
-            // panel, su atraso contra la base es el dato que decide si hace falta
-            // un rebase, y no verlo acá sería volar a ciegas.
-            print("── AUTOMATIZACIÓN · NO LISTOS ──")
+            // List automation like human PRs: its distance behind the base helps users
+            // decide whether a rebase is appropriate and must remain visible in the dump.
+            print("── AUTOMATION · NOT READY ──")
             for pullRequest in bots {
                 print("  \(describe(pullRequest, behind: behind))")
             }
             print("")
 
             if !ignored.isEmpty {
-                print("── IGNORADOS ──")
+                print("── IGNORED ──")
                 printBuckets(ignored, behind: behind, listing: true)
             }
         } catch {
@@ -139,11 +136,11 @@ enum DumpQueue {
                 print("  \(describe(pullRequest, behind: behind))")
             }
         }
-        // Siguen disponibles para automatización, merge e ignorados, aunque
-        // ya no pertenecen a ninguna categoría de review del panel.
+        // These remain relevant to automation, merge, and ignored sections
+        // even when they no longer belong to a panel review category.
         let outsideReview = pullRequests.filter { $0.bucket() == nil }
         if !outsideReview.isEmpty {
-            print("Fuera de la cola de review (\(outsideReview.count))")
+            print("Outside the review queue (\(outsideReview.count))")
             if listing {
                 for pullRequest in outsideReview.sorted(by: { $0.updatedAt > $1.updatedAt }) {
                     print("  \(describe(pullRequest, behind: behind))")
@@ -154,8 +151,8 @@ enum DumpQueue {
     }
 
     private static func describe(_ pullRequest: PullRequest, behind: [String: Int]) -> String {
-        // "?" es no medido y "" es al día: son estados distintos.
-        let atraso: String? = switch behind[pullRequest.id] {
+        // Unknown (?) and up to date (empty) are distinct states.
+        let lag: String? = switch behind[pullRequest.id] {
         case .some(let commits) where commits > 0: "↓\(commits)"
         case .none: "↓?"
         default: nil
@@ -164,7 +161,7 @@ enum DumpQueue {
             pullRequest.checks.isRed ? "CI✗" : nil,
             pullRequest.isDraft ? "draft" : nil,
             pullRequest.approvals > 0 ? "\(pullRequest.approvals)✓" : nil,
-            atraso
+            lag
         ].compactMap(\.self).joined(separator: " ")
         return "\(pullRequest.shortRepository)#\(pullRequest.number) "
             + "@\(pullRequest.author.login) — \(pullRequest.title.prefix(46)) \(flags)"

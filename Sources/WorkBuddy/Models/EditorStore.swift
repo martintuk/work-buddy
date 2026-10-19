@@ -34,7 +34,7 @@ struct EditorApplication: Identifiable, Equatable, Sendable {
                 && bundleIdentifier.lowercased() != "com.jetbrains.toolbox")
     }
 
-    /// También recorre las instalaciones de Toolbox, sin entrar a los bundles.
+    /// Also search Toolbox installations without descending into app bundles.
     static func discover() -> [Self] {
         let manager = FileManager.default
         let home = manager.homeDirectoryForCurrentUser
@@ -135,7 +135,7 @@ final class EditorStore {
               FileManager.default.fileExists(atPath: folder.appendingPathComponent(".git").path) else {
             throw EditorError.missingFolder
         }
-        // Toolbox puede mover el bundle al actualizarlo: recuperamos la app por ID.
+        // Toolbox may relocate an updated bundle; recover the app by identifier.
         var editor = selectedURL.flatMap { EditorApplication(url: $0) }
         if editor == nil, let identifier = defaults.string(forKey: Key.bundleIdentifier),
            let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier) {

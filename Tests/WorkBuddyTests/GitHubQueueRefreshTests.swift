@@ -2,10 +2,10 @@ import Foundation
 import Testing
 @testable import WorkBuddy
 
-@Suite("Publicación independiente de colas")
+@Suite("Independent queue publication")
 @MainActor
 struct GitHubQueueRefreshTests {
-    @Test("Publica propios, equipos y respuestas mientras review y merge siguen pendientes")
+    @Test("Publish own PRs, teams, and replies while review and merge remain pending")
     func independentPublication() async throws {
         let fixture = QueueRefreshFixture()
         var publications: [Diagnostics.Phase] = []
@@ -33,7 +33,7 @@ struct GitHubQueueRefreshTests {
         try await fixture.waitFor([.dependabot])
         await fixture.release([.dependabot])
         try await waitUntil { publications.contains(.dependabot) }
-        #expect(!completed) // Todavía no se puede cerrar el ciclo ni notificar merge.
+        #expect(!completed) // The cycle cannot finish or notify merges yet.
         #expect(!publications.contains(.merge))
 
         await fixture.release([.merge])
@@ -43,7 +43,7 @@ struct GitHubQueueRefreshTests {
         #expect(publications.count == 6)
     }
 
-    @Test("Una fuente secundaria fallida conserva su sección y limita las notificaciones",
+    @Test("Failed secondary sources retain their section and limit notifications",
           arguments: [Diagnostics.Phase.merge, .dependabot, .teamDependabot, .own, .conversationCandidates, .replies])
     func partialFailures(failing: Diagnostics.Phase) async throws {
         let fixture = QueueRefreshFixture(failing: failing)
@@ -62,7 +62,7 @@ struct GitHubQueueRefreshTests {
         }
     }
 
-    @Test("Cancelar no permite publicar respuestas tardías")
+    @Test("Cancellation prevents publishing late responses")
     func cancellation() async throws {
         let fixture = QueueRefreshFixture()
         var publications: [Diagnostics.Phase] = []
@@ -79,7 +79,7 @@ struct GitHubQueueRefreshTests {
         #expect(publications.isEmpty)
     }
 
-    @Test("Una falla de review sigue siendo fatal y no inicia Dependabot")
+    @Test("Review failures remain fatal and do not start Dependabot")
     func reviewFailure() async throws {
         let fixture = QueueRefreshFixture(failing: .review)
         await fixture.releaseAll()
@@ -140,7 +140,7 @@ private actor QueueRefreshFixture {
     func run(_ phase: Diagnostics.Phase) async throws {
         #expect(started.insert(phase).inserted)
         if !automatic { await withCheckedContinuation { pending[phase] = $0 } }
-        // Simula un proceso gh que puede responder luego de cancelar la carga.
+        // Simulate a gh process that can respond after loading is canceled.
         if phase == failing { throw GH.Failure.noAttempts }
     }
 

@@ -3,10 +3,10 @@ import Testing
 
 @testable import WorkBuddy
 
-@Suite("Configuración")
+@Suite("Configuration")
 struct AppConfigurationTests {
-    @Test("Normaliza organización y cuentas de máquina")
-    func normalizacion() throws {
+    @Test("Normalize organizations and machine accounts")
+    func normalization() throws {
         let configuration = try AppConfiguration(
             organizations: [" @Example-Org "],
             machineAccountsText: "CI-User, release-user  @CI-User"
@@ -17,8 +17,8 @@ struct AppConfigurationTests {
         #expect(configuration.scopedSearch("is:pr") == "is:pr org:example-org")
     }
 
-    @Test("Rechaza valores que podrían romper la query")
-    func validacion() {
+    @Test("Reject values that could break the query")
+    func validation() {
         #expect(throws: AppConfiguration.ValidationError.self) {
             try AppConfiguration(
                 organizations: ["example-org\" archived:true"],
@@ -33,8 +33,8 @@ struct AppConfigurationTests {
         }
     }
 
-    @Test("Persiste sin valores predeterminados de una organización")
-    func persistencia() throws {
+    @Test("Persist without organization-specific defaults")
+    func persistence() throws {
         let suiteName = "configuration-test-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -49,7 +49,7 @@ struct AppConfigurationTests {
         #expect(AppConfiguration.empty.machineAccounts.isEmpty)
         #expect(AppConfiguration.empty.organizations.isEmpty)
     }
-    @Test("Varias organizaciones se normalizan y persisten juntas")
+    @Test("Normalize and persist multiple organizations together")
     func multipleSelection() throws {
         let configuration = try AppConfiguration(
             organizations: ["Beta", "alpha", "ALPHA"], machineAccountsText: ""
@@ -62,7 +62,7 @@ struct AppConfigurationTests {
         #expect(AppConfiguration.load(defaults: defaults) == configuration)
     }
 
-    @Test("Migra la organización anterior y permite borrar la selección")
+    @Test("Migrate the previous organization and allow clearing the selection")
     func migration() throws {
         let suite = "migration-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -79,7 +79,7 @@ struct AppConfigurationTests {
         #expect(AppConfiguration.load(defaults: defaults).scopedSearch("is:pr") == "is:pr")
     }
 
-    @Test("Lee todas las páginas de organizaciones, sin duplicados")
+    @Test("Read all organization pages without duplicates")
     func organizationPages() throws {
         let data = Data(#"[[{"login":"Beta"}],[{"login":"Alpha"},{"login":"beta"}]]"#.utf8)
         #expect(try GitHubOrganizations.decode(data) == ["alpha", "beta"])

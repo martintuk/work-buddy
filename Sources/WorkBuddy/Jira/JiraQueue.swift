@@ -1,6 +1,6 @@
 import Foundation
 
-/// Las dos colas usan el mismo contrato del CLI; el JQL es un argumento, nunca shell.
+/// Both queues share the CLI contract; JQL is a process argument, never shell code.
 enum JiraQueue {
     static func arguments(jql: String, limit: Int?) -> [String] {
         ["jira", "workitem", "search", "--jql", jql,

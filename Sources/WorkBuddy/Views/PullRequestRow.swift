@@ -1,15 +1,14 @@
 import AppKit
 import SwiftUI
 
-/// Una fila de la lista. Un click selecciona y doble click abre el PR; el menú de la derecha
-/// y el menú contextual tienen el resto de las acciones.
+/// A list row: click to select, double-click to open the PR. The trailing and context menus provide other actions.
 struct PullRequestRow: View {
     let pullRequest: PullRequest
     let isSelected: Bool
     let select: () -> Void
     let isIgnored: Bool
     let isActing: Bool
-    /// Commits atrás de la base. `nil` = no se pudo medir, que no es `0`.
+    /// Commits behind the base. `nil` means unmeasured, distinct from zero.
     let behindBy: Int?
     let localFolder: URL?
     let editor: EditorStore
@@ -48,7 +47,7 @@ struct PullRequestRow: View {
 
     private var rowContent: some View {
         ZStack(alignment: .topTrailing) {
-            // Las acciones quedan fuera del área que reconoce los clicks de la fila.
+            // Keep actions outside the row's click recognition area.
             details
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -73,7 +72,7 @@ struct PullRequestRow: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
         }
-        // El label queda fuera de los gestos de la fila, igual que las acciones.
+        // Like actions, the label stays outside row gestures.
         .overlayPreferenceValue(RepositoryLabelBounds.self) { anchor in
             GeometryReader { geometry in
                 if let anchor {
@@ -111,7 +110,7 @@ struct PullRequestRow: View {
         if pullRequest.isDraft {
             Badge(text: L10n.text(.prDraft), color: .secondary)
         }
-        // Informativo, no excluyente: statusCheckRollup incluye checks opcionales.
+        // Informational, not a filter: statusCheckRollup includes optional checks.
         if pullRequest.checks.isRed {
             Badge(text: L10n.text(.prCI), color: .red)
         }
@@ -140,8 +139,7 @@ struct PullRequestRow: View {
         }
     }
 
-    // El color refleja el veredicto global, independientemente del autor,
-    // de quién aprobó y de la sección donde aparece el PR.
+    // Color reflects the overall verdict, regardless of author, approver, or PR section.
     private var approvalColor: Color {
         switch pullRequest.reviewDecision {
         case .approved: .green
@@ -162,8 +160,7 @@ struct PullRequestRow: View {
         return "\(count). \(L10n.text(status))"
     }
 
-    /// Mostramos sólo atraso confirmado. Mientras se calcula o si no se pudo
-    /// medir, omitimos el badge sin tratar el valor desconocido como cero.
+    /// Show only confirmed lag. Omit the badge while measuring or after a failed measurement without treating unknown values as zero.
     @ViewBuilder
     private var behindBadge: some View {
         if let commits = behindBy, commits > 0 {
@@ -185,8 +182,7 @@ struct PullRequestRow: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .accessibilityLabel(L10n.text(.prActions))
-        // Siempre presente para no mover el layout, atenuado hasta que pasás
-        // el mouse por encima.
+        // Always present to keep layout stable, dimmed until hovered.
         .opacity(isHovering ? 1 : 0.25)
     }
 
@@ -222,8 +218,7 @@ struct PullRequestRow: View {
 
         Divider()
 
-        // Una colección dinámica identifica las inserciones y bajas de acciones
-        // cuando cambia el PR, tanto en Menu como en el menú contextual.
+        // A dynamic collection identifies inserted and removed actions when the PR changes, in both Menu and the context menu.
         let writeActions = repositoryStore.availableWriteActions(for: pullRequest)
         let actionToVerify = repositoryStore.actionToVerify(for: pullRequest)
         if let entry = actionToVerify {
@@ -246,8 +241,7 @@ struct PullRequestRow: View {
 
 }
 
-/// Selecciona la fila al presionar cualquier botón del mouse, antes de que
-/// SwiftUI abra el menú contextual o el menú de acciones.
+/// Select the row on any mouse button press, before SwiftUI opens the context or actions menu.
 private struct RowMouseSelection: NSViewRepresentable {
     let select: () -> Void
 

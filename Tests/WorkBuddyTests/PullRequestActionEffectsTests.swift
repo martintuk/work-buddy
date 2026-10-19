@@ -1,9 +1,9 @@
 import Testing
 @testable import WorkBuddy
 
-@Suite("Resultados visibles de acciones")
+@Suite("Visible action outcomes")
 struct PullRequestActionEffectsTests {
-    @Test("Cambiar la cuenta conserva revisiones crecientes para las lecturas en curso")
+    @Test("Account changes preserve increasing revisions for reads in progress")
     func resetRevision() {
         var effects = PullRequestActionEffects()
         effects.record(.approve, on: fixture(1))
@@ -14,7 +14,7 @@ struct PullRequestActionEffectsTests {
         #expect(!effects.applying(to: [fixture(1)], readRevision: started)[0].approvedByMe)
     }
 
-    @Test("Lecturas anteriores no reviven merges ni revierten una aprobación")
+    @Test("Earlier reads neither revive merged PRs nor undo approvals")
     func staleResults() {
         var effects = PullRequestActionEffects()
         let approved = fixture(1), merged = fixture(2)
@@ -26,11 +26,11 @@ struct PullRequestActionEffectsTests {
         #expect(projected.map(\.id) == [approved.id, fixture(3).id])
         #expect(projected[0].approvedByMe && !projected[0].canApprove)
         #expect(!projected[0].canMerge)
-        // Una fuente parcial puede publicar después de otra: conserva la protección.
+        // A partial source can publish after another source; preserve the guard.
         #expect(effects.applying(to: [merged], readRevision: started).isEmpty)
     }
 
-    @Test("Una aprobación no se extiende a otro commit ni tapa una decisión posterior")
+    @Test("Approval does not extend to another commit or hide a later decision")
     func laterDecisions() {
         var effects = PullRequestActionEffects()
         let original = fixture(1)
@@ -44,7 +44,7 @@ struct PullRequestActionEffectsTests {
         #expect(effects.applying(to: [fixture(2)], readRevision: started).isEmpty)
     }
 
-    @Test("Un rebase no recupera el atraso calculado antes de terminar")
+    @Test("Rebase does not restore lag measured before completion")
     func behindCounts() {
         var effects = PullRequestActionEffects()
         effects.record(.rebase, on: fixture(1))
@@ -52,7 +52,7 @@ struct PullRequestActionEffectsTests {
         #expect(effects.applying(to: [fixture(1).id: 2], readRevision: 1)[fixture(1).id] == 2)
     }
 
-    @Test("Aprobar conserva el PR que espera otra aprobación; mergear lo retira")
+    @Test("Approval retains PRs awaiting another approval; merge removes them")
     @MainActor
     func storeTransitions() {
         let pr = fixture(1)

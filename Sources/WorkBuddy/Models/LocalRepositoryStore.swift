@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// Asociaciones manuales, compartidas por todos los PRs del repo.
+/// Manual folder associations shared by every PR in a repository.
 @MainActor
 @Observable
 final class LocalRepositoryStore {
@@ -22,7 +22,7 @@ final class LocalRepositoryStore {
 
     func associate(_ folder: URL, with repository: String) throws {
         let folder = folder.standardizedFileURL.resolvingSymlinksInPath()
-        // .git puede ser un directorio (clone) o un archivo (worktree).
+        // .git can be a directory for a clone or a file for a worktree.
         guard folder.isFileURL,
               FileManager.default.fileExists(atPath: folder.appendingPathComponent(".git").path) else {
             throw FolderError.missingGitMetadata

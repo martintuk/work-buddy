@@ -9,12 +9,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        // Finder y el Dock deben abrir el panel aunque la app ya esté corriendo.
+        // Finder and Dock actions should open the panel even when the app is already running.
         menuBar?.showPanel()
         return false
     }
 
-    // El panel se crea al abrirlo; no hay ventanas que restaurar.
+    // The panel is created on demand; there are no windows to restore.
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
         true
     }

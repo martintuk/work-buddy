@@ -3,10 +3,10 @@ import Testing
 
 @testable import WorkBuddy
 
-@Suite("Aprobación personal de GitHub")
+@Suite("GitHub personal approval")
 struct PullRequestNodeTests {
-    @Test("Un approval propio se detecta aunque no esté en los primeros reviewers")
-    func aprobacionFueraDeLaPagina() throws {
+    @Test("Detect personal approval beyond the first reviewers")
+    func approvalBeyondPage() throws {
         let pr = try decode(
             personalState: "APPROVED",
             latestReviews: (1...10).map { review(author: "other-\($0)", state: "APPROVED") }
@@ -17,8 +17,8 @@ struct PullRequestNodeTests {
         #expect([pr].awaitingYourReview.isEmpty)
     }
 
-    @Test("Comentar después de aprobar no invalida la aprobación")
-    func comentarioPosterior() throws {
+    @Test("Comments after approval do not invalidate it")
+    func laterComment() throws {
         let pr = try decode(
             personalState: "APPROVED",
             latestReviews: [review(author: "me", state: "COMMENTED")]
@@ -27,9 +27,9 @@ struct PullRequestNodeTests {
         #expect(pr.bucket() == nil)
     }
 
-    @Test("Un approval descartado o reemplazado por cambios no oculta el PR",
+    @Test("Dismissed approvals or requested changes do not hide PRs",
           arguments: ["DISMISSED", "CHANGES_REQUESTED", "COMMENTED", "PENDING", "UNKNOWN"])
-    func decisionSinAprobacion(state: String) throws {
+    func decisionWithoutApproval(state: String) throws {
         let pr = try decode(
             personalState: state,
             latestReviews: [review(author: "me", state: "APPROVED")]
@@ -39,15 +39,15 @@ struct PullRequestNodeTests {
         #expect([pr].awaitingYourReview.map(\.id) == [pr.id])
     }
 
-    @Test("Sin decisión personal no se usa la aprobación de otro")
-    func sinReviewPersonal() throws {
+    @Test("Other approvals cannot replace a missing personal decision")
+    func noPersonalReview() throws {
         let pr = try decode(personalState: nil, latestReviews: [review(author: "other", state: "APPROVED")])
         #expect(!pr.approvedByMe)
         #expect(pr.bucket() == .needsReview)
     }
 
-    @Test("La aprobación debe pertenecer a la cuenta activa")
-    func identidadDelReviewer() throws {
+    @Test("Approval must belong to the active account")
+    func reviewerIdentity() throws {
         #expect(try decode(personalState: "APPROVED", personalAuthor: "ME").approvedByMe)
         #expect(try !decode(personalState: "APPROVED", personalAuthor: "other").approvedByMe)
     }

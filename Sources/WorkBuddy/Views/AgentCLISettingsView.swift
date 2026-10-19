@@ -4,7 +4,7 @@ struct AgentCLISettingsView: View {
     @Bindable var store: AgentCLIStore
 
     var body: some View {
-        // Group deja que el VStack de Configuración aplique el mismo espaciado a cada campo.
+        // Group lets the settings VStack apply consistent spacing to each field.
         Group {
             HStack {
                 Text(L10n.text(.agentTerminal)).font(.system(size: 12, weight: .semibold))

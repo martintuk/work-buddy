@@ -1,6 +1,6 @@
 import Foundation
 
-/// Opt-in explícito, sin depender de campos ni estados de un equipo particular.
+/// Explicit opt-in without team-specific fields or statuses.
 struct JiraConfiguration: Codable, Equatable, Sendable {
     static let preferenceKey = "jira.configuration"
     static let defaultPrimaryJQL = "assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC"

@@ -2,13 +2,12 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Dueño del icono en la barra de menú y del panel que se despliega al clickearlo.
-///
-/// Click izquierdo abre/cierra el panel. Click derecho abre un menú contextual.
+/// Owns the menu bar icon and its popover panel.
+/// Left click toggles the panel; right click opens the context menu.
 @MainActor
 final class MenuBarController: NSObject, NSPopoverDelegate {
-    /// Ventana de gracia tras un cierre automático, para que el click que hizo
-    /// perder el foco no vuelva a abrir el panel.
+    /// Grace period after automatic dismissal so the click that moved focus
+    /// does not immediately reopen the panel.
     private static let reopenGuard: TimeInterval = 0.3
 
     private let statusItem: NSStatusItem
@@ -39,8 +38,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         Task { await store.notifier.refreshAuthorization() }
         syncScheduler.start()
 
-        // `--open-panel` abre el panel al arrancar, para poder probar el cierre
-        // automático sin clickear.
+        // --open-panel opens on startup for testing automatic dismissal without clicking.
         if CommandLine.arguments.contains("--open-panel") {
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(400))
@@ -49,7 +47,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         }
     }
 
-    // MARK: - Configuración
+    // MARK: - Configuration
 
     private func configureStatusItem() {
         guard let button = statusItem.button else { return }
@@ -59,7 +57,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         button.toolTip = "work-buddy"
         button.setAccessibilityLabel("work-buddy")
 
-        // Un único action para los dos botones; los separamos en handleClick().
+        // Use one action for both mouse buttons; handleClick distinguishes them.
         button.target = self
         button.action = #selector(handleClick)
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -67,8 +65,8 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
     private func configurePopover() {
         popover.delegate = self
-        popover.behavior = .transient // se cierra solo al clickear afuera
-        popover.animates = false // sin esto el panel "resbala" al abrirse
+        popover.behavior = .transient // closes automatically when clicking outside
+        popover.animates = false // prevent the panel from sliding when opened
         let controller = NSHostingController(
             rootView: PanelView(
                 store: store,
@@ -89,30 +87,28 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         controller.view.setFrameSize(PanelView.preferredSize)
         controller.view.layoutSubtreeIfNeeded()
         popover.contentViewController = controller
-        // Asignar el controller reemplaza contentSize por el tamaño de su vista.
-        // Fijarlo después evita usar un tamaño inicial provisional de SwiftUI.
+        // Assigning the controller replaces contentSize with its view size.
+        // Set the size afterward to avoid SwiftUI's provisional initial dimensions.
         popover.contentSize = PanelView.preferredSize
     }
 
-    /// El badge cuenta todo lo que espera una acción tuya: lo que tenés que
-    /// revisar más lo que podés mergear. Los PRs de bots que esperan review no
-    /// entran — si el badge contara ruido, dejarías de mirarlo.
+    /// The badge counts actionable PRs from the store's filtered queues.
     private func updateBadge() {
         guard let button = statusItem.button else { return }
-        // El número solo no dice de qué se compone, ahora que suma dos cosas.
+        // Explain which action counts contribute to the total.
         button.toolTip = "work-buddy — \(store.actionableSummary)"
 
-        // Cambiar el título cambia el ancho del status item y mueve el ancla
-        // del popover. Mientras está abierto, la cola se actualiza en vivo y
-        // el badge espera al cierre para no desplazar el panel bajo el mouse.
+        // Changing the title resizes the status item and moves the popover anchor.
+        // While open, update the queues but defer the badge until dismissal so the
+        // panel does not move under the pointer.
         guard !popover.isShown else { return }
         let count = store.actionableCount
         button.title = count > 0 ? " \(count)" : ""
         button.imagePosition = count > 0 ? .imageLeading : .imageOnly
     }
 
-    // Incluye el cierre automático de NSPopover (.transient), que no pasa
-    // necesariamente por closePanel(). Se usa siempre el último contador.
+    // Include transient NSPopover dismissal, which may bypass closePanel().
+    // Always use the latest count.
     func popoverDidClose(_ notification: Notification) {
         store.activity.setPanelVisible(false)
         panelDiagnostics.end()
@@ -137,7 +133,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
             NSColor.black.set()
 
-            // El corte deja aire alrededor del satélite incluso a tamaño de menú.
+            // The gap leaves space around the satellite even at menu bar size.
             let orbit = NSBezierPath()
             orbit.appendArc(withCenter: NSPoint(x: 9, y: 9), radius: 6,
                             startAngle: 70, endAngle: 380)
@@ -160,9 +156,8 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             showContextMenu()
             return
         }
-        // Clickear el icono con el panel abierto le hace perder el foco, así que
-        // el cierre automático ya corrió y `popover.isShown` es false. Sin esta
-        // guarda, `togglePanel` lo volvería a abrir y el icono no cerraría nunca.
+        // Clicking the icon can trigger focus-loss dismissal before this handler runs.
+        // Without the guard, togglePanel would reopen it and the icon could never close it.
         guard Date().timeIntervalSince(lastAutoClose) > Self.reopenGuard else { return }
         togglePanel()
     }
@@ -176,8 +171,8 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     }
 
     func showPanel() {
-        // Reabrir desde el Dock trae el panel al frente sin cerrarlo ni reiniciar
-        // sus mediciones cuando ya estaba abierto (por ejemplo, con el pin activo).
+        // Reopening from the Dock brings an already-open panel forward without
+        // closing it or restarting measurements, including when pinned.
         guard !hasModalPanel else { return }
         if popover.isShown {
             popover.contentViewController?.view.window?.makeKeyAndOrderFront(nil)
@@ -187,8 +182,8 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
         panelDiagnostics.begin(hasSnapshot: store.lastUpdated != nil)
         panelDiagnostics.measure(.panelRefresh) { store.refresh() } // no-op si la data es reciente
-        // Resolver el contenido y el ancla antes de calcular la primera posición.
-        // El refresh puede cambiar el ancho del badge mientras el panel está cerrado.
+        // Resolve content and anchor before calculating the initial position.
+        // Refresh may change badge width while the panel is closed.
         panelDiagnostics.measure(.panelLayout) {
             button.window?.contentView?.layoutSubtreeIfNeeded()
             popover.contentViewController?.view.layoutSubtreeIfNeeded()
@@ -198,7 +193,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
 
-        // El popover necesita foco de teclado explícito para sus campos de texto.
+        // The popover needs explicit keyboard focus for text fields.
         popover.contentViewController?.view.window?.makeKey()
 
         observeFocusLoss()
@@ -206,16 +201,15 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
     private func closePanel() {
         stopObservingFocusLoss()
-        // El cierre explícito desde el menubar también funciona con el pin activo.
+        // Explicit menu bar dismissal also works while pinned.
         popover.close()
     }
 
-    // MARK: - Cierre al perder el foco
+    // MARK: - Dismiss on focus loss
 
-    /// `.transient` sólo cubre clicks fuera del panel: con cmd-tab, o al activar
-    /// otra app sin clickear, el panel quedaba abierto. La ventana del popover es
-    /// key porque la hacemos key al mostrarla, así que su `didResignKey` es la
-    /// señal de "perdí el foco".
+    /// Transient behavior only handles outside clicks. Command-Tab or activating
+    /// another app without clicking used to leave the panel open. Making the popover
+    /// window key lets didResignKey signal those focus changes.
     private func observeFocusLoss() {
         guard let window = popover.contentViewController?.view.window else { return }
         stopObservingFocusLoss()
@@ -225,8 +219,8 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             object: window,
             queue: .main
         ) { [weak self] _ in
-            // `queue: .main` garantiza el hilo principal, pero el closure es
-            // @Sendable y el compilador no lo sabe.
+            // queue: .main guarantees the main thread, but the @Sendable closure
+            // does not convey that guarantee to the compiler.
             MainActor.assumeIsolated { self?.autoClose() }
         }
     }
@@ -234,13 +228,12 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private func autoClose() {
         guard popover.isShown, !isPinned, !hasModalPanel else { return }
 
-        // Un menú abierto *dentro* del panel también hace que la ventana resigne
-        // key, y ahí no hay que cerrar nada. La app distingue los dos casos:
-        // medido, con el panel enfocado `isActive` es true, y cuando el foco se
-        // va de verdad llega acá ya en false.
+        // An internal menu also resigns the key window and must not dismiss the panel.
+        // In measurements, isActive remained true for internal menus and was already
+        // false when focus actually moved to another app.
         guard !NSApp.isActive else { return }
 
-        debugLog("cierro el panel: perdió el foco")
+        debugLog("closing panel: lost focus")
         lastAutoClose = .now
         closePanel()
     }
@@ -287,7 +280,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         return item
     }
 
-    // MARK: - Acciones del menú
+    // MARK: - Menu actions
 
     @objc private func exportDiagnostics() {
         NSApp.activate(ignoringOtherApps: true)

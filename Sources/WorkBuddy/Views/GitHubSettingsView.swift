@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Preferencias de GitHub; consulta organizaciones y equipos sólo al abrir esta sección.
+/// GitHub preferences; fetch organizations and teams only when opening this section.
 struct GitHubSettingsView: View {
     let store: ReviewQueueStore
 
@@ -269,7 +269,7 @@ struct GitHubSettingsView: View {
 
     private func saveConfiguration(field: Field) {
         do {
-            // Cada campo se valida y aplica independientemente del otro borrador.
+            // Validate and apply each field independently of the other draft.
             try store.updateConfiguration(
                 organizations: field == .organization
                     ? selectedOrganizations : store.configuration.organizations,

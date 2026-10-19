@@ -1,13 +1,13 @@
 import Foundation
 
-/// `gh api --include` conserva los headers aun cuando el comando falla.
+/// gh api --include retains response headers even when the command fails.
 struct GitHubAPIResponse {
     let status: Int
     let headers: [String: String]
     let body: Data
 
     init(_ data: Data) throws {
-        // gh mezcla LF en la línea de status con CRLF al terminar los headers.
+        // gh mixes LF on the status line with CRLF at the end of headers.
         let text = String(decoding: data, as: UTF8.self).replacingOccurrences(of: "\r\n", with: "\n")
         guard let separator = text.range(of: "\n\n") else { throw GH.Failure.badJSON("Missing HTTP headers") }
         let lines = text[..<separator.lowerBound].split(separator: "\n")
@@ -35,8 +35,8 @@ struct GitHubAPIError: LocalizedError {
 
     var isRateLimited: Bool {
         let message = String(decoding: response.body, as: UTF8.self).lowercased()
-        // 422 también puede ser protección contra spam. No confundimos un
-        // error de validación común con el rechazo explícito por velocidad.
+        // 422 may indicate spam protection. Distinguish ordinary validation errors
+        // from an explicit rejection for submitting too quickly.
         if response.status == 422 { return message.contains("was submitted too quickly") }
         guard response.status == 403 || response.status == 429 else { return false }
         return response.status == 429 || response.headers["retry-after"] != nil
@@ -45,7 +45,7 @@ struct GitHubAPIError: LocalizedError {
     }
 
     func retryDelay(attempt: Int, now: Date) -> TimeInterval {
-        // Si aparecen ambos headers, respetamos el más restrictivo.
+        // When both headers are present, honor the more restrictive wait.
         var delays: [TimeInterval] = []
         if let raw = response.headers["retry-after"], let seconds = Double(raw), seconds.isFinite, seconds >= 0 {
             delays.append(seconds)

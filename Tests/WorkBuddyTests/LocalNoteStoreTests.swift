@@ -3,10 +3,10 @@ import Testing
 
 @testable import WorkBuddy
 
-@Suite("Notas locales")
+@Suite("Local notes")
 @MainActor
 struct LocalNoteStoreTests {
-    @Test("Guarda cada edición y conserva texto plano al reiniciar")
+    @Test("Save every edit and preserve plain text after restarting")
     func persistence() throws {
         let suite = "local-notes-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -14,14 +14,14 @@ struct LocalNoteStoreTests {
         let id = LocalNoteID.github(nodeID: "PR_123", host: "github.com")
         let store = LocalNoteStore(defaults: defaults)
         #expect(store.text(for: id).isEmpty)
-        let text = "  Recordar mañana 📝\n- sin **formato**\nhttps://example.com\n"
+        let text = "  Remember tomorrow 📝\n- without **formatting**\nhttps://example.com\n"
         store.setText(text, for: id)
         #expect(LocalNoteStore(defaults: defaults).text(for: id) == text)
         store.setText("Una sola nota actualizada", for: id)
         #expect(LocalNoteStore(defaults: defaults).text(for: id) == "Una sola nota actualizada")
     }
 
-    @Test("Borrar una nota no toca otros ítems ni preferencias")
+    @Test("Deleting notes leaves other items and preferences unchanged")
     func deletionAndIsolation() throws {
         let suite = "local-notes-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -42,7 +42,7 @@ struct LocalNoteStoreTests {
         #expect(defaults.string(forKey: "appearance.language") == "es")
     }
 
-    @Test("Identidades estables y separadas por proveedor y sitio")
+    @Test("Stable identities separated by provider and site")
     func identities() {
         let site = URL(string: "https://team.atlassian.net")!
         let jira = LocalNoteID.jira(key: "APP-1", site: site)

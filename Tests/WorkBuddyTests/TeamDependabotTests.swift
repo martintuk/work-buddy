@@ -2,9 +2,9 @@ import Foundation
 import Testing
 @testable import WorkBuddy
 
-@Suite("Dependabot de equipos")
+@Suite("Team Dependabot")
 struct TeamDependabotTests {
-    @Test("Responsabilidad general: comentarios, mayúsculas y última regla global")
+    @Test("General ownership handles comments, case, and the last global rule")
     func ownership() {
         let identities: Set<String> = ["@org/team", "@me"]
         #expect(TeamDependabot.hasGeneralOwnership("* @ORG/TEAM # comentario", identities: identities))
@@ -15,7 +15,7 @@ struct TeamDependabotTests {
         #expect(!TeamDependabot.hasGeneralOwnership("* @org/team-other", identities: identities))
     }
 
-    @Test("La preferencia persiste, respeta organizaciones y empieza desactivada")
+    @Test("The preference persists, respects organizations, and starts disabled")
     func configuration() throws {
         let suite = "teams-config-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -37,23 +37,23 @@ struct TeamDependabotTests {
         }
     }
 
-    @Test("Lee equipos paginados y deduplica por organización y slug")
+    @Test("Read paginated teams and deduplicate by organization and slug")
     func teams() throws {
         let data = Data(#"[[{"slug":"Team","organization":{"login":"ORG"}}],[{"slug":"team","organization":{"login":"org"}},{"slug":"team","organization":{"login":"other"}}]]"#.utf8)
         #expect(try GitHubTeams.decode(data) == ["org/team", "other/team"])
     }
 
-    @Test("Descubre repos sin duplicados, omite archivados y respeta precedencia de CODEOWNERS")
+    @Test("Discover repositories without duplicates, skip archived ones, and respect CODEOWNERS precedence")
     func discovery() async throws {
         let fixture = DiscoveryFixture()
         let repos = try await TeamDependabot.discover(teams: ["org/a", "org/b"], login: "me") {
             try await fixture.request($0)
         }
         #expect(repos == ["org/owned"])
-        #expect(await fixture.reads == 5) // 2 equipos + 3 repos únicos no archivados.
+        #expect(await fixture.reads == 5) // Two teams plus three unique non-archived repositories.
     }
 
-    @Test("Un error GraphQL no se convierte en un repo sin CODEOWNERS")
+    @Test("GraphQL errors do not become repositories without CODEOWNERS")
     func partialFailure() async {
         await #expect(throws: GH.Failure.self) {
             try await TeamDependabot.discover(teams: ["org/a"], login: "me") { args in
@@ -65,7 +65,7 @@ struct TeamDependabotTests {
         }
     }
 
-    @Test("Caché diaria persistente, aislada por cuenta/equipos y conservada ante fallos")
+    @Test("Daily persistent cache is isolated by account and teams and retained on failure")
     func cache() async throws {
         let suite = "teams-cache-\(UUID())"
         defer { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }
@@ -75,7 +75,7 @@ struct TeamDependabotTests {
         #expect(initial.repositories == ["org/owned"])
         let reopened = TeamDependabotCache(suite: suite)
         let cached = try await reopened.resolve(teams: ["org/a"], login: "me", now: now.addingTimeInterval(60)) { _, _ in
-            Issue.record("No debe consultar con la caché vigente")
+            Issue.record("Must not query while the cache is current")
             return []
         }
         #expect(cached.repositories == ["org/owned"])
@@ -95,13 +95,13 @@ struct TeamDependabotTests {
         #expect(refreshed.repositories.isEmpty)
         #expect(refreshed.error == nil)
         let disabled = try await cache.resolve(teams: [], login: "me") { _, _ in
-            Issue.record("No debe descubrir sin equipos")
+            Issue.record("Must not discover without teams")
             return ["org/owned"]
         }
         #expect(disabled.repositories.isEmpty)
     }
 
-    @Test("Cancelar el descubrimiento no reemplaza la última lista válida")
+    @Test("Canceled discovery does not replace the last valid list")
     func cancelledDiscovery() async throws {
         let suite = "teams-cancel-\(UUID())"
         defer { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }
@@ -116,7 +116,7 @@ struct TeamDependabotTests {
         #expect(result.repositories == ["org/owned"])
     }
 
-    @Test("La ampliación busca sólo repos explícitos y divide queries sin perder alcance")
+    @Test("Expanded searches use explicit repositories and split queries without losing scope")
     func searches() {
         #expect(TeamDependabot.searches(repositories: []).isEmpty)
         let repos = (1...38).map { "org/repository-\($0)" }

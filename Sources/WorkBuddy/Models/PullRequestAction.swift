@@ -1,10 +1,8 @@
 import Foundation
 
-/// Acciones que el panel puede correr sobre un PR.
-///
-/// Algunas son locales (ignorar) y otras van a pegarle a GitHub (aprobar,
-/// comentar, mergear). El panel sólo declara la intención: quién la ejecuta y
-/// cómo es responsabilidad del store, así una acción nueva no toca las vistas.
+/// Per-PR actions exposed by the panel. Some are local, others write to GitHub.
+/// Views declare intent; the store handles execution so new actions need not
+/// embed execution logic in views.
 enum PullRequestAction: String, Codable, Identifiable, Hashable, Sendable {
     case open
     case ignore
@@ -12,7 +10,7 @@ enum PullRequestAction: String, Codable, Identifiable, Hashable, Sendable {
     case approve
     case rebase
     case dependabotRebase
-    /// Sin método: lo define el repo vía `PullRequest.defaultMergeMethod`.
+    /// The repository supplies the method through PullRequest.defaultMergeMethod.
     case merge
 
     var id: Self { self }
@@ -41,7 +39,7 @@ enum PullRequestAction: String, Codable, Identifiable, Hashable, Sendable {
         }
     }
 
-    /// Las que escriben en GitHub pueden fallar y tardar después de confirmar.
+    /// GitHub writes may take time or fail after confirmation.
     var writesToGitHub: Bool {
         switch self {
         case .approve, .rebase, .dependabotRebase, .merge: true
@@ -72,7 +70,7 @@ enum PullRequestAction: String, Codable, Identifiable, Hashable, Sendable {
 }
 
 extension PullRequest {
-    /// La misma disponibilidad para los dos menús y para ejecutar una escritura.
+    /// Use the same availability rules for both menus and write execution.
     func availableWriteActions(behindBy: Int?) -> [PullRequestAction] {
         var actions: [PullRequestAction] = []
         if canRequestDependabotRebase(behindBy: behindBy) { actions.append(.dependabotRebase) }
@@ -83,11 +81,11 @@ extension PullRequest {
     }
 }
 
-/// Guarda la intención, no una copia del PR que puede quedar vieja durante un refresh.
+/// Store intent rather than a PR copy that can become stale during refresh.
 struct PendingPullRequestAction {
     let pullRequestID: PullRequest.ID
     let action: PullRequestAction
-    /// Si cambia el método mostrado, hace falta una nueva confirmación.
+    /// A changed displayed merge method requires a new confirmation.
     let mergeMethod: MergeMethod?
 
     init(action: PullRequestAction, pullRequest: PullRequest) {

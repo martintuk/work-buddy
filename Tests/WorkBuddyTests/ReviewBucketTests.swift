@@ -3,12 +3,10 @@ import Testing
 
 @testable import WorkBuddy
 
-/// La clasificación en buckets ya se equivocó dos veces contra datos reales:
-/// una usando el estado de CI como filtro, otra contando approvals a mano.
-/// Las dos quedaron acá como casos fijos.
-@Suite("Clasificación de PRs")
+/// Bucket classification previously failed against real data by filtering on CI status and by counting approvals manually. Both are regression cases here.
+@Suite("PR classification")
 struct ReviewBucketTests {
-    @Test("Dependabot descubierto por ownership se clasifica sin pedido y sin duplicados")
+    @Test("Ownership-discovered Dependabot PRs are classified without requests or duplicates")
     func teamDependabotWithoutReviewRequest() {
         let pending = makePullRequest(authorLogin: "dependabot", authorTypename: "Bot", mergeable: .mergeable)
         let failed = makePullRequest(number: 2, checks: .failure, authorLogin: "dependabot", authorTypename: "Bot")
@@ -24,13 +22,11 @@ struct ReviewBucketTests {
         #expect(visible.excluding([pending.id]).awaitingYourReview.isEmpty)
     }
 
-    // MARK: - Regresiones encontradas contra la API real
+    // MARK: - Regressions observed against the live API
 
-    @Test("Approvals que GitHub no acepta no marcan el PR como cubierto")
-    func approvalsNoAlcanzanSiGitHubPideReview() {
-        // Un caso real tenía 3 approvals y reviewDecision REVIEW_REQUIRED,
-        // porque faltaba un CODEOWNER. Contar approvals a mano lo archivaba como
-        // cubierto cuando todavía necesitaba review.
+    @Test("Approvals GitHub rejects do not mark PRs as covered")
+    func approvalsInsufficientWhenReviewRequired() {
+        // An observed PR had three approvals and REVIEW_REQUIRED because a CODEOWNER review was missing. Counting approvals manually incorrectly classified it as covered.
         let pullRequest = makePullRequest(
             requestedFromMe: false,
             approvals: 3,
@@ -39,18 +35,17 @@ struct ReviewBucketTests {
         #expect(pullRequest.bucket() == .needsReview)
     }
 
-    @Test("CI en rojo nunca esconde un PR que espera tu review")
-    func ciRojaNoCambiaElBucket() {
-        // `statusCheckRollup` incluye checks opcionales: usarlo como filtro
-        // escondía 40 de 63 PRs, muchos de los cuales sí necesitaban review.
+    @Test("Failed CI never hides PRs awaiting personal review")
+    func failedCIDoesNotChangeBucket() {
+        // `statusCheckRollup` includes optional checks. Filtering on it hid 40 of 63 PRs, many still needing review.
         let pullRequest = makePullRequest(requestedFromMe: true, checks: .failure)
         #expect(pullRequest.bucket() == .needsReview)
     }
 
-    // MARK: - Prioridad entre buckets
+    // MARK: - Bucket priority
 
-    @Test("Un PR aprobado es opcional aunque te lo sigan pidiendo")
-    func aprobadoGanaSobrePedidoPersonal() {
+    @Test("Approved PRs are optional even when still requested")
+    func approvalOverridesPersonalRequest() {
         let pullRequest = makePullRequest(
             requestedFromMe: true,
             reviewedByMe: false,
@@ -60,20 +55,20 @@ struct ReviewBucketTests {
         #expect(pullRequest.bucket() == .approvedAlready)
     }
 
-    @Test("La antigüedad no cambia una review pendiente ni un PR aprobado",
+    @Test("Age does not change pending reviews or approved PRs",
           arguments: [1, 29, 30, 31, 40, 365])
-    func antiguedadNoCambiaLaAccion(days: Int) {
+    func ageDoesNotChangeAction(days: Int) {
         let updatedAt = Date.now.addingTimeInterval(-Double(days) * 24 * 60 * 60)
-        let pendiente = makePullRequest(requestedFromMe: true, updatedAt: updatedAt)
-        let aprobado = makePullRequest(reviewDecision: .approved, updatedAt: updatedAt)
-        #expect(pendiente.bucket() == .needsReview)
-        #expect(aprobado.bucket() == .approvedAlready)
-        #expect([pendiente, aprobado].awaitingYourReview.map(\.id) == [pendiente.id])
+        let pending = makePullRequest(requestedFromMe: true, updatedAt: updatedAt)
+        let approved = makePullRequest(reviewDecision: .approved, updatedAt: updatedAt)
+        #expect(pending.bucket() == .needsReview)
+        #expect(approved.bucket() == .approvedAlready)
+        #expect([pending, approved].awaitingYourReview.map(\.id) == [pending.id])
     }
 
-    @Test("Pedidos personales y de equipo usan las mismas reglas",
+    @Test("Personal and team requests use the same rules",
           arguments: [false, true], [false, true])
-    func pedidosEquivalentes(requestedFromMe: Bool, reviewedByMe: Bool) {
+    func equivalentRequests(requestedFromMe: Bool, reviewedByMe: Bool) {
         for decision: ReviewDecision? in [nil, .reviewRequired, .changesRequested, .approved] {
             let pr = makePullRequest(
                 requestedFromMe: requestedFromMe,
@@ -86,9 +81,9 @@ struct ReviewBucketTests {
         }
     }
 
-    @Test("Mi aprobación excluye ambas categorías aunque el pedido siga activo",
+    @Test("Personal approval excludes both categories even with active requests",
           arguments: [false, true], [false, true])
-    func aprobadoPorMiNoPideReview(requestedFromMe: Bool, globallyApproved: Bool) {
+    func personallyApprovedNeedsNoReview(requestedFromMe: Bool, globallyApproved: Bool) {
         let pr = makePullRequest(
             requestedFromMe: requestedFromMe,
             reviewedByMe: true,
@@ -100,32 +95,32 @@ struct ReviewBucketTests {
         #expect([pr].awaitingYourReview.isEmpty)
     }
 
-    @Test("Los approvals ajenos no equivalen a una aprobación personal")
-    func aprobadoPorOtrosSigueVisible() {
+    @Test("Others' approvals are not personal approval")
+    func othersApprovalRemainsVisible() {
         let pr = makePullRequest(approvals: 2, reviewDecision: .approved)
         #expect([pr].reviewSections.map(\.bucket) == [.approvedAlready])
         #expect([pr].reviewSections.first?.items.map(\.id) == [pr.id])
     }
 
-    // MARK: - Casos base
+    // MARK: - Base cases
 
-    @Test("Pedido a vos y sin revisar todavía: para revisar")
-    func pedidoAMiSinRevisar() {
+    @Test("Personal request without review belongs in review")
+    func personalRequestWithoutReview() {
         #expect(makePullRequest(requestedFromMe: true).bucket() == .needsReview)
     }
 
-    @Test("Haberlo revisado antes no crea otra categoría")
-    func revisadoYVueltoAPedir() {
+    @Test("Earlier reviews do not create another category")
+    func reviewedAndRequestedAgain() {
         let pullRequest = makePullRequest(requestedFromMe: true, reviewedByMe: true)
         #expect(pullRequest.bucket() == .needsReview)
     }
 
-    @Test("Pedido sólo al equipo: para revisar")
-    func pedidoAlEquipo() {
+    @Test("Team-only requests belong in review")
+    func teamRequest() {
         #expect(makePullRequest(requestedFromMe: false).bucket() == .needsReview)
     }
 
-    @Test("Dependabot espera CI exitosa y ausencia confirmada de conflictos",
+    @Test("Dependabot waits for successful CI and confirmed absence of conflicts",
           arguments: [CheckState.success, .failure, .error, .pending, .expected, .unknown],
           [MergeableState?.none, .mergeable, .conflicting, .unknown])
     func dependabotReadiness(checks: CheckState, mergeable: MergeableState?) {
@@ -142,7 +137,7 @@ struct ReviewBucketTests {
         }
     }
 
-    @Test("Dependabot listo conserva la aprobación personal y espera otros reviewers")
+    @Test("Ready Dependabot PRs retain personal approval and await other reviewers")
     func dependabotPersonalApproval() {
         let pr = makePullRequest(approvedByMe: true, reviewDecision: .reviewRequired,
                                  authorLogin: "dependabot[bot]", authorTypename: "Bot",
@@ -152,7 +147,7 @@ struct ReviewBucketTests {
         #expect([pr].automation.map(\.id) == [pr.id])
     }
 
-    @Test("Personas conservan review con CI pendiente, conflictos o draft")
+    @Test("Human PRs retain review with pending CI, conflicts, or draft state")
     func humanReadinessUnchanged() {
         let pr = makePullRequest(checks: .pending, isDraft: true, mergeable: .conflicting)
         #expect(pr.bucket() == .needsReview)
@@ -161,15 +156,15 @@ struct ReviewBucketTests {
     }
 }
 
-@Suite("Clasificación de autores")
+@Suite("Author classification")
 struct AuthorTests {
-    @Test("GitHub tipa los bots explícitamente")
+    @Test("GitHub explicitly types bots")
     func typenameBot() {
         #expect(Author(login: "dependabot", typename: "Bot").isBot)
     }
 
-    @Test("Las cuentas de máquina vienen tipadas como User")
-    func cuentaDeMaquina() {
+    @Test("Machine accounts are typed as User")
+    func machineAccount() {
         #expect(Author(
             login: "ci-service-user",
             typename: "User",
@@ -177,13 +172,13 @@ struct AuthorTests {
         ).isBot)
     }
 
-    @Test("Una persona no es bot")
-    func persona() {
+    @Test("People are not bots")
+    func human() {
         #expect(!Author(login: "alice", typename: "User").isBot)
     }
 
-    @Test("Sin typename se cae a la lista de cuentas de máquina")
-    func typenameAusente() {
+    @Test("Missing typename falls back to configured machine accounts")
+    func missingTypename() {
         #expect(!Author(login: "alice", typename: nil).isBot)
         #expect(Author(
             login: "ci-service-user",
@@ -193,10 +188,10 @@ struct AuthorTests {
     }
 }
 
-@Suite("Agrupación de la cola")
+@Suite("Queue grouping")
 struct GroupingTests {
-    @Test("El badge incluye automatización sin fallas que espera review")
-    func badgeIncluyeAutomatizacion() {
+    @Test("Badges include automation without failures awaiting review")
+    func badgeIncludesAutomation() {
         let queue = [
             makePullRequest(requestedFromMe: true, authorLogin: "alice"),
             makePullRequest(requestedFromMe: true, authorLogin: "dependabot", authorTypename: "Bot",
@@ -212,26 +207,26 @@ struct GroupingTests {
     }
 
     @Test(
-        "Sólo cuentan para el badge las secciones que esperan algo tuyo",
+        "Only sections awaiting personal action contribute to the badge",
         arguments: [
             (ReviewBucket.needsReview, true),
             (.approvedAlready, false) // tu review es opcional
         ]
     )
-    func queSeccionesCuentan(bucket: ReviewBucket, cuenta: Bool) {
-        #expect(bucket.needsYourReview == cuenta)
+    func countedSections(bucket: ReviewBucket, counts: Bool) {
+        #expect(bucket.needsYourReview == counts)
     }
 
-    @Test("Una review pendiente cuenta aunque ya hayas revisado el PR")
-    func revisadoAntesCuenta() {
+    @Test("Pending reviews count even after earlier personal reviews")
+    func previousReviewStillCounts() {
         let queue = [makePullRequest(requestedFromMe: true, reviewedByMe: true)]
         #expect(queue[0].bucket() == .needsReview)
         #expect(queue.awaitingYourReview.count == 1)
     }
 
-    @Test("Automatización se reparte por CI, para bots y cuentas de máquina",
+    @Test("Automation is grouped by CI for bots and machine accounts",
           arguments: [CheckState.success, .failure, .error, .pending, .expected, .unknown], [false, true])
-    func automatizacionPorCI(checks: CheckState, machine: Bool) {
+    func automationByCI(checks: CheckState, machine: Bool) {
         let bot = makePullRequest(checks: checks, authorLogin: "automation",
                                   authorTypename: machine ? "User" : "Bot",
                                   machineAccounts: machine ? ["automation"] : [])
@@ -245,9 +240,9 @@ struct GroupingTests {
         #expect(queue.automation.map(\.id) == (checks.isRed ? [bot.id] : []))
     }
 
-    @Test("Automatización respeta aprobaciones propias y ajenas",
+    @Test("Automation respects personal and other approvals",
           arguments: [false, true], [false, true])
-    func automatizacionAprobada(personal: Bool, global: Bool) {
+    func approvedAutomation(personal: Bool, global: Bool) {
         let bot = makePullRequest(approvedByMe: personal,
                                   reviewDecision: global ? .approved : .reviewRequired,
                                   authorTypename: "Bot")
@@ -257,16 +252,16 @@ struct GroupingTests {
         #expect([bot].automation.isEmpty == !(personal && !global))
     }
 
-    @Test("Los bots listos para mergear no se duplican aunque review no traiga mergeabilidad",
+    @Test("Merge-ready bots are deduplicated even when review lacks mergeability",
           arguments: [CheckState.success, .failure])
-    func prioridadDeMerge(checks: CheckState) {
+    func mergePriority(checks: CheckState) {
         let bot = makePullRequest(checks: checks, authorTypename: "Bot",
                                   mergeable: .mergeable,
                                   mergeStateStatus: checks.isRed ? .unstable : .clean)
         let human = makePullRequest(authoredByMe: true, mergeable: .mergeable, mergeStateStatus: .clean)
         let data = [bot, human]
         #expect(data.readyToMerge.count == 2)
-        // El snapshot de review conserva el id pero carece de campos de merge.
+        // The review snapshot retains the ID but lacks merge fields.
         let reviewBot = PullRequest(
             id: bot.id, number: bot.number, title: bot.title, url: bot.url,
             repository: bot.repository, baseRefName: bot.baseRefName, headRefName: bot.headRefName,
@@ -282,8 +277,8 @@ struct GroupingTests {
         #expect([reviewBot].excludingMergeableAutomation(in: []).count == 1)
     }
 
-    @Test("Automatización con fallas conserva favoritos y actividad reciente")
-    func automatizacionFavoritos() {
+    @Test("Failed automation retains favorites and recent activity")
+    func automationFavorites() {
         let now = Date.now
         let recent = makePullRequest(number: 1, checks: .failure, updatedAt: now, authorTypename: "Bot")
         let old = makePullRequest(number: 2, checks: .error,
@@ -296,8 +291,8 @@ struct GroupingTests {
         #expect(ordered.map(\.number) == [3, 1, 2])
     }
 
-    @Test("Las secciones salen en orden de prioridad")
-    func ordenDeSecciones() {
+    @Test("Sections appear in priority order")
+    func sectionOrder() {
         let queue = [
             makePullRequest(number: 1, reviewDecision: .approved),
             makePullRequest(number: 2, requestedFromMe: true),
@@ -306,29 +301,29 @@ struct GroupingTests {
         #expect(queue.reviewSections.map(\.bucket) == [.needsReview, .approvedAlready])
     }
 
-    @Test("Dentro de una sección, lo más reciente va primero")
-    func ordenDentroDeSeccion() {
-        let viejo = makePullRequest(
+    @Test("Newest activity comes first within sections")
+    func orderWithinSection() {
+        let older = makePullRequest(
             number: 1,
             requestedFromMe: true,
             updatedAt: .now.addingTimeInterval(-3600)
         )
-        let nuevo = makePullRequest(number: 2, requestedFromMe: true)
-        #expect([viejo, nuevo].reviewSections[0].items.map(\.number) == [2, 1])
+        let newer = makePullRequest(number: 2, requestedFromMe: true)
+        #expect([older, newer].reviewSections[0].items.map(\.number) == [2, 1])
     }
 }
 
-@Suite("PRs ignorados")
+@Suite("Ignored PRs")
 @MainActor
 struct IgnoreListTests {
-    /// Defaults aislados por test, para no pisar los de la app real.
+    /// Isolate defaults per test to avoid overwriting the running app's preferences.
     private func makeList() -> IgnoreList {
         let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
         return IgnoreList(defaults: suite)
     }
 
-    @Test("Ignorar y restaurar")
-    func ignorarYRestaurar() {
+    @Test("Ignore and restore")
+    func ignoreAndRestore() {
         let list = makeList()
         let pullRequest = makePullRequest()
 
@@ -339,8 +334,8 @@ struct IgnoreListTests {
         #expect(!list.contains(pullRequest))
     }
 
-    @Test("Los ids sobreviven a recrear la lista")
-    func persistencia() {
+    @Test("IDs survive recreating the list")
+    func persistence() {
         let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
         let pullRequest = makePullRequest()
 
@@ -348,20 +343,19 @@ struct IgnoreListTests {
         #expect(IgnoreList(defaults: suite).contains(pullRequest))
     }
 
-    @Test("El badge no cuenta los PRs ignorados")
-    func badgeIgnoraLosOcultos() {
-        // Es el punto entero: si el badge contara lo que el panel esconde,
-        // mostraría un número que no se corresponde con nada visible.
+    @Test("Badges exclude ignored PRs")
+    func badgeExcludesHidden() {
+        // The badge must not count hidden items or it would disagree with the visible panel.
         let visible = makePullRequest(number: 1, requestedFromMe: true, authorLogin: "alice")
-        let oculto = makePullRequest(number: 2, requestedFromMe: true, authorLogin: "bob")
-        let queue = [visible, oculto]
+        let hidden = makePullRequest(number: 2, requestedFromMe: true, authorLogin: "bob")
+        let queue = [visible, hidden]
 
         #expect(queue.awaitingYourReview.count == 2)
-        #expect(queue.excluding([oculto.id]).awaitingYourReview.count == 1)
+        #expect(queue.excluding([hidden.id]).awaitingYourReview.count == 1)
     }
 
-    @Test("Los ignorados salen de las secciones visibles pero se pueden listar")
-    func particion() {
+    @Test("Ignored items leave visible sections but remain listable")
+    func partition() {
         let a = makePullRequest(number: 1, requestedFromMe: true)
         let b = makePullRequest(number: 2, requestedFromMe: true)
         let queue = [a, b]
@@ -371,34 +365,33 @@ struct IgnoreListTests {
     }
 }
 
-@Suite("Para mergear")
+@Suite("Ready to merge")
 struct ReadyToMergeTests {
-    /// Estados observados en la cola real, con su veredicto esperado.
-    /// De 56 PRs: 45 BLOCKED, 4 BEHIND, 3 DIRTY, 3 UNKNOWN, 1 CLEAN.
+    /// Observed queue states and expected verdicts: of 56 PRs, 45 were BLOCKED, four BEHIND, three DIRTY, three UNKNOWN, and one CLEAN.
     @Test(
-        "El veredicto sale de mergeStateStatus",
+        "The verdict comes from mergeStateStatus",
         arguments: [
             (MergeStateStatus.clean, true),
-            (.unstable, true), // mergeable: falla un check no requerido
+            (.unstable, true), // mergeable: an optional check failed
             (.hasHooks, true),
             (.blocked, false), // faltan reviews o checks requeridos
-            (.behind, false), // hay que actualizar contra la base
+            (.behind, false), // must update against the base
             (.dirty, false), // conflictos
             (.draft, false),
-            (.unknown, false) // GitHub todavía no lo calculó
+            (.unknown, false) // GitHub has not calculated it yet
         ]
     )
-    func veredictoPorEstado(state: MergeStateStatus, esperado: Bool) {
+    func verdictByState(state: MergeStateStatus, expected: Bool) {
         let pullRequest = makePullRequest(
             authoredByMe: true,
             mergeable: .mergeable,
             mergeStateStatus: state
         )
-        #expect(pullRequest.isReadyToMerge == esperado)
+        #expect(pullRequest.isReadyToMerge == expected)
     }
 
-    @Test("Con conflictos no está listo, aunque el estado diga CLEAN")
-    func conflictosGanan() {
+    @Test("Conflicts prevent readiness even with CLEAN state")
+    func conflictsOverrideState() {
         let pullRequest = makePullRequest(
             authoredByMe: true,
             mergeable: .conflicting,
@@ -407,9 +400,9 @@ struct ReadyToMergeTests {
         #expect(!pullRequest.isReadyToMerge)
     }
 
-    @Test("mergeable UNKNOWN no está listo: GitHub lo calcula diferido")
-    func mergeableDesconocido() {
-        // Pasa en ~3 de 56 PRs. Se resuelve en el refresh siguiente, no es error.
+    @Test("UNKNOWN mergeability is not ready because GitHub calculates it asynchronously")
+    func unknownMergeability() {
+        // Observed in about three of 56 PRs. Resolves on the next refresh; it is not an error.
         let pullRequest = makePullRequest(
             authoredByMe: true,
             mergeable: .unknown,
@@ -418,8 +411,8 @@ struct ReadyToMergeTests {
         #expect(!pullRequest.isReadyToMerge)
     }
 
-    @Test("Un draft nunca está listo")
-    func draftNoCuenta() {
+    @Test("Drafts are never ready")
+    func draftNotReady() {
         let pullRequest = makePullRequest(
             authoredByMe: true,
             isDraft: true,
@@ -429,16 +422,15 @@ struct ReadyToMergeTests {
         #expect(!pullRequest.isReadyToMerge)
     }
 
-    @Test("Sin datos de merge no está listo")
-    func sinDatosDeMerge() {
-        // La cola de review no pide estos campos, porque calcularlos es caro.
+    @Test("Missing merge data prevents readiness")
+    func missingMergeData() {
+        // The review query omits these expensive fields.
         #expect(!makePullRequest(authoredByMe: true).isReadyToMerge)
     }
 
-    @Test("Haberlo aprobado vos no lo descalifica")
-    func haberloAprobadoNoDescalifica() {
-        // Aprobar un PR de automatización te saca de sus review requests. Eso no
-        // debe hacerlo desaparecer justo cuando se vuelve mergeable.
+    @Test("Personal approval does not disqualify a PR")
+    func personalApprovalDoesNotDisqualify() {
+        // Approving an automation PR removes the user's review request. It must not disappear just as it becomes mergeable.
         let pullRequest = makePullRequest(
             reviewedByMe: true,
             approvedByMe: true,
@@ -453,9 +445,9 @@ struct ReadyToMergeTests {
         #expect([pullRequest].readyToMerge.count == 1)
     }
 
-    @Test("La sección lista los tuyos y los de automatización, no los de otros")
-    func alcanceDeLaSeccion() {
-        let listo: (Int, String, Bool, String?, Set<String>) -> PullRequest = {
+    @Test("The section lists own and automation PRs, excluding others")
+    func sectionScope() {
+        let ready: (Int, String, Bool, String?, Set<String>) -> PullRequest = {
             number, login, mine, typename, machineAccounts in
             makePullRequest(
                 number: number,
@@ -468,27 +460,27 @@ struct ReadyToMergeTests {
             )
         }
         let queue = [
-            listo(1, "me", true, "User", []), // mío
-            listo(2, "dependabot", false, "Bot", []), // automatización
-            listo(3, "ci-service-user", false, "User", ["ci-service-user"]),
-            listo(4, "alice", false, "User", []) // de otra persona: no es tuyo mergearlo
+            ready(1, "me", true, "User", []), // Own PR.
+            ready(2, "dependabot", false, "Bot", []), // Automation.
+            ready(3, "ci-service-user", false, "User", ["ci-service-user"]),
+            ready(4, "alice", false, "User", []) // Another author's PR is outside the user's merge scope.
         ]
-        // Como conjunto: el orden lo define updatedAt, y acá son todos iguales.
+        // Compare as a set: updatedAt determines order and is identical here.
         #expect(Set(queue.readyToMerge.map(\.number)) == [1, 2, 3])
     }
 }
 
-@Suite("Para Fixear")
+@Suite("Needs fixes")
 struct FixQueueTests {
-    @Test("Sólo CI fallida o en error necesita un fix",
+    @Test("Only failed or errored CI needs fixes",
           arguments: [CheckState.success, .failure, .error, .pending, .expected, .unknown])
-    func estadosDeCI(checks: CheckState) {
+    func ciStates(checks: CheckState) {
         let pr = makePullRequest(checks: checks, authoredByMe: true)
         #expect([pr].needingCIFix.map(\.id) == (checks == .failure || checks == .error ? [pr.id] : []))
     }
 
-    @Test("Excluye otros autores, equipos y automatización")
-    func soloAutoriaPersonal() {
+    @Test("Exclude other authors, teams, and automation")
+    func ownPRsOnly() {
         let mine = makePullRequest(checks: .failure, authoredByMe: true)
         let other = makePullRequest(requestedFromMe: true, checks: .failure)
         let team = makePullRequest(requestedFromMe: false, checks: .error)
@@ -498,23 +490,23 @@ struct FixQueueTests {
         #expect([mine, other, team, bot, machine].needingCIFix.map(\.id) == [mine.id])
     }
 
-    @Test("No requiere pedidos de review, approvals ni que el PR esté listo")
-    func draftPropioConFalla() {
+    @Test("No review requests, approvals, or merge readiness are required")
+    func ownDraftWithFailure() {
         let pr = makePullRequest(requestedFromMe: false, reviewDecision: nil,
                                  checks: .failure, authoredByMe: true, isDraft: true)
         #expect([pr].needingCIFix.map(\.id) == [pr.id])
     }
 
-    @Test("La CI opcional fallida también aparece aunque permita mergear")
-    func mergeableConFalla() {
+    @Test("Optional CI failures appear even when merge is allowed")
+    func mergeableWithFailure() {
         let pr = makePullRequest(reviewDecision: .approved, checks: .failure,
                                  authoredByMe: true, mergeable: .mergeable, mergeStateStatus: .unstable)
         #expect([pr].needingCIFix.map(\.id) == [pr.id])
         #expect([pr].readyToMerge.map(\.id) == [pr.id])
     }
 
-    @Test("Respeta ignorados, filtros y orden por actividad")
-    func filtrosYOrden() {
+    @Test("Respect ignored items, filters, and activity order")
+    func filtersAndOrder() {
         let old = makePullRequest(number: 1, checks: .error,
                                   updatedAt: .now.addingTimeInterval(-3600), authoredByMe: true)
         let recent = makePullRequest(number: 2, checks: .failure, authoredByMe: true)
@@ -527,10 +519,10 @@ struct FixQueueTests {
     }
 }
 
-@Suite("Para rebasear")
+@Suite("Needs rebase")
 struct RebaseQueueTests {
-    @Test("Un PR propio aprobado, con CI verde y conflictos, necesita rebase")
-    func aprobadoConConflictos() {
+    @Test("Own approved PRs with green CI and conflicts need rebase")
+    func approvedWithConflicts() {
         let pr = makePullRequest(reviewDecision: .approved, checks: .success, authoredByMe: true,
                                  mergeable: .conflicting, mergeStateStatus: .dirty)
         #expect([pr].needingRebase.map(\.id) == [pr.id])
@@ -538,23 +530,23 @@ struct RebaseQueueTests {
         #expect([pr].needingCIFix.isEmpty)
     }
 
-    @Test("Sólo los conflictos confirmados cuentan",
+    @Test("Only confirmed conflicts count",
           arguments: [MergeableState.mergeable, .conflicting, .unknown])
-    func estadosDeMergeabilidad(mergeable: MergeableState) {
+    func mergeabilityStates(mergeable: MergeableState) {
         let pr = makePullRequest(authoredByMe: true, mergeable: mergeable)
         #expect([pr].needingRebase.map(\.id) == (mergeable == .conflicting ? [pr.id] : []))
     }
 
-    @Test("Con CI que no está verde no aparece; la roja queda en Para Fixear",
+    @Test("Exclude non-green CI; failed CI belongs in fixes",
           arguments: [CheckState.failure, .error, .pending, .expected, .unknown])
-    func soloConCIVerde(checks: CheckState) {
+    func greenCIOnly(checks: CheckState) {
         let pr = makePullRequest(checks: checks, authoredByMe: true, mergeable: .conflicting)
         #expect([pr].needingRebase.isEmpty)
         #expect([pr].needingCIFix.map(\.id) == (checks.isRed ? [pr.id] : []))
     }
 
-    @Test("Excluye drafts, otros autores y automatización")
-    func soloAutoriaPersonal() {
+    @Test("Exclude drafts, other authors, and automation")
+    func ownPRsOnly() {
         let mine = makePullRequest(authoredByMe: true, mergeable: .conflicting)
         let draft = makePullRequest(authoredByMe: true, isDraft: true, mergeable: .conflicting)
         let other = makePullRequest(requestedFromMe: true, mergeable: .conflicting)
@@ -591,7 +583,7 @@ private func makePullRequest(
         url: URL(string: "https://github.com/\(repository)/pull/\(number)")!,
         repository: repository,
         baseRefName: "main",
-        headRefName: "una-rama",
+        headRefName: "feature-branch",
         author: Author(
             login: authorLogin,
             typename: authorTypename,

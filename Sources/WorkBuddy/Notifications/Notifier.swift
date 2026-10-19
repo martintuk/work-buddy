@@ -2,7 +2,7 @@ import AppKit
 import Observation
 import UserNotifications
 
-/// Gestiona el permiso de macOS y entrega notificaciones individuales.
+/// Manage macOS permissions and deliver individual notifications.
 @MainActor
 @Observable
 final class Notifier: NSObject {
@@ -10,9 +10,7 @@ final class Notifier: NSObject {
 
     private let defaults = UserDefaults.standard
 
-    /// `nil` cuando corremos sin bundle (por ejemplo el binario pelado desde
-    /// `.build/`): pedirle el centro de notificaciones a un proceso sin bundle
-    /// identifier es un crash, no un error recuperable.
+    /// `nil` when running without an app bundle, such as the bare binary in `.build/`. Requesting the notification center without a bundle identifier crashes rather than returning a recoverable error.
     private let center: UNUserNotificationCenter?
 
     private(set) var authorizationStatus: UNAuthorizationStatus?
@@ -71,7 +69,7 @@ final class Notifier: NSObject {
     }
 
     func sendTest() async throws {
-        // La prueba es explícita y no modifica la preferencia de envíos automáticos.
+        // The explicit test does not change automatic notification preferences.
         try await requestAuthorization()
         try await send(title: "work-buddy", body: L10n.text(.notificationsTestBody), url: nil)
     }
@@ -112,11 +110,7 @@ final class Notifier: NSObject {
 // MARK: - UNUserNotificationCenterDelegate
 
 extension Notifier: UNUserNotificationCenterDelegate {
-    /// Sin esto el banner no aparece si la app está activa.
-    ///
-    /// Los callbacks van `nonisolated` porque el protocolo no está anotado para
-    /// el main actor y sus parámetros no son Sendable: no se pueden recibir
-    /// directamente en una clase `@MainActor`.
+    /// Show banners while the app is active. Callbacks are `nonisolated` because the protocol is not main-actor annotated and its parameters are not Sendable; an `@MainActor` class cannot receive them directly.
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
@@ -124,13 +118,12 @@ extension Notifier: UNUserNotificationCenterDelegate {
         [.banner, .sound]
     }
 
-    /// Click en la notificación abre el PR.
+    /// Clicking a notification opens the PR.
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
-        // Sacamos el String antes de cruzar al main actor: es Sendable, el
-        // `response` no.
+        // Extract the Sendable String before crossing to the main actor; `response` is not Sendable.
         let stored = response.notification.request.content.userInfo["url"] as? String
         guard let stored, let url = URL(string: stored) else { return }
         await MainActor.run { _ = NSWorkspace.shared.open(url) }

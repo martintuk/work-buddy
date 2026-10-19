@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-/// Estado de la cola de review que consume el panel.
+/// Review queue state consumed by the panel.
 @MainActor
 @Observable
 final class ReviewQueueStore {
@@ -12,7 +12,7 @@ final class ReviewQueueStore {
         case failed(LocalizedMessage)
     }
 
-    /// Pasado este tiempo, abrir el panel dispara un refresh.
+    /// Opening the panel triggers a refresh after this interval.
     private static let staleAfter: TimeInterval = 120
 
     private(set) var state: State = .idle
@@ -37,11 +37,9 @@ final class ReviewQueueStore {
     }
     private(set) var viewerLogin: String?
     private(set) var pullRequests: [PullRequest] = []
-    /// PRs de dependabot en la cola de review, agrupados según su CI.
-    /// Los que están para mergear llegan por `mergeCandidates`.
+    /// Dependabot PRs in the review queue, grouped by CI status. Merge-ready items arrive through `mergeCandidates`.
     private(set) var dependabotPullRequests: [PullRequest] = []
-    /// Candidatos a merge. Vienen de otra query porque pedirle a GitHub que
-    /// calcule la mergeabilidad de toda la cola de review es caro.
+    /// Merge candidates use a separate query because calculating mergeability for the entire review queue is expensive.
     private var requestedMergeCandidates: [PullRequest] = []
     private var teamDependabotPullRequests: [PullRequest] = []
     var mergeCandidates: [PullRequest] {
@@ -55,49 +53,43 @@ final class ReviewQueueStore {
         forceTeamDiscovery = true
         refresh(force: true)
     }
-    /// PRs propios; se consultan aparte aunque no esperen review ni puedan mergearse.
+    /// The user's own PRs are queried separately, even when they need no review and cannot be merged.
     private(set) var fixCandidates: [PullRequest] = []
     private(set) var replyCandidates: [PullRequest] = []
     private(set) var waitingReplyCandidates: [PullRequest] = []
     private(set) var lastUpdated: Date?
 
-    /// `behindBy` por id de PR. Un id **ausente** es "no medido", que no es lo
-    /// mismo que `0` = "al día": si los confundimos, el rebase pasa a ser una
-    /// adivinanza.
+    /// `behindBy` by PR ID. A missing ID means unmeasured, distinct from zero (up to date); confusing these would make rebasing a guess.
     private(set) var behindCounts: [String: Int] = [:]
 
-    /// Ids de PRs con una escritura en curso.
+    /// IDs of PRs with writes in progress.
     private(set) var inFlightActions: Set<String> = []
 
-    /// La barra de menú es AppKit y no participa de la observación de SwiftUI,
-    /// así que le avisamos por acá cuándo repintar el badge.
+    /// The AppKit menu bar does not participate in SwiftUI observation, so this callback tells it when to redraw the badge.
     var onChange: (() -> Void)?
 
     let notifier = Notifier()
     private let notificationTracker = PullRequestNotificationTracker()
     private let ignoreList = IgnoreList()
     private var inFlight: Task<Void, Never>?
-    /// Incluye la medición de ramas que continúa después de publicar las colas.
+    /// Includes branch measurements that continue after queues are published.
     var isRefreshing: Bool { inFlight != nil }
-    /// Una acción durante una consulta necesita otra lectura al terminar.
+    /// An action during a query requires another read after completion.
     private var hasPendingRefresh = false
-    /// Invalida resultados de una consulta que empezó con otra configuración.
+    /// Invalidate results from queries started with a different configuration.
     private var configurationRevision = 0
     private var actionEffects = PullRequestActionEffects()
 
-    // MARK: - Vistas de la data
+    // MARK: - Data views
     //
-    // La lógica vive en Domain/PullRequestQueuePolicy.swift y se puede probar
-    // sin instanciar el store.
+    // The logic lives in Domain/PullRequestQueuePolicy.swift and can be tested without instantiating the store.
 
-    /// La cola completa, incluyendo Dependabot por ownership. Esa ampliación
-    /// puede solaparse con los pedidos de review, por eso deduplicamos por id.
+    /// The complete queue, including Dependabot PRs discovered through ownership. Deduplicate by ID because these may overlap with review requests.
     private var reviewQueue: [PullRequest] {
         (pullRequests + dependabotPullRequests + teamDependabotPullRequests).uniquedByID()
     }
 
-    /// Todo lo visible sale de acá: los ignorados se filtran una sola vez, así
-    /// no hay forma de que el badge cuente algo que el panel no muestra.
+    /// All visible data comes from here: filter ignored items once so the badge cannot count items missing from the panel.
     private var visible: [PullRequest] {
         filtered(reviewQueue).excluding(ignoreList.ids)
             .excludingMergeableAutomation(in: mergeCandidates)
@@ -217,7 +209,7 @@ final class ReviewQueueStore {
         ))
     }
 
-    /// El mismo efecto visible para acciones manuales, lotes y Autopilot.
+    /// Apply the same visible effect for manual actions, batches, and Autopilot.
     func applyCompletedAction(_ action: PullRequestAction, on pr: PullRequest) {
         let previousRevision = actionEffects.revision
         actionEffects.record(action, on: pr)
@@ -261,10 +253,7 @@ final class ReviewQueueStore {
         )
     }
 
-    /// Lo que va en el badge: todo lo que espera una acción tuya.
-    ///
-    /// Suma review, merge, CI por corregir, conflictos y respuestas pendientes. Deduplica por id porque un check
-    /// opcional fallido puede aparecer tanto para fixear como para mergear.
+    /// Badge count: everything awaiting the user's action. Includes reviews, merges, CI fixes, conflicts, and replies. Deduplicate by ID because an optional failed check can appear in both fix and merge queues.
     var actionableCount: Int {
         Set(awaitingYourReview.map(\.id))
             .union(readyToMerge.map(\.id))
@@ -274,8 +263,7 @@ final class ReviewQueueStore {
             .count
     }
 
-    /// Desglose para el tooltip: con el badge sumando dos cosas, el número solo
-    /// no dice de qué se compone.
+    /// Tooltip breakdown explaining which categories contribute to the badge count.
     var actionableSummary: String {
         let review = awaitingYourReview.count
         let merge = readyToMerge.count
@@ -292,8 +280,7 @@ final class ReviewQueueStore {
         return parts.isEmpty ? L10n.text(.commonNothingPending) : parts.joined(separator: " · ")
     }
 
-    /// Ignorados que siguen abiertos y en tu cola. Los que se cerraron no
-    /// aparecen porque la query ya no los trae.
+    /// Ignored items still open and in the user's queue. Closed items disappear from query results.
     var ignored: [PullRequest] {
         repositoryFilter.prioritizingFavorites(
             in: filtered(allKnown).only(ignoreList.ids)
@@ -301,7 +288,7 @@ final class ReviewQueueStore {
         )
     }
 
-    // MARK: - Acciones
+    // MARK: - Actions
 
     func setAutomationFilter(_ filter: AutomationFilter) {
         guard automationFilter != filter else { return }
@@ -349,8 +336,7 @@ final class ReviewQueueStore {
     }
 
     func perform(_ action: PullRequestAction, onID pullRequestID: PullRequest.ID) {
-        // Los callbacks y las confirmaciones pueden sobrevivir a un refresh.
-        // Resolver por ID evita escribir usando el objeto que capturó la fila.
+        // Callbacks and confirmations can outlive a refresh. Resolve by ID to avoid writing with the object captured by the row.
         guard let pullRequest = currentPullRequest(id: pullRequestID) else { return }
         if action.writesToGitHub {
             guard availableWriteActions(for: pullRequest).contains(action) else { return }
@@ -388,8 +374,7 @@ final class ReviewQueueStore {
                 number: pullRequest.number
             ), on: pullRequest)
         case .merge:
-            // El método lo define el repo. Si no lo sabemos no mergeamos: la
-            // acción ni se ofrece, así que llegar acá sin método sería un bug.
+            // The repository defines the method. If unknown, merging is unavailable; reaching this point without a method is a bug.
             guard let method = pullRequest.defaultMergeMethod else {
                 activity.record(action, on: pullRequest,
                     status: .failed(LocalizedMessage(L10n.text(.errorMergeMethod, pullRequest.shortRepository))))
@@ -401,7 +386,7 @@ final class ReviewQueueStore {
                 method: method
             ), on: pullRequest)
         }
-        // Ignorar y restaurar mueven el contador del badge.
+        // Ignoring and restoring items change the badge count.
         reconcileBatch()
         onChange?()
         if action == .open {
@@ -461,7 +446,7 @@ final class ReviewQueueStore {
         let id = UUID()
         await agentCLI.open(folder, id: request.pullRequestID) { [activity] result in
             guard case .failure(let error) = result else { return }
-            // Una terminal personalizada puede fallar después de arrancar.
+            // A custom terminal can fail after launch.
             activity.record(id: id, title: LocalizedMessage(title),
                 target: "\(request.repository) #\(request.url.lastPathComponent)",
                 detail: detail ?? "", url: request.url, symbol: "terminal",
@@ -473,16 +458,14 @@ final class ReviewQueueStore {
         ignoreList.contains(pullRequest)
     }
 
-    /// `nil` si no se pudo medir. No es `0`.
+    /// `nil` means measurement failed; it does not mean zero.
     func behindCount(for pullRequest: PullRequest) -> Int? {
         behindCounts[pullRequest.id]
     }
 
-    /// Todo lo conocido, sin duplicados: la cola de review y la de merge sí se
-    /// solapan (un PR aprobado por vos está en las dos).
+    /// All known items, deduplicated: review and merge queues overlap when the user has approved a PR.
     private var allKnown: [PullRequest] {
-        // Review es una consulta parcial: no debe tapar los datos de merge,
-        // incluidos los estados BLOCKED/UNKNOWN recibidos en el último refresh.
+        // Review is a partial query and must not overwrite merge data, including BLOCKED/UNKNOWN states from the latest refresh.
         (mergeCandidates + reviewQueue + fixCandidates + replyCandidates + waitingReplyCandidates).uniquedByID()
     }
 
@@ -517,7 +500,7 @@ final class ReviewQueueStore {
             && entry.pullRequest.map { !inFlightActions.contains($0.id) } == true
     }
 
-    /// Sólo consulta GitHub. Verificar jamás repite la escritura incierta.
+    /// Only query GitHub. Verification never repeats an uncertain write.
     func verifyAction(_ id: UUID,
                         read: @Sendable (PullRequest, String, PullRequestBatchAction) async throws -> PullRequestActionCheck.Snapshot = {
                             try await PullRequestActionCheck.fetch($0, viewer: $1, action: $2)
@@ -554,8 +537,7 @@ final class ReviewQueueStore {
             } else if !snapshot.isOpen {
                 activity.update(id, status: .skipped(LocalizedMessage(L10n.text(.batchClosed))))
             } else {
-                // No convertir una comprobación en permiso para volver a escribir.
-                // El usuario puede reintentar desde el menú del PR; Start sigue con los demás.
+                // Verification does not authorize another write. Users can retry from the PR menu; Start continues with other items.
                 autopilot.stop()
                 activity.update(id, status: .failed(LocalizedMessage(L10n.text(.activityNotRecorded))))
             }
@@ -564,7 +546,7 @@ final class ReviewQueueStore {
         }
     }
 
-    /// Valida, guarda y aplica el alcance sin tener que reiniciar la app.
+    /// Validate, save, and apply the scope without restarting the app.
     func updateConfiguration(organizations: Set<String>, machineAccounts: String,
                              teamDependabotEnabled: Bool? = nil, dependabotTeams: Set<String>? = nil) throws {
         let updated = try AppConfiguration(
@@ -585,7 +567,7 @@ final class ReviewQueueStore {
         inFlight = nil
         hasPendingRefresh = false
 
-        // No dejamos datos del alcance anterior visibles mientras carga el nuevo.
+        // Hide data from the previous scope while the new scope loads.
         pullRequests = []
         dependabotPullRequests = []
         requestedMergeCandidates = []
@@ -605,7 +587,7 @@ final class ReviewQueueStore {
     }
 
     private func write(_ operation: GitHubWrite, on pullRequest: PullRequest) {
-        // Una escritura por PR a la vez: el doble click no manda dos merges.
+        // One write per PR at a time: double-clicking must not send two merges.
         guard inFlightActions.insert(pullRequest.id).inserted else { return }
         reconcileBatch()
         onChange?()
@@ -637,8 +619,7 @@ final class ReviewQueueStore {
                         throw PullRequestActionSkipped(reason: reason)
                     }
                 } else {
-                    // Las demás escrituras conservan un único intento: un error
-                    // de transporte puede llegar después de aplicar la acción.
+                    // Other writes retain a single attempt: transport errors can arrive after the action was applied.
                     submitted = true
                     activity.update(activityID, status: .running)
                     _ = try await GH.run(operation.arguments)
@@ -659,13 +640,12 @@ final class ReviewQueueStore {
             inFlightActions.remove(pullRequest.id)
             reconcileBatch()
             onChange?()
-            // Consultamos todas las colas al finalizar, incluso si GitHub
-            // devolvió un error y no sabemos si alcanzó a aplicar la escritura.
+            // Refresh all queues afterward, even when GitHub returned an error and the write outcome is unknown.
             refresh(force: true)
         }
     }
 
-    // MARK: - Carga
+    // MARK: - Loading
 
     func refresh(force: Bool = false) {
         if !force, let lastUpdated, Date().timeIntervalSince(lastUpdated) < Self.staleAfter {
@@ -686,20 +666,20 @@ final class ReviewQueueStore {
         forceTeamDiscovery = false
         isLoadingTeamDependabot = !requestedConfiguration.effectiveDependabotTeams.isEmpty
 
-        // Sin `weak self`: el store vive todo lo que vive la app.
+        // No `weak self`: the store lives as long as the app.
         inFlight = Task {
             await Diagnostics.refresh(.github, forced: force) {
                 var firstContent = false
                 do {
                     try await Diagnostics.measure(.preflight) { try await GH.preflight() }
-                    // Una identidad por actualización, sin caché entre cuentas ni ciclos.
+                    // One identity per refresh, with no cache across accounts or cycles.
                     let viewer = try await Viewer.fetch()
                     guard requestedRevision == configurationRevision, !Task.isCancelled else { return }
                     if let previous = viewerLogin, previous.lowercased() != viewer.login.lowercased() {
                         actionEffects.reset()
                     }
                     viewerLogin = viewer.login
-                    // Detenemos inmediatamente si la cuenta cambió, incluso si falla una query.
+                    // Stop immediately if the account changes, even if a query fails.
                     autopilot.reconcile(batchCandidates, viewer: viewer.login)
 
                     let completed = try await GitHubQueueRefresh.load(queries: .live(
@@ -710,8 +690,7 @@ final class ReviewQueueStore {
                         self.publish(update, readRevision: readRevision, firstContent: &firstContent)
                     }
                     guard requestedRevision == configurationRevision, !Task.isCancelled else { return }
-                    // Publicar es independiente; las notificaciones esperan las
-                    // fuentes completas para no tratar un backlog como novedades.
+                    // Publish independently; notifications wait for complete sources to avoid treating a backlog as new activity.
                     if completed.canNotifyMerge {
                         await Diagnostics.measure(.notifications) {
                             await notifier.send(notificationTracker.process(readyToMerge, in: .merge))
@@ -724,8 +703,7 @@ final class ReviewQueueStore {
                         }
                         guard requestedRevision == configurationRevision, !Task.isCancelled else { return }
                     }
-                    // Recién con todas las colas consultadas podemos mostrar un
-                    // estado vacío. Medir ramas después no agrega ni quita PRs.
+                    // An empty state is valid only after querying all queues. Subsequent branch measurements neither add nor remove PRs.
                     lastUpdated = .now
                     state = .loaded
                     Diagnostics.record(.queuesLoaded)
@@ -803,7 +781,7 @@ final class ReviewQueueStore {
 
 #if DEBUG
 extension ReviewQueueStore {
-    /// Datos en memoria para previews del panel, sin consultas ni escrituras remotas.
+    /// In-memory panel preview data, without remote reads or writes.
     static func preview(reviews: [PullRequest], merges: [PullRequest],
                         batch: PullRequestBatch = PullRequestBatch(), viewer: String = "me",
                         activity: ActivityLog = ActivityLog()) -> ReviewQueueStore {

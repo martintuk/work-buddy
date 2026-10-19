@@ -3,9 +3,9 @@ import Testing
 
 @testable import WorkBuddy
 
-@Suite("Tiempo transcurrido del footer")
+@Suite("Footer elapsed time")
 struct LastUpdatedTextTests {
-    @Test("Siempre muestra tiempo pasado con la unidad y el plural correctos", arguments: [
+    @Test("Always show past time with correct units and plurals", arguments: [
         (-5.0, "Actualizado hace 0 segundos"),
         (0.0, "Actualizado hace 0 segundos"),
         (1.0, "Actualizado hace 1 segundo"),

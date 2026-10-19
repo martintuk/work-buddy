@@ -2,17 +2,17 @@ import Foundation
 import Testing
 @testable import WorkBuddy
 
-@Suite("Persistencia de actividad")
+@Suite("Activity persistence")
 @MainActor
 struct ActivityPersistenceTests {
-    @Test("Un nuevo store restaura acciones manuales, lotes y autopilot con sus datos y traducciones")
+    @Test("A new store restores manual actions, batches, and Autopilot with data and translations")
     func roundTrip() throws {
         let url = temporaryURL()
         defer { removeDirectory(url) }
         let log = ActivityLog(storageURL: url)
         let date = Date(timeIntervalSince1970: 1_700_000_000)
         let manual = log.record(title: LocalizedMessage(L10n.text(.editorOpen)), target: "org/café #1",
-            detail: "Proyecto con Unicode y 100%", url: fixture(1).url, symbol: "terminal", date: date)
+            detail: "Project with Unicode and 100%", url: fixture(1).url, symbol: "terminal", date: date)
         log.record(PullRequestBatch.Entry(candidate: .init(pullRequest: fixture(2), action: .approve),
                    status: .completed(.approve)), source: .batch, viewer: "me")
         log.record(PullRequestBatch.Entry(candidate: .init(pullRequest: fixture(3), action: .merge),
@@ -26,7 +26,7 @@ struct ActivityPersistenceTests {
         #expect(restored.unreadIDs == log.unreadIDs)
         let entry = try #require(restored.entries.first { $0.id == manual })
         #expect(entry.date == date && entry.target == "org/café #1")
-        #expect(entry.detail == "Proyecto con Unicode y 100%" && entry.url == fixture(1).url)
+        #expect(entry.detail == "Project with Unicode and 100%" && entry.url == fixture(1).url)
         #expect(entry.symbol == "terminal")
         let approved = try #require(restored.entries.first { $0.source == .batch })
         #expect(approved.action == .approve && approved.pullRequest?.headRefOID == fixture(2).headRefOID)
@@ -41,7 +41,7 @@ struct ActivityPersistenceTests {
         #expect(Localization.shared.language == language)
     }
 
-    @Test("Los resultados actualizados y las novedades leídas sobreviven a otro reinicio")
+    @Test("Updated outcomes and read activity survive another restart")
     func updatesAndReadState() {
         let url = temporaryURL()
         defer { removeDirectory(url) }
@@ -61,7 +61,7 @@ struct ActivityPersistenceTests {
         #expect(ActivityLog(storageURL: url).hasUnreadErrors)
     }
 
-    @Test("Un reinicio cierra los pendientes y conserva escrituras y verificaciones interrumpidas como inciertas")
+    @Test("Restart closes pending work and retains interrupted writes and verifications as uncertain")
     func interruptedOperations() {
         let url = temporaryURL()
         defer { removeDirectory(url) }
@@ -93,7 +93,7 @@ struct ActivityPersistenceTests {
         #expect(ActivityLog(storageURL: url).entries.count { $0.status.needsVerification } == 3)
     }
 
-    @Test("Retiene las últimas 50 actividades, en el orden del historial")
+    @Test("Retain the latest 50 activities in history order")
     func defaultRetention() {
         let log = ActivityLog()
         for number in 0..<90 {
@@ -103,7 +103,7 @@ struct ActivityPersistenceTests {
         #expect(log.entries.first?.target == "89" && log.entries.last?.target == "40")
     }
 
-    @Test("La retención en disco protege operaciones activas e inciertas y poda al resolverlas")
+    @Test("Disk retention protects active and uncertain operations and prunes resolved ones")
     func protectedRetention() {
         let url = temporaryURL()
         defer { removeDirectory(url) }
@@ -122,7 +122,7 @@ struct ActivityPersistenceTests {
         #expect(ActivityLog(storageURL: url, limit: 3).entries.count == 3)
     }
 
-    @Test("El store puede verificar una escritura incierta recuperada del disco sin enviarla de nuevo")
+    @Test("The store verifies uncertain writes recovered from disk without resending")
     func verificationAfterRestart() async throws {
         let url = temporaryURL()
         defer { removeDirectory(url) }
@@ -141,7 +141,7 @@ struct ActivityPersistenceTests {
         #expect(!restored.needsVerification(for: pr, viewer: "me"))
     }
 
-    @Test("Un archivo corrupto se conserva aparte y el historial vuelve a guardar")
+    @Test("Corrupt files are preserved separately and history resumes saving")
     func corruptFile() throws {
         let url = temporaryURL()
         defer { removeDirectory(url) }
@@ -157,7 +157,7 @@ struct ActivityPersistenceTests {
         #expect(ActivityLog(storageURL: url).entries.count == 1)
     }
 
-    @Test("Una versión futura se conserva sin sobrescribirla")
+    @Test("Future versions are preserved without overwriting")
     func futureVersion() throws {
         let url = temporaryURL()
         defer { removeDirectory(url) }

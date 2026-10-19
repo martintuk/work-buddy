@@ -1,6 +1,6 @@
 import Foundation
 
-/// Cambia el checkout existente, nunca crea worktrees ni descarta trabajo local.
+/// Switch the existing checkout without creating worktrees or discarding local work.
 enum LocalBranchCheckout {
     struct Request: Sendable {
         let pullRequestID: String
@@ -92,14 +92,14 @@ enum LocalBranchCheckout {
             guard try await revision(trackingRef) == expected else {
                 throw VerificationError.wrongRevision(request.branch)
             }
-            // Elegir el remoto verificado explícitamente evita el guessing entre ramas homónimas.
+            // Explicitly choose the verified remote to avoid guessing among same-named branches.
             _ = try await command(["switch", "--no-overwrite-ignore", "-c", request.branch,
                                    "--track", "--", "\(remote)/\(request.branch)"], request.folder)
         }
         guard try await revision("HEAD") == expected else { throw VerificationError.wrongRevision(request.branch) }
     }
 
-    /// URLs HTTPS/SSH y formato SCP. No acepta una coincidencia parcial de owner/repo o host.
+    /// HTTPS/SSH URLs and SCP syntax; require complete owner/repository and host matches.
     static func remoteMatches(_ remote: String, repository: String, host: String?) -> Bool {
         guard let host else { return false }
         let remoteHost: String
@@ -120,7 +120,7 @@ enum LocalBranchCheckout {
         return remoteHost.lowercased() == host.lowercased() && path.lowercased() == repository.lowercased()
     }
 
-    /// Proceso fuera del main actor, con argumentos separados y sin prompts.
+    /// Run off the main actor with separate arguments and no prompts.
     static func git(_ arguments: [String], in folder: URL) async throws -> String {
         try await Task.detached(priority: .userInitiated) {
             let process = Process()

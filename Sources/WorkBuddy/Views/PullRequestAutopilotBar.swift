@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Una única cabecera en ambos estados; al expandir se agrega la cola debajo.
+/// One header for both states; expanding adds the queue below it.
 struct PullRequestAutopilotBar: View {
     let autopilot: PullRequestAutopilot
     let setEnabled: @MainActor (Bool) -> Void

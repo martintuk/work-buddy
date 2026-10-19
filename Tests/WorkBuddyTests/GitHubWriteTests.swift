@@ -3,19 +3,17 @@ import Testing
 
 @testable import WorkBuddy
 
-/// Los argumentos de las escrituras están fijados acá porque los tres detalles
-/// que importan son invisibles leyendo el código: un flag que falta cuelga el
-/// proceso, uno que sobra hace algo distinto de lo que dice la etiqueta.
-@Suite("Escrituras contra GitHub")
+/// Pin write arguments here: missing flags can hang the process, while extra flags can change the action promised by its label.
+@Suite("GitHub writes")
 struct GitHubWriteTests {
-    @Test("Rebase actualiza la rama sin mergear ni comentar el PR")
-    func rebaseNativo() {
+    @Test("Rebase updates the branch without merging or commenting on the PR")
+    func nativeRebase() {
         let arguments = GitHubWrite.rebase(repository: "org/repo", number: 42).arguments
         #expect(arguments == ["pr", "update-branch", "42", "--repo", "org/repo", "--rebase"])
     }
 
-    @Test("Rebase publica el comando de Dependabot")
-    func rebaseComoComentario() {
+    @Test("Rebase posts the Dependabot command")
+    func rebaseComment() {
         let arguments = GitHubWrite.dependabotRebase(
             repository: "org/repo",
             number: 17
@@ -26,20 +24,17 @@ struct GitHubWriteTests {
         ])
     }
 
-    @Test("Aprobar no manda comentario")
-    func aprobarSinComentario() {
-        // `--body` convertiría la aprobación en un comentario. Sin él es una
-        // aprobación limpia, y sigue contando como review event para las reglas
-        // de required reviewers.
+    @Test("Approval sends no comment")
+    func approvalWithoutComment() {
+        // `--body` would add comment text to the approval. Without it, this is a clean approval that still counts as a review event for required-reviewer rules.
         let arguments = GitHubWrite.approve(repository: "org/repo", number: 42).arguments
         #expect(arguments == ["pr", "review", "42", "--repo", "org/repo", "--approve"])
         #expect(!arguments.contains("--body"))
     }
 
-    @Test("Mergear siempre lleva método explícito", arguments: MergeMethod.allCases)
-    func mergearLlevaMetodo(method: MergeMethod) {
-        // Sin flag de método, `gh pr merge` pregunta de forma interactiva y
-        // cuelga el subproceso. Es el bug más fácil de introducir acá.
+    @Test("Merge always specifies an explicit method", arguments: MergeMethod.allCases)
+    func explicitMergeMethod(method: MergeMethod) {
+        // Without a method flag, `gh pr merge` prompts interactively and hangs the subprocess.
         let arguments = GitHubWrite.merge(
             repository: "org/repo",
             number: 7,
@@ -48,16 +43,14 @@ struct GitHubWriteTests {
 
         #expect(arguments == ["pr", "merge", "7", "--repo", "org/repo", "--\(method.rawValue)"])
 
-        // Alguno de los tres flags de método tiene que estar, siempre.
+        // One of the three method flags must always be present.
         let methodFlags = Set(MergeMethod.allCases.map { "--\($0.rawValue)" })
         #expect(!methodFlags.isDisjoint(with: arguments))
     }
 
-    @Test("Mergear no usa --auto")
-    func sinAutoMerge() {
-        // El auto-merge está deshabilitado en estos repos, así que `--auto`
-        // nunca armó nada. Peor: describía la acción como "activar auto-merge"
-        // mientras a veces mergeaba en el acto.
+    @Test("Merge does not use --auto")
+    func noAutoMerge() {
+        // Auto-merge may be disabled in repositories. The action promises an immediate merge and must not arm auto-merge with `--auto`.
         for method in MergeMethod.allCases {
             let arguments = GitHubWrite.merge(
                 repository: "org/repo",
@@ -68,10 +61,9 @@ struct GitHubWriteTests {
         }
     }
 
-    @Test("El repo y el número salen como argumentos, no interpolados en texto")
-    func sinInterpolacionEnUnSoloArgumento() {
-        // Cada valor va en su propio elemento del argv, así un nombre de repo
-        // raro no puede convertirse en flags extra.
+    @Test("Repository and number are separate arguments rather than interpolated text")
+    func separateArguments() {
+        // Each value gets its own argv element so unusual repository names cannot become extra flags.
         let arguments = GitHubWrite.merge(
             repository: "org/repo con espacios",
             number: 3,
@@ -82,10 +74,10 @@ struct GitHubWriteTests {
     }
 }
 
-@Suite("Disponibilidad de acciones")
+@Suite("Action availability")
 struct ActionAvailabilityTests {
-    @Test("Las acciones cambian al promover y volver a bloquear el mismo PR")
-    func accionesDuranteTransiciones() {
+    @Test("Actions change when the same PR becomes ready and blocked again")
+    func actionsDuringTransitions() {
         let id = "PR_239"
         let review = makePullRequest(id: id, defaultMergeMethod: .squash)
         let ready = makePullRequest(id: id, mergeable: .mergeable, mergeStateStatus: .clean)
@@ -99,8 +91,8 @@ struct ActionAvailabilityTests {
         #expect(!ready.availableWriteActions(behindBy: 0).contains(.rebase))
     }
 
-    @Test("Una confirmación de merge deja de valer si el PR se bloquea o desaparece")
-    func confirmacionContraDatosActuales() {
+    @Test("Merge confirmation expires when the PR becomes blocked or disappears")
+    func confirmationAgainstCurrentData() {
         let ready = makePullRequest(id: "PR_239", mergeable: .mergeable, mergeStateStatus: .clean)
         let pending = PendingPullRequestAction(action: .merge, pullRequest: ready)
         #expect(pending.isAvailable(for: ready, behindBy: nil))
@@ -114,8 +106,8 @@ struct ActionAvailabilityTests {
                                                          mergeStateStatus: .clean), behindBy: nil))
     }
 
-    @Test("Cambiar el método de merge requiere una nueva confirmación")
-    func noCambiarMetodoConfirmado() {
+    @Test("Changing the merge method requires a new confirmation")
+    func preserveConfirmedMethod() {
         let ready = makePullRequest(id: "PR_239", mergeable: .mergeable, mergeStateStatus: .clean)
         let pending = PendingPullRequestAction(action: .merge, pullRequest: ready)
         for method: MergeMethod? in [.merge, .rebase, nil] {
@@ -125,8 +117,8 @@ struct ActionAvailabilityTests {
         }
     }
 
-    @Test("Una confirmación de rebase usa el atraso actual", arguments: [false, true])
-    func noRebaseConComparacionVieja(dependabot: Bool) {
+    @Test("Rebase confirmation uses current branch lag", arguments: [false, true])
+    func noRebaseWithStaleComparison(dependabot: Bool) {
         let pr = makePullRequest(author: Author(login: dependabot ? "dependabot" : "alice",
                                                typename: dependabot ? "Bot" : "User"))
         let pending = PendingPullRequestAction(action: dependabot ? .dependabotRebase : .rebase,
@@ -136,10 +128,10 @@ struct ActionAvailabilityTests {
         #expect(!pending.isAvailable(for: pr, behindBy: nil))
     }
 
-    @Test("Rebase requiere atraso medido y excluye sólo a Dependabot")
-    func disponibilidadDeRebase() {
+    @Test("Rebase requires measured lag and excludes only Dependabot")
+    func rebaseAvailability() {
         for author in [
-            Author(login: "persona", typename: "User"),
+            Author(login: "human", typename: "User"),
             Author(login: "renovate", typename: "Bot"),
         ] {
             let pr = makePullRequest(author: author)
@@ -154,48 +146,45 @@ struct ActionAvailabilityTests {
         }
     }
 
-    @Test("No se ofrece aprobar tus propios PRs")
-    func noAprobarLoTuyo() {
-        // GitHub lo rechaza, y un botón que sólo puede fallar entrena a ignorar
-        // los errores.
+    @Test("Approval is unavailable for the user's own PRs")
+    func noSelfApproval() {
+        // GitHub rejects this; offering an action that can only fail teaches users to ignore errors.
         #expect(!makePullRequest(authoredByMe: true).canApprove)
         #expect(makePullRequest(authoredByMe: false).canApprove)
     }
 
-    @Test("Sin datos de merge no se ofrece mergear")
-    func noMergearSinDatos() {
-        // La cola de review no pide `mergeable`, porque calcularlo es caro. Sin
-        // ese dato no sabemos si se puede mergear, así que no lo ofrecemos.
+    @Test("Merge is unavailable without merge data")
+    func noMergeWithoutData() {
+        // The review query omits the expensive `mergeable` field. Without it, merging cannot be offered safely.
         #expect(!makePullRequest().isReadyToMerge)
     }
 
-    @Test("El método de merge lo dice GitHub, no lo elegimos")
-    func metodoDesdeGraphQL() {
+    @Test("GitHub determines the merge method")
+    func methodFromGraphQL() {
         #expect(MergeMethod(graphQL: "SQUASH") == .squash)
         #expect(MergeMethod(graphQL: "MERGE") == .merge)
         #expect(MergeMethod(graphQL: "REBASE") == .rebase)
-        // Un valor nuevo del enum de GitHub no se adivina: sin método no se
-        // ofrece mergear.
+        // Do not guess new GitHub enum values: without a known method, merging is unavailable.
         #expect(MergeMethod(graphQL: "FAST_FORWARD") == nil)
         #expect(MergeMethod(graphQL: "squash") == nil)
     }
 
-    @Test("Sin saber el método no se ofrece mergear")
-    func sinMetodoNoSeOfrece() {
-        let listo = makePullRequest(mergeable: .mergeable, mergeStateStatus: .clean)
-        #expect(listo.canMerge)
+    @Test("Merge is unavailable without a known method")
+    func unavailableWithoutMethod() {
+        let ready = makePullRequest(mergeable: .mergeable, mergeStateStatus: .clean)
+        #expect(ready.canMerge)
 
-        let sinMetodo = makePullRequest(
+        let withoutMethod = makePullRequest(
             mergeable: .mergeable,
             mergeStateStatus: .clean,
             defaultMergeMethod: nil
         )
-        #expect(sinMetodo.isReadyToMerge)
-        #expect(!sinMetodo.canMerge)
+        #expect(withoutMethod.isReadyToMerge)
+        #expect(!withoutMethod.canMerge)
     }
 
-    @Test("Sólo las acciones que escriben en GitHub piden confirmación")
-    func accionesConConfirmacion() {
+    @Test("Only actions writing to GitHub require confirmation")
+    func actionsRequiringConfirmation() {
         #expect(PullRequestAction.dependabotRebase.needsConfirmation)
         #expect(PullRequestAction.merge.needsConfirmation)
         #expect(PullRequestAction.approve.needsConfirmation)
@@ -205,8 +194,8 @@ struct ActionAvailabilityTests {
         #expect(!PullRequestAction.open.needsConfirmation)
     }
 
-    @Test("Ambos rebases, aprobar y mergear escriben en GitHub")
-    func cualesEscriben() {
+    @Test("Both rebases, approval, and merge write to GitHub")
+    func writeActions() {
         #expect(PullRequestAction.rebase.writesToGitHub)
         #expect(PullRequestAction.dependabotRebase.writesToGitHub)
         #expect(PullRequestAction.approve.writesToGitHub)
@@ -216,8 +205,8 @@ struct ActionAvailabilityTests {
         #expect(!PullRequestAction.restore.writesToGitHub)
     }
 
-    @Test("Rebase sólo se ofrece para Dependabot atrasado")
-    func rebaseSoloParaDependabotAtrasado() {
+    @Test("Dependabot rebase is offered only when behind")
+    func rebaseOnlyForBehindDependabot() {
         let dependabot = makePullRequest(
             author: Author(login: "dependabot", typename: "Bot")
         )
@@ -225,11 +214,11 @@ struct ActionAvailabilityTests {
         #expect(!dependabot.canRequestDependabotRebase(behindBy: 0))
         #expect(!dependabot.canRequestDependabotRebase(behindBy: nil))
 
-        let otroBot = makePullRequest(author: Author(login: "renovate", typename: "Bot"))
-        #expect(!otroBot.canRequestDependabotRebase(behindBy: 5))
+        let otherBot = makePullRequest(author: Author(login: "renovate", typename: "Bot"))
+        #expect(!otherBot.canRequestDependabotRebase(behindBy: 5))
 
-        let persona = makePullRequest(author: Author(login: "alice", typename: "User"))
-        #expect(!persona.canRequestDependabotRebase(behindBy: 5))
+        let human = makePullRequest(author: Author(login: "alice", typename: "User"))
+        #expect(!human.canRequestDependabotRebase(behindBy: 5))
 
         let draft = makePullRequest(
             author: Author(login: "dependabot", typename: "Bot"),
@@ -257,7 +246,7 @@ private func makePullRequest(
         url: URL(string: "https://github.com/org/repo/pull/1")!,
         repository: "org/repo",
         baseRefName: "main",
-        headRefName: "una-rama",
+        headRefName: "feature-branch",
         author: author ?? Author(login: authoredByMe ? "yo" : "otro", typename: "User"),
         updatedAt: .now,
         isDraft: isDraft,

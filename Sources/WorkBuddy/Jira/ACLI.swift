@@ -1,9 +1,7 @@
 import Foundation
 
-/// Invoca el CLI oficial de Atlassian sin heredar supuestos del shell.
-///
-/// La app sólo consulta el estado de autenticación. El login sigue ocurriendo
-/// en Terminal, así work-buddy nunca recibe credenciales de Jira.
+/// Invoke Atlassian's official CLI without shell assumptions.
+/// Authentication happens in Terminal; the app only checks status and never receives credentials.
 enum ACLI {
     enum AuthenticationStatus: Equatable, Sendable {
         case authenticated(site: URL?)
@@ -30,8 +28,7 @@ enum ACLI {
         }
     }
 
-    /// Las apps abiertas desde Finder no heredan necesariamente el PATH del
-    /// shell, por eso Homebrew y Nix se buscan también por ruta absoluta.
+    /// Finder apps may not inherit shell PATH; also check absolute Homebrew and Nix paths.
     private static let candidatePaths = [
         "/opt/homebrew/bin/acli",
         "/usr/local/bin/acli",
@@ -58,7 +55,7 @@ enum ACLI {
         )
     }
 
-    /// Separado del proceso para fijar con tests el contrato observable de ACLI.
+    /// Separate process execution from ACLI's observable authentication contract for tests.
     static func classifyAuthentication(
         exitCode: Int32,
         output: String
@@ -150,8 +147,7 @@ enum ACLI {
         let stdout = Pipe()
         process.standardOutput = stdout
 
-        // stderr va a un archivo para poder drenar stdout sin riesgo de que el
-        // proceso bloquee al llenar el otro pipe.
+        // Use a stderr file so draining stdout cannot block on another full pipe.
         let stderrURL = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("work-buddy-\(UUID().uuidString).acli-stderr")
         FileManager.default.createFile(atPath: stderrURL.path, contents: nil, attributes: nil)

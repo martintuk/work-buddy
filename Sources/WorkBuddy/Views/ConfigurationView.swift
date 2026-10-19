@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// La pantalla general conserva sólo preferencias compartidas y acceso a cada integración.
+/// General settings contain shared preferences and links to each integration.
 struct ConfigurationView: View {
     let store: ReviewQueueStore
     let jiraStore: JiraStore

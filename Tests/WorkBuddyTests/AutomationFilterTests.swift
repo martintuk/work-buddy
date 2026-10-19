@@ -3,9 +3,9 @@ import Testing
 
 @testable import WorkBuddy
 
-@Suite("Filtro de automatización")
+@Suite("Automation filter")
 struct AutomationFilterTests {
-    @Test("Incluye Dependabot, otros bots y cuentas de máquina sin adivinar por el login")
+    @Test("Include Dependabot, other bots, and machine accounts without guessing from login")
     func authorClassification() {
         let prs = [
             pr("dependabot", author: Author(login: "dependabot", typename: "Bot")),
@@ -19,7 +19,7 @@ struct AutomationFilterTests {
         #expect(AutomationFilter.excludingAutomation.apply(to: prs).map(\.id) == ["person", "bot-name"])
     }
 
-    @Test("Compone con repositorios, favoritos, ignorados y clasificación de colas")
+    @Test("Compose with repositories, favorites, ignored items, and queue classification")
     func queues() {
         let bot = Author(login: "dependabot", typename: "Bot")
         let person = Author(login: "alice", typename: "User")
@@ -50,7 +50,7 @@ struct AutomationFilterTests {
         #expect(repositories.prioritizingFavorites(in: automated).map(\.id) == automated.map(\.id))
     }
 
-    @Test("Persiste los modos y usa todos los PRs por defecto o ante valores desconocidos")
+    @Test("Persist modes and default to all PRs for missing or unknown values")
     func persistence() throws {
         let suite = "automation-filter-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))

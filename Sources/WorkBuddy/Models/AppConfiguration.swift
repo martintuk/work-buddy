@@ -1,10 +1,7 @@
 import Foundation
 
-/// Valores que dependen del entorno GitHub de cada persona.
-///
-/// Son identificadores, no secretos: la autenticación sigue perteneciendo a
-/// `gh`. Se persisten en UserDefaults para que la app no necesite constantes de
-/// una organización concreta.
+/// Per-user GitHub environment settings. These are identifiers, not secrets;
+/// authentication belongs to gh. Persist in UserDefaults instead of hardcoding an organization.
 struct AppConfiguration: Equatable, Sendable {
     enum ValidationError: LocalizedError {
         case invalidOrganization(String)
@@ -89,12 +86,12 @@ struct AppConfiguration: Equatable, Sendable {
         machineAccounts = accounts
     }
 
-    /// Agrega el alcance a una búsqueda de GitHub. El valor ya fue validado y
-    /// no puede cerrar las comillas de la query GraphQL que lo contiene.
+    /// Scope a GitHub search using validated identifiers that cannot terminate
+    /// the containing GraphQL string.
     func scopedSearch(_ search: String) -> String {
         guard !organizations.isEmpty else { return search }
-        // Las queries usan type: ISSUE (búsqueda clásica), donde varios org:
-        // se combinan con OR. ISSUE_ADVANCED requiere otra sintaxis.
+        // Classic ISSUE searches combine multiple org: terms with OR.
+        // ISSUE_ADVANCED requires different syntax.
         return search + " " + organizations.sorted().map { "org:\($0)" }.joined(separator: " ")
     }
 
@@ -118,8 +115,7 @@ struct AppConfiguration: Equatable, Sendable {
         }
         let storedAccounts = defaults.stringArray(forKey: Key.machineAccounts) ?? []
 
-        // Si una versión futura cambia la validación, un valor viejo inválido
-        // no debe impedir que la aplicación arranque.
+        // Future validation changes must not prevent startup when an older saved value is invalid.
         return (try? AppConfiguration(
             organizations: Set(storedOrganizations),
             machineAccountsText: storedAccounts.joined(separator: ","),

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Dos modos excluyentes: sólo los seleccionados, o todos menos los muteados.
+/// Mutually exclusive modes: selected repositories only, or all except muted repositories.
 struct RepositoryFilter: Codable, Equatable {
     private static let key = "repositoryFilter"
 
@@ -18,8 +18,7 @@ struct RepositoryFilter: Codable, Equatable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         favorites = Set((try values.decodeIfPresent(Set<String>.self, forKey: .favorites) ?? [])
             .map { $0.lowercased() })
-        // La versión anterior guardaba un único repo y podía conservar muteos
-        // simultáneos. Se mantiene su selección visible, descartando los muteos.
+        // The previous version stored one repository and could retain simultaneous mutes. Preserve its visible selection and discard the mutes.
         if let repositories = try? values.decode(Set<String>.self, forKey: .solo) {
             solo = Set(repositories.map { $0.lowercased() })
         } else if let repository = try values.decodeIfPresent(String.self, forKey: .solo) {
@@ -41,7 +40,7 @@ struct RepositoryFilter: Codable, Equatable {
         pullRequests.filter { includes($0.repository) }
     }
 
-    /// Prioriza favoritos conservando el orden de cada grupo dentro de su categoría.
+    /// Prioritize favorites while preserving each group's order within its category.
     func prioritizingFavorites(in pullRequests: [PullRequest]) -> [PullRequest] {
         let starred = pullRequests.filter { favorites.contains($0.repository.lowercased()) }
         let remaining = pullRequests.filter { !favorites.contains($0.repository.lowercased()) }
@@ -77,8 +76,7 @@ struct RepositoryFilter: Codable, Equatable {
         let pullRequestCount: Int
     }
 
-    /// Distinct sobre los resultados SIN filtrar. Incluye preferencias sin
-    /// resultados para poder deshacer una preferencia tras un reinicio.
+    /// Distinct repositories from unfiltered results. Include saved preferences without results so users can undo them after restarting.
     func repositories(in pullRequests: [PullRequest], including saved: Set<String> = []) -> [Repository] {
         let grouped = Dictionary(grouping: pullRequests) { $0.repository.lowercased() }
         let names = Set(grouped.keys).union(muted).union(solo).union(favorites).union(saved)

@@ -1,7 +1,7 @@
 import Foundation
 
-/// Dependencias entre consultas de una carga. Publicar no espera a otras colas;
-/// la finalización sí espera todas las fuentes necesarias para notificar.
+/// Refresh query dependencies. Publication does not wait for other queues;
+/// completion waits for all sources required for notifications.
 @MainActor
 enum GitHubQueueRefresh {
     enum Update: Sendable {
@@ -64,8 +64,8 @@ enum GitHubQueueRefresh {
             async let conversations = Diagnostics.measure(.conversationCandidates) {
                 try await queries.conversations()
             }
-            // Una falla conserva la última clasificación. Los hilos sólo dependen
-            // de estas dos listas, nunca de merge ni de review.
+            // Retain the previous classification on failure. Threads depend only on
+            // these two lists, never on merge or review results.
             if let own = await own {
                 do {
                     let others = try await conversations

@@ -3,9 +3,9 @@ import Testing
 
 @testable import WorkBuddy
 
-@Suite("Filtro de repositorios")
+@Suite("Repository filter")
 struct RepositoryFilterTests {
-    @Test("Solo permite varios repos, ignora mayúsculas y limpia los muteos")
+    @Test("Solo supports multiple repositories, ignores case, and clears mutes")
     func soloAndMute() {
         var filter = RepositoryFilter()
         filter.toggleMute("Org/API")
@@ -29,7 +29,7 @@ struct RepositoryFilterTests {
         #expect(!filter.isActive)
     }
 
-    @Test("Mutear cualquier repo limpia todos los ojos y permite varios muteos")
+    @Test("Muting any repository clears solo selections and supports multiple mutes")
     func muteSolo() {
         var filter = RepositoryFilter()
         filter.toggleSolo("org/api")
@@ -48,7 +48,7 @@ struct RepositoryFilterTests {
         #expect(!filter.isActive)
     }
 
-    @Test("Persiste cada modo con varios repos y permite limpiar el filtro")
+    @Test("Persist each mode with multiple repositories and allow clearing the filter")
     func persistence() throws {
         let suiteName = "repository-filter-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -73,7 +73,7 @@ struct RepositoryFilterTests {
         #expect(!RepositoryFilter.load(defaults: reopenedDefaults).isActive)
     }
 
-    @Test("Migra el solo anterior sin mantener modos simultáneos")
+    @Test("Migrate legacy solo selection without retaining simultaneous modes")
     func migration() throws {
         let previous = Data(#"{"solo":"Org/API","muted":["org/web"]}"#.utf8)
         let filter = try JSONDecoder().decode(RepositoryFilter.self, from: previous)
@@ -89,7 +89,7 @@ struct RepositoryFilterTests {
         #expect(repaired.muted.isEmpty)
     }
 
-    @Test("Distinct usa todos los resultados y conserva preferencias sin resultados")
+    @Test("Distinct uses all results and retains preferences without results")
     func distinctRepositories() {
         var filter = RepositoryFilter()
         filter.toggleSolo("org/api")
@@ -103,7 +103,7 @@ struct RepositoryFilterTests {
         #expect(filter.repositories(in: []).map(\.id) == ["org/api", "org/empty", "org/gone"])
     }
 
-    @Test("El filtro compone con reviews, automatización, merge e ignorados")
+    @Test("The filter composes with reviews, automation, merge, and ignored items")
     func allQueues() {
         let queue = [
             pullRequest("review", repository: "org/api"),

@@ -2,10 +2,10 @@ import Foundation
 import Testing
 @testable import WorkBuddy
 
-@Suite("Diagnóstico de apertura y respuesta del panel")
+@Suite("Panel opening and responsiveness diagnostics")
 @MainActor
 struct PanelDiagnosticsTests {
-    @Test("Mide la apertura y sus fases, separando primera apertura y snapshot disponible")
+    @Test("Measure opening phases and distinguish first opening from available snapshots")
     func opening() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -38,7 +38,7 @@ struct PanelDiagnosticsTests {
         #expect(closed.records.contains { $0.metrics?["opening"] == 2 && $0.metrics?["hasSnapshot"] == 1 })
     }
 
-    @Test("Registra sólo retrasos de al menos 100 ms y deja de medir al cerrar")
+    @Test("Record delays of at least 100 ms and stop measuring on close")
     func mainThreadDelay() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -64,7 +64,7 @@ struct PanelDiagnosticsTests {
         #expect(exported.records.last?.kind == .refreshEnded)
     }
 
-    @Test("Abrir paneles no expulsa cargas y el mismo reporte incluye ambos historiales")
+    @Test("Opening panels does not evict loads; reports include both histories")
     func separateRetention() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -87,7 +87,7 @@ struct PanelDiagnosticsTests {
         #expect(Set(report.records.compactMap { $0.metrics?["opening"] }) == [5, 6])
     }
 
-    @Test("La primera exportación y una falla del historial de panel no impiden exportar GitHub")
+    @Test("First exports and panel history failures do not prevent GitHub export")
     func missingAndFailedPanelStorage() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

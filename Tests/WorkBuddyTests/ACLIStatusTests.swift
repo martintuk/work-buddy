@@ -3,9 +3,9 @@ import Testing
 
 @testable import WorkBuddy
 
-@Suite("Autenticación de ACLI")
+@Suite("ACLI authentication")
 struct ACLIStatusTests {
-    @Test("Exit exitoso significa sesión activa")
+    @Test("Successful exit means an active session")
     func authenticated() throws {
         let status = try ACLI.classifyAuthentication(
             exitCode: 0,
@@ -14,7 +14,7 @@ struct ACLIStatusTests {
         #expect(status == .authenticated(site: URL(string: "https://example.atlassian.net")))
     }
 
-    @Test("La respuesta unauthorized guía al login externo")
+    @Test("Unauthorized responses direct users to external login")
     func signedOut() throws {
         #expect(try ACLI.classifyAuthentication(
             exitCode: 1,
@@ -22,7 +22,7 @@ struct ACLIStatusTests {
         ) == .signedOut)
     }
 
-    @Test("Una falla desconocida no se presenta como falta de login")
+    @Test("Unknown failures are not presented as missing login")
     func unexpectedFailure() {
         #expect(throws: ACLI.Failure.self) {
             try ACLI.classifyAuthentication(exitCode: 2, output: "network unavailable")
@@ -30,9 +30,9 @@ struct ACLIStatusTests {
     }
 }
 
-@Suite("Consultas configurables de Jira")
+@Suite("Configurable Jira queries")
 struct JiraQueueTests {
-    @Test("JQL configurable se pasa como un único argumento, sin interpolar shell")
+    @Test("Configurable JQL is passed as one argument without shell interpolation")
     func query() {
         let query = #"project = TEAM AND "Custom Field" = currentUser() ORDER BY updated DESC"#
         let args = JiraQueue.arguments(jql: query, limit: nil)
@@ -46,7 +46,7 @@ struct JiraQueueTests {
         #expect(!recent.contains("--paginate"))
     }
 
-    @Test("Los errores de configuración identifican el campo o estado sin ocultar el detalle", arguments: [
+    @Test("Configuration errors identify the field or state and preserve details", arguments: [
         ("Field 'Stakeholder' does not exist or you do not have permission to view it.", JiraQueue.QueryFailure.Reason.fieldUnavailable),
         ("Field \"Reviewers\" is not searchable.", .fieldUnavailable),
         ("Field 'Stakeholder' does not exist. Query: " + JiraConfiguration.defaultPrimaryJQL, .fieldUnavailable),
@@ -75,7 +75,7 @@ struct JiraQueueTests {
         }
     }
 
-    @Test("Instalación y autenticación conservan los estados que reconoce JiraStore")
+    @Test("Installation and authentication preserve states recognized by JiraStore")
     func authenticationErrors() async throws {
         for failure in [ACLI.Failure.notInstalled, .notAuthenticated] {
             do {
@@ -90,7 +90,7 @@ struct JiraQueueTests {
         }
     }
 
-    @Test("Cancelación y respuestas inválidas no se atribuyen al campo Stakeholder")
+    @Test("Cancellation and invalid responses are not attributed to the Stakeholder field")
     func otherErrors() async {
         await #expect(throws: CancellationError.self) {
             _ = try await JiraQueue.fetch(jql: JiraConfiguration.defaultPrimaryJQL, title: "My queue") { _ in throw CancellationError() }
@@ -102,7 +102,7 @@ struct JiraQueueTests {
         catch { Issue.record("Unexpected failure: \(error)") }
     }
 
-    @Test("Una consulta válida mantiene los tickets y una respuesta vacía sigue siendo válida")
+    @Test("Valid queries retain tickets and empty responses remain valid")
     func successfulFetch() async throws {
         let items = try await JiraQueue.fetch(jql: JiraConfiguration.defaultPrimaryJQL, title: "My queue") { _ in
             Data(#"[{"key":"LABOS-42","fields":{"summary":"Revisar cambio","issuetype":{"name":"Story"}}}]"#.utf8)
@@ -112,7 +112,7 @@ struct JiraQueueTests {
         #expect(empty.isEmpty)
     }
 
-    @Test("Decodifica la respuesta JSON de ACLI")
+    @Test("Decode ACLI JSON responses")
     func decoding() throws {
         let data = Data(#"[{"key":"LABOS-42","fields":{"summary":"Revisar cambio","issuetype":{"name":"Story"}}}]"#.utf8)
         let items = try JSONDecoder().decode([JiraWorkItem].self, from: data)

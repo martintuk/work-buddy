@@ -2,10 +2,10 @@ import Foundation
 import Testing
 @testable import WorkBuddy
 
-@Suite("Historial de actividad")
+@Suite("Activity history")
 @MainActor
 struct ActivityLogTests {
-    @Test("Dependabot confirma la solicitud, y una aprobación confirma la review")
+    @Test("Dependabot confirms the request and approval confirms the review")
     func resultMeaning() {
         let log = ActivityLog()
         log.record(.dependabotRebase, on: fixture(1))
@@ -14,7 +14,7 @@ struct ActivityLogTests {
         #expect(log.entries[0].statusText == L10n.text(.prApproved))
     }
 
-    @Test("Progreso y reintentos actualizan una entrada; repetir la acción crea otra")
+    @Test("Progress and retries update one entry; repeated actions create another")
     func identityAndUnread() throws {
         let log = ActivityLog()
         let first = log.record(.approve, on: fixture(1), status: .checking)
@@ -39,7 +39,7 @@ struct ActivityLogTests {
         #expect(try #require(log.entries.last).target == "org/api #1")
     }
 
-    @Test("Un error tardío actualiza la apertura exitosa sin duplicarla")
+    @Test("Late errors update successful launches without duplicates")
     func lateFailure() {
         let log = ActivityLog()
         let id = log.record(title: LocalizedMessage("Agent"), target: "org/api #1", symbol: "terminal")
@@ -49,7 +49,7 @@ struct ActivityLogTests {
         #expect(log.hasUnreadErrors)
     }
 
-    @Test("Cada PR del lote registra su resultado y sobrevive a salir o ejecutar otro lote")
+    @Test("Each batch PR retains its outcome after leaving or running another batch")
     func batchResults() async throws {
         let log = ActivityLog()
         let batch = PullRequestBatch(runner: runner())
@@ -77,7 +77,7 @@ struct ActivityLogTests {
         #expect(!previousIDs.contains(try #require(log.entries.first).id))
     }
 
-    @Test("El historial de autopilot conserva aprobación y merge del mismo PR al cerrar")
+    @Test("Autopilot history retains approval and merge of the same SHA after closing")
     func autopilotResults() async throws {
         let log = ActivityLog()
         let autopilot = PullRequestAutopilot(runner: runner())
@@ -96,7 +96,7 @@ struct ActivityLogTests {
         #expect(log.entries.map(\.symbol) == ["arrow.triangle.merge", "checkmark.circle"])
     }
 
-    @Test("El store conecta los lotes al historial y registra errores al abrir el agente")
+    @Test("The store connects batches to history and records agent launch errors")
     func storeIntegration() async throws {
         let batch = PullRequestBatch(runner: runner())
         let store = ReviewQueueStore(batch: batch, activity: ActivityLog())
@@ -116,7 +116,7 @@ struct ActivityLogTests {
         #expect(store.activity.entries.first?.source == .manual)
     }
 
-    @Test("Los textos del historial siguen los cambios de idioma")
+    @Test("History text follows language changes")
     func localizedHistory() throws {
         var language = AppLanguage.spanish
         let log = ActivityLog()

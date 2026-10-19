@@ -2,9 +2,9 @@ import Foundation
 import Testing
 @testable import WorkBuddy
 
-@Suite("Configuración experimental de Jira")
+@Suite("Experimental Jira configuration")
 struct JiraConfigurationTests {
-    @Test("Una instalación nueva empieza apagada y con consultas genéricas")
+    @Test("Fresh installations start disabled with generic queries")
     func defaults() throws {
         let defaults = try #require(UserDefaults(suiteName: "jira-defaults-\(UUID())"))
         let config = JiraConfiguration.load(defaults: defaults)
@@ -14,7 +14,7 @@ struct JiraConfigurationTests {
         #expect(!config.primaryJQL.contains("Stakeholder"))
     }
 
-    @Test("Guarda las consultas del usuario sin depender de un equipo")
+    @Test("Save user queries without depending on a team")
     func persistence() throws {
         let suite = "jira-persistence-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -29,7 +29,7 @@ struct JiraConfigurationTests {
         #expect(loaded.recentJQL == config.recentJQL)
     }
 
-    @Test("Las preferencias anteriores conservan las consultas y descartan los nombres personalizados")
+    @Test("Legacy preferences retain queries and discard custom names")
     func legacyNames() throws {
         let suite = "jira-legacy-names-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -52,7 +52,7 @@ struct JiraConfigurationTests {
         #expect(fields["primaryName"] == nil && fields["recentName"] == nil)
     }
 
-    @Test("Una consulta vacía no reemplaza la configuración válida")
+    @Test("Empty queries do not replace valid configuration")
     func emptyQuery() throws {
         var config = JiraConfiguration()
         config.primaryJQL = " \n "
@@ -62,7 +62,7 @@ struct JiraConfigurationTests {
         #expect(throws: JiraConfiguration.ValidationError.self) { try config.validated() }
     }
 
-    @Test("Preferencias corruptas nunca habilitan Jira automáticamente")
+    @Test("Corrupt preferences never enable Jira automatically")
     func corruptPreferences() throws {
         let suite = "jira-corrupt-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -72,10 +72,10 @@ struct JiraConfigurationTests {
     }
 }
 
-@Suite("Ciclo de vida de Jira experimental")
+@Suite("Experimental Jira lifecycle")
 @MainActor
 struct JiraStoreTests {
-    @Test("Desactivado no autentica ni consulta aunque el scheduler pida refrescar")
+    @Test("Disabled Jira neither authenticates nor queries when the scheduler refreshes")
     func disabled() async throws {
         let suite = "jira-disabled-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -97,7 +97,7 @@ struct JiraStoreTests {
         #expect(store.siteURL == nil)
     }
 
-    @Test("Habilitar consulta, deshabilitar limpia datos y conserva las consultas guardadas")
+    @Test("Enabling loads data; disabling clears data and retains saved queries")
     func toggling() async throws {
         let suite = "jira-toggle-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -133,7 +133,7 @@ struct JiraStoreTests {
         #expect(await calls.count == 4)
     }
 
-    @Test("Una autenticación que termina después de apagar Jira no inicia búsquedas")
+    @Test("Authentication completing after disabling Jira starts no searches")
     func disabledDuringAuth() async throws {
         let suite = "jira-auth-race-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -153,7 +153,7 @@ struct JiraStoreTests {
         if case .idle = store.state {} else { Issue.record("Expected idle state") }
     }
 
-    @Test("Resultados y errores tardíos no reactivan Jira", arguments: [false, true])
+    @Test("Late results and errors do not reactivate Jira", arguments: [false, true])
     func disabledDuringQuery(fails: Bool) async throws {
         let suite = "jira-query-race-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -172,7 +172,7 @@ struct JiraStoreTests {
         if case .idle = store.state {} else { Issue.record("Late completion changed disabled state") }
     }
 
-    @Test("Cambiar el JQL descarta la carga vieja aunque termine después de la nueva")
+    @Test("Changing JQL discards the old load even if it finishes after the new one")
     func changedQuery() async throws {
         let suite = "jira-config-race-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))

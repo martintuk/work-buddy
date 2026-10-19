@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// Selección viva del panel y snapshot inmutable de la ejecución actual.
+/// Live panel selection and an immutable snapshot of the current run.
 @MainActor
 @Observable
 final class PullRequestBatch {
@@ -60,7 +60,7 @@ final class PullRequestBatch {
     var failedCount: Int { entries.count { switch $0.status { case .failed, .uncertain: true; default: false } } }
     var runningIDs: Set<String> { isRunning ? Set(entries.map(\.id)) : [] }
 
-    /// Prioridad de merge, una sola acción y una sola selección por PR.
+    /// Merge takes priority; each PR has one action and one selection.
     static func candidates(reviews: [PullRequest], merges: [PullRequest]) -> [Candidate] {
         var seen: Set<String> = []
         return [(PullRequestBatchAction.merge, merges), (.approve, reviews)].flatMap { action, prs in
@@ -86,8 +86,7 @@ final class PullRequestBatch {
         entries = []
     }
 
-    /// Conserva elecciones sólo para la misma acción, commit, base y método.
-    /// Los recién llegados se muestran sin seleccionar, aun durante una ejecución.
+    /// Keep selections only for the same action, commit, base, and method. New arrivals remain unselected, even during a run.
     func reconcile(_ updated: [Candidate], viewer: String) {
         guard isSelecting else { return }
         let previous = Dictionary(uniqueKeysWithValues: candidates.map { ($0.id, $0.fingerprint) })

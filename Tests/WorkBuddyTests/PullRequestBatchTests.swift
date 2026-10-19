@@ -3,10 +3,10 @@ import SwiftUI
 import Testing
 @testable import WorkBuddy
 
-@Suite("Acciones de PRs en lote")
+@Suite("Batch PR actions")
 @MainActor
 struct PullRequestBatchTests {
-    @Test("Filtra elegibilidad de aprobación y deduplica sin limitarse a Dependabot")
+    @Test("Filter approval eligibility and deduplicate without restricting to Dependabot")
     func selection() {
         let ready = pr(1)
         var noCommit = pr(2)
@@ -31,7 +31,7 @@ struct PullRequestBatchTests {
         #expect(batch.selectedIDs.isEmpty)
     }
 
-    @Test("Revalida el commit, la cuenta, CI, draft y aprobación antes de escribir")
+    @Test("Revalidate commit, account, CI, draft, and approval before writing")
     func validation() {
         let original = pr(1)
         func reason(_ current: PullRequest?, open: Bool = true, viewer: String = "me") -> PullRequestActionSkipReason? {
@@ -58,7 +58,7 @@ struct PullRequestBatchTests {
         #expect(reason(pr(1, author: "renovate[bot]")) == nil)
     }
 
-    @Test("El refresh muestra recién llegados sin seleccionarlos y retira selecciones desactualizadas")
+    @Test("Refresh shows new arrivals unselected and removes stale selections")
     func reconciliation() {
         let batch = PullRequestBatch()
         batch.prepare([pr(1), pr(2), pr(3), pr(4)], viewer: "me")
@@ -72,7 +72,7 @@ struct PullRequestBatchTests {
         #expect(batch.candidates.isEmpty && batch.selectedIDs.isEmpty)
     }
 
-    @Test("Resultados parciales: nunca reintenta una aprobación incierta y continúa el lote")
+    @Test("Partial results never retry uncertain approvals and continue the batch")
     func partialResults() async throws {
         let batch = PullRequestBatch()
         batch.prepare([pr(1), pr(2), pr(3), pr(4)], viewer: "me")
@@ -103,7 +103,7 @@ struct PullRequestBatchTests {
         #expect(approved == ["PR_1"] && finished == 1)
     }
 
-    @Test("Un cambio de alcance durante la lectura omite la escritura")
+    @Test("Scope changes during reads skip the write")
     func scopeDuringRead() async throws {
         let batch = PullRequestBatch()
         batch.prepare([pr(1)], viewer: "me")
@@ -112,17 +112,17 @@ struct PullRequestBatchTests {
         let started = batch.start(.approve, read: { pr, viewer in
             await gate.enter()
             return .init(viewer: viewer, pullRequest: pr, isOpen: true)
-        }, write: { _ in Issue.record("No debe escribir después de cambiar el alcance") }, isAllowed: { _ in allowed })
+        }, write: { _ in Issue.record("Must not write after scope changes") }, isAllowed: { _ in allowed })
         let task = try #require(started)
         await gate.waitUntilEntered()
         allowed = false
         await gate.release()
         await task.value
         #expect(batch.skippedCount == 1)
-        if case .skipped(.scopeChanged) = batch.entries[0].status {} else { Issue.record("Debe indicar cambio de alcance") }
+        if case .skipped(.scopeChanged) = batch.entries[0].status {} else { Issue.record("Must report the scope change") }
     }
 
-    @Test("Detener durante la lectura no aprueba; durante la escritura termina el PR actual", arguments: [false, true])
+    @Test("Stopping during reads prevents approval; during writes it finishes the current PR", arguments: [false, true])
     func stop(duringWrite: Bool) async throws {
         let batch = PullRequestBatch()
         batch.prepare([pr(1), pr(2)], viewer: "me")
@@ -150,7 +150,7 @@ struct PullRequestBatchTests {
         #expect(batch.skippedCount == (duringWrite ? 1 : 2))
     }
 
-    @Test("Un cambio de cuenta detiene los PRs restantes")
+    @Test("Account changes stop remaining PRs")
     func accountChange() async throws {
         let batch = PullRequestBatch()
         batch.prepare([pr(1), pr(2)], viewer: "me")
@@ -158,7 +158,7 @@ struct PullRequestBatchTests {
         let started = batch.start(.approve, read: { pr, _ in
             await calls.record(pr.id)
             return .init(viewer: "other", pullRequest: pr, isOpen: true)
-        }, write: { _ in Issue.record("No debe aprobar con otra cuenta") }, isAllowed: { _ in true })
+        }, write: { _ in Issue.record("Must not approve with another account") }, isAllowed: { _ in true })
         let task = try #require(started)
         await task.value
         #expect(await calls.ids == ["PR_1"])
@@ -166,7 +166,7 @@ struct PullRequestBatchTests {
         if case .skipped(.accountChanged) = batch.entries[0].status {} else { Issue.record("Cuenta cambiada") }
     }
 
-    @Test("Consulta GitHub por ID y conserva el commit y la aprobación personal")
+    @Test("Query GitHub by ID and retain commit and personal approval")
     func freshQuery() async throws {
         let snapshot = try await PullRequestActionCheck.fetch(pr(1), viewer: "me") { arguments in
             let query = try #require(arguments.first { $0.hasPrefix("query=") })
@@ -183,18 +183,18 @@ struct PullRequestBatchTests {
         #expect(args == ["api", "repos/org/api/pulls/1/reviews", "--method", "POST", "-f", "event=APPROVE", "-f", "commit_id=commit-1"])
     }
 
-    @Test("Una lectura fallida conserva el error y no escribe")
+    @Test("Failed reads preserve the error and never write")
     func readFailure() async throws {
         let batch = PullRequestBatch()
         batch.prepare([pr(1)], viewer: "me")
         let started = batch.start(.approve, read: { _, _ in throw GH.Failure.noAttempts },
-                                  write: { _ in Issue.record("No debe escribir sin lectura válida") }, isAllowed: { _ in true })
+                                  write: { _ in Issue.record("Must not write without a valid read") }, isAllowed: { _ in true })
         let task = try #require(started)
         await task.value
         #expect(batch.failedCount == 1 && batch.succeededCount == 0)
     }
 
-    @Test("Espacia las aprobaciones un segundo y revalida después de esperar")
+    @Test("Space approvals one second apart and revalidate after waiting")
     func approvalSpacing() async throws {
         let clock = ApprovalClock()
         let batch = PullRequestBatch(runner: clock.coordinator())
@@ -211,7 +211,7 @@ struct PullRequestBatchTests {
         #expect(await reads.times == [0, 1])
     }
 
-    @Test("Pausa el lote ante 429 o 422 por velocidad y revalida antes de reintentar", arguments: [429, 422])
+    @Test("Pause batches on speed-related 429 or 422 and revalidate before retrying", arguments: [429, 422])
     func rateLimitRecovery(status: Int) async throws {
         let clock = ApprovalClock()
         let batch = PullRequestBatch(runner: clock.coordinator())
@@ -234,7 +234,7 @@ struct PullRequestBatchTests {
         #expect(await reads.times == [0, delay, delay + 1])
     }
 
-    @Test("No duplica una aprobación que aparece al revalidar")
+    @Test("Do not duplicate approvals found during revalidation")
     func approvalAlreadyRegistered() async throws {
         let clock = ApprovalClock()
         let batch = PullRequestBatch(runner: clock.coordinator())
@@ -253,7 +253,7 @@ struct PullRequestBatchTests {
         #expect(batch.succeededCount == 1 && batch.skippedCount == 0)
     }
 
-    @Test("Omite el PR si cambió su commit o CI durante la espera", arguments: [false, true])
+    @Test("Skip PRs whose commit or CI changed during the wait", arguments: [false, true])
     func changedDuringCooldown(changeCommit: Bool) async throws {
         let clock = ApprovalClock()
         let batch = PullRequestBatch(runner: clock.coordinator())
@@ -274,10 +274,10 @@ struct PullRequestBatchTests {
         #expect(batch.skippedCount == 1 && batch.succeededCount == 0)
         if case .skipped(let reason) = batch.entries[0].status {
             #expect(reason == (changeCommit ? .changed : .notReady))
-        } else { Issue.record("Debe omitirlo después de la revalidación") }
+        } else { Issue.record("Must skip after revalidation") }
     }
 
-    @Test("Limita a tres intentos, omite el resto y conserva el cooldown para otra aprobación")
+    @Test("Limit attempts to three, skip remaining items, and retain cooldown for another approval")
     func persistentRateLimit() async throws {
         let clock = ApprovalClock()
         let coordinator = clock.coordinator()
@@ -296,13 +296,13 @@ struct PullRequestBatchTests {
         #expect(await writes.ids == ["PR_1", "PR_1", "PR_1"])
         #expect(await writes.times == [0, 60, 180])
         #expect(batch.failedCount == 1 && batch.skippedCount == 1)
-        if case .skipped(.rateLimited) = batch.entries[1].status {} else { Issue.record("Debe detener el resto del lote") }
+        if case .skipped(.rateLimited) = batch.entries[1].status {} else { Issue.record("Must stop the rest of the batch") }
         _ = try await coordinator.perform(pr(3), viewer: "me", batch: false, read: read,
                                           write: { pr in await writes.record(pr.id, at: clock.date) })
         #expect(await writes.times == [0, 60, 180, 420])
     }
 
-    @Test("Detener o cambiar alcance durante el cooldown impide nuevos intentos", arguments: [false, true])
+    @Test("Stopping or changing scope during cooldown prevents further attempts", arguments: [false, true])
     func stopDuringCooldown(scopeChange: Bool) async throws {
         let clock = ApprovalClock()
         let gate = BatchGate()
@@ -321,7 +321,7 @@ struct PullRequestBatchTests {
         await gate.waitUntilEntered()
         if case .waiting(let seconds, let attempt) = batch.entries[0].status {
             #expect(seconds == 60 && attempt == 2)
-        } else { Issue.record("Debe indicar la espera en el estado") }
+        } else { Issue.record("Must indicate the wait in its status") }
         if scopeChange { allowed = false } else { batch.stop() }
         await gate.release()
         await task.value
@@ -329,7 +329,7 @@ struct PullRequestBatchTests {
         #expect(batch.skippedCount == 2)
     }
 
-    @Test("También recupera un rate limit de la lectura antes de enviar la aprobación")
+    @Test("Recover read rate limits before sending approval")
     func limitedRead() async throws {
         let clock = ApprovalClock()
         let batch = PullRequestBatch(runner: clock.coordinator())
@@ -347,7 +347,7 @@ struct PullRequestBatchTests {
         #expect(batch.succeededCount == 1)
     }
 
-    @Test("Errores de permisos, validación y transporte no se reintentan", arguments: [403, 422, 502])
+    @Test("Permission, validation, and transport errors are not retried", arguments: [403, 422, 502])
     func nonRetryable(status: Int) async throws {
         let clock = ApprovalClock()
         let batch = PullRequestBatch(runner: clock.coordinator())
@@ -362,7 +362,7 @@ struct PullRequestBatchTests {
         #expect(batch.failedCount == 2 && batch.skippedCount == 0)
     }
 
-    @Test("La aprobación individual comparte retries y valida sin imponer el criterio de Dependabot")
+    @Test("Individual approvals share retries and validation without requiring Dependabot eligibility")
     func individualApproval() async throws {
         let clock = ApprovalClock()
         let coordinator = clock.coordinator()
@@ -375,11 +375,11 @@ struct PullRequestBatchTests {
                 await writes.record(pr.id, at: clock.date)
                 if await writes.ids.count == 1 { throw limit }
             })
-        if case .completed = result {} else { Issue.record("Debe aprobar el PR individual") }
+        if case .completed = result {} else { Issue.record("Must approve the individual PR") }
         #expect(await writes.times == [0, 3])
     }
 
-    @Test("Las aprobaciones individuales y los lotes que comparten cola no se ejecutan en paralelo")
+    @Test("Individual approvals and batches sharing a queue never execute concurrently")
     func sharedQueue() async throws {
         let clock = ApprovalClock()
         let coordinator = clock.coordinator()
@@ -411,7 +411,7 @@ struct PullRequestBatchTests {
         #expect(await writes.times == [0, 1])
     }
 
-    @Test("Detener un lote encolado responde sin esperar a otra aprobación")
+    @Test("Stopping queued batches responds without waiting for another approval")
     func stopQueuedBatch() async throws {
         let clock = ApprovalClock()
         let coordinator = clock.coordinator()
@@ -426,8 +426,8 @@ struct PullRequestBatchTests {
         await gate.waitUntilEntered()
         let batch = PullRequestBatch(runner: coordinator)
         batch.prepare([pr(2)], viewer: "me")
-        let started = batch.start(.approve, read: { _, _ in Issue.record("No debe leer un lote detenido"); throw GH.Failure.noAttempts },
-                                  write: { _ in Issue.record("No debe escribir") }, isAllowed: { _ in true })
+        let started = batch.start(.approve, read: { _, _ in Issue.record("Must not read a stopped batch"); throw GH.Failure.noAttempts },
+                                  write: { _ in Issue.record("Must not write") }, isAllowed: { _ in true })
         await Task.yield()
         batch.stop()
         await (try #require(started)).value
@@ -499,7 +499,7 @@ private actor ApprovalCalls {
     }
 }
 
-// Preparación abreviada para los tests de ejecución: selección explícita de todos.
+// Short setup for execution tests: explicitly select all items.
 @MainActor
 extension PullRequestBatch {
     func toggleAllForTesting() {

@@ -2,9 +2,9 @@ import Foundation
 import Testing
 @testable import WorkBuddy
 
-@Suite("Concurrencia de búsquedas de equipos")
+@Suite("Team search concurrency")
 struct TeamDependabotSearchTests {
-    @Test("La preferencia empieza en dos y limita valores inválidos")
+    @Test("The preference defaults to two and constrains invalid values")
     func preference() throws {
         let suite = "team-concurrency-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -18,7 +18,7 @@ struct TeamDependabotSearchTests {
         #expect(TeamDependabot.searchConcurrency(defaults: defaults) == 2)
     }
 
-    @Test("Respeta el límite y procesa todos los grupos y páginas", arguments: [1, 2, 4, 6, 8])
+    @Test("Respect the limit and process every group and page", arguments: [1, 2, 4, 6, 8])
     func boundedConcurrency(limit: Int) async throws {
         let fixture = TeamSearchFixture(count: 9)
         let task = Task {
@@ -35,12 +35,12 @@ struct TeamDependabotSearchTests {
         await fixture.releaseAll()
         let prs = try await task.value
         #expect(await fixture.peak == limit)
-        #expect(await fixture.calls.count == 10) // Nueve grupos, el primero con dos páginas.
-        #expect(prs.count == 11) // Un ID compartido más diez IDs únicos.
+        #expect(await fixture.calls.count == 10) // Nine groups, the first with two pages.
+        #expect(prs.count == 11) // One shared ID plus ten unique IDs.
         #expect(prs.first?.title == "group-0")
     }
 
-    @Test("Reutiliza un lugar libre y conserva el orden pese a respuestas invertidas")
+    @Test("Reuse free slots and preserve order despite reversed responses")
     func completionOrder() async throws {
         let fixture = TeamSearchFixture(count: 3)
         let task = Task {
@@ -56,7 +56,7 @@ struct TeamDependabotSearchTests {
         await fixture.release("1:0")
         try await fixture.waitForCalls(3)
         #expect(Set(await fixture.calls) == ["0:0", "1:0", "2:0"])
-        // El tercer grupo ya arrancó mientras el primero sigue suspendido.
+        // The third group starts while the first is still suspended.
         await fixture.release("2:0")
         await fixture.releaseAll()
         let prs = try await task.value
@@ -65,7 +65,7 @@ struct TeamDependabotSearchTests {
         #expect(prs.first?.title == "group-0")
     }
 
-    @Test("Un error descarta el conjunto de resultados", arguments: [1, 2])
+    @Test("Errors discard the entire result set", arguments: [1, 2])
     func failure(limit: Int) async throws {
         let fixture = TeamSearchFixture(count: 3, failureAt: 1)
         await fixture.releaseAll()
@@ -80,7 +80,7 @@ struct TeamDependabotSearchTests {
         }
     }
 
-    @Test("Cancelar detiene los grupos y páginas pendientes")
+    @Test("Cancellation stops pending groups and pages")
     func cancellation() async throws {
         let fixture = TeamSearchFixture(count: 3)
         let task = Task {
@@ -97,12 +97,12 @@ struct TeamDependabotSearchTests {
         #expect(Set(await fixture.calls) == ["0:0", "1:0"])
     }
 
-    @Test("Sin repositorios no consulta GitHub")
+    @Test("No repositories means no GitHub queries")
     func empty() async throws {
         let prs = try await TeamDependabot.fetch(
             repositories: [], configuration: .empty, viewer: Viewer(login: "me")
         ) { _ in
-            Issue.record("No debe consultar sin repositorios")
+            Issue.record("Must not query without repositories")
             throw GH.Failure.noAttempts
         }
         #expect(prs.isEmpty)
@@ -110,7 +110,7 @@ struct TeamDependabotSearchTests {
 }
 
 private actor TeamSearchFixture {
-    // Cada nombre fuerza un grupo propio sin exceder el máximo de 100 caracteres del repo.
+    // Each name forces a separate group without exceeding the 100-character repository limit.
     nonisolated let repositories: [String]
     private let queries: [String]
     private let failureAt: Int?
@@ -142,7 +142,7 @@ private actor TeamSearchFixture {
         if !automatic {
             await withCheckedContinuation { pending[key] = $0 }
         }
-        // Como un proceso gh ya iniciado, puede responder después de cancelar.
+        // Like an already running gh process, this can respond after cancellation.
         if index == failureAt { throw GH.Failure.noAttempts }
         let more = index == 0 && page == 0
         func node(_ id: String) -> [String: Any] {
@@ -162,7 +162,7 @@ private actor TeamSearchFixture {
 
     func release(_ key: String) {
         guard let continuation = pending.removeValue(forKey: key) else {
-            Issue.record("La solicitud \(key) no está suspendida")
+            Issue.record("Request \(key) is not suspended")
             return
         }
         continuation.resume()
@@ -175,7 +175,7 @@ private actor TeamSearchFixture {
         for continuation in continuations { continuation.resume() }
     }
 
-    // Una regresión a ejecución secuencial debe fallar, no colgar los tests.
+    // A regression to sequential execution must fail rather than hang the tests.
     func waitForCalls(_ count: Int) async throws {
         for _ in 0..<200 {
             if calls.count >= count { return }

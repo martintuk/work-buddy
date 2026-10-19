@@ -1,17 +1,15 @@
 import Foundation
 import UserNotifications
 
-/// Diagnóstico de notificaciones. Sólo para desarrollo.
-///
-/// Hay que correrlo desde el binario **de adentro** del .app, para que
-/// `Bundle.main` resuelva al bundle y exista un bundle identifier:
+/// Development-only notification diagnostics. Run the executable inside the .app
+/// so Bundle.main resolves and a bundle identifier exists:
 ///
 ///     "build/work-buddy.app/Contents/MacOS/WorkBuddy" --check-notifications
 enum NotificationCheck {
     @MainActor
     static func run() async {
         guard let identifier = Bundle.main.bundleIdentifier else {
-            print("✗ sin bundle identifier — corré el binario de adentro del .app")
+            print("✗ no bundle identifier — run the binary inside the .app")
             return
         }
         print("bundle: \(identifier)")
@@ -19,11 +17,11 @@ enum NotificationCheck {
         let notifier = Notifier()
         do {
             try await notifier.requestAuthorization()
-            print("requestAuthorization → concedido")
+            print("requestAuthorization → granted")
         } catch {
-            print("✗ requestAuthorization falló: \(error.localizedDescription)")
-            // Encolar no prueba que macOS vaya a mostrarla. No enviamos si
-            // el mismo flujo usado por la interfaz rechaza la autorización.
+            print("✗ requestAuthorization failed: \(error.localizedDescription)")
+            // Enqueuing does not prove macOS will display a notification. Do not send
+            // if the authorization flow shared with the UI rejects permission.
             return
         }
 
@@ -34,12 +32,12 @@ enum NotificationCheck {
 
         do {
             try await notifier.sendTest()
-            print("✓ notificación de prueba encolada")
+            print("✓ test notification queued")
         } catch {
-            print("✗ add falló: \(error.localizedDescription)")
+            print("✗ add failed: \(error.localizedDescription)")
         }
 
-        // Le damos tiempo al sistema a entregarla antes de salir.
+        // Allow time for delivery before exiting.
         try? await Task.sleep(for: .seconds(2))
         withExtendedLifetime(notifier) {}
     }
@@ -50,7 +48,7 @@ enum NotificationCheck {
         case .denied: "denied"
         case .authorized: "authorized"
         case .provisional: "provisional"
-        @unknown default: "desconocido(\(status.rawValue))"
+        @unknown default: "unknown(\(status.rawValue))"
         }
     }
 }

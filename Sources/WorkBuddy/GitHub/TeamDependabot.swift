@@ -1,6 +1,6 @@
 import Foundation
 
-/// Identificadores completos org/slug; nunca presupone equipos de una empresa.
+/// Full org/slug identifiers; never assume a particular company's teams.
 enum GitHubTeams {
     private struct Team: Decodable {
         struct Organization: Decodable { let login: String }
@@ -33,7 +33,7 @@ enum TeamDependabot {
             return QueueResult(pullRequests: [], error: nil)
         }
         do {
-            // Permite marcar varias casillas sin arrancar un recorrido por cada click.
+            // Allow several checkbox changes before starting another discovery pass.
             try await Task.sleep(for: .milliseconds(500))
             let discovery = try await Diagnostics.measure(.ownership) {
                 try await TeamDependabotCache.shared.resolve(
@@ -70,8 +70,8 @@ enum TeamDependabot {
         let repository: Repository?
     }
 
-    /// La última regla global reemplaza las anteriores. Las reglas por ruta no
-    /// amplían el alcance: esto detecta responsabilidad general, no evalúa diffs.
+    /// The last catch-all rule replaces earlier ones. Path-specific rules do not
+    /// expand scope: this identifies general ownership rather than evaluating diffs.
     static func hasGeneralOwnership(_ source: String, identities: Set<String>) -> Bool {
         let identities = Set(identities.map { $0.lowercased() })
         var owners: Set<String> = []
@@ -103,8 +103,8 @@ enum TeamDependabot {
         let identities = Set(teams.map { "@\($0)" } + ["@\(login)"])
         Diagnostics.record(.counts, metrics: [.teams: teams.count, .repositories: repositories.count])
         var owned: [String] = []
-        // Una lectura por repo resuelve las tres ubicaciones sin confundir un
-        // 404 de permisos con un archivo ausente. Las respuestas parciales fallan.
+        // One repository read checks all three locations without treating a permission
+        // 404 as a missing file. Partial responses fail.
         let query = """
         query($owner: String!, $name: String!, $primary: String!, $root: String!, $docs: String!) {
           repository(owner: $owner, name: $name) {
@@ -116,7 +116,7 @@ enum TeamDependabot {
         """
         for (name, repo) in repositories.sorted(by: { $0.key < $1.key }) {
             try Task.checkCancellation()
-            guard let branch = repo.default_branch else { continue } // Repo vacío.
+            guard let branch = repo.default_branch else { continue } // Empty repository.
             let parts = name.split(separator: "/")
             guard parts.count == 2,
                   name.range(of: #"^[a-z0-9-]+/[a-z0-9_.-]+$"#, options: .regularExpression) != nil else {
@@ -137,8 +137,8 @@ enum TeamDependabot {
         return owned
     }
 
-    /// Queries pequeñas para no exceder el límite de longitud de búsqueda. No
-    /// llevan org: además de repo:, para evitar ensanchar el alcance por accidente.
+    /// Keep queries small enough for search-length limits. Do not combine org:
+    /// with repo: filters, which could accidentally widen scope.
     static func searches(repositories: [String]) -> [String] {
         let base = "is:open is:pr archived:false author:app/dependabot"
         var searches: [String] = []
@@ -155,7 +155,7 @@ enum TeamDependabot {
         return searches
     }
 
-    /// Preferencia de diagnóstico, leída en cada carga para poder comparar máquinas.
+    /// Read this diagnostic preference on every load for comparisons across machines.
     static func searchConcurrency(defaults: UserDefaults = .standard) -> Int {
         let value = defaults.object(forKey: "performance.teamSearchConcurrency") as? Int ?? 2
         return max(1, min(8, value))
@@ -198,15 +198,15 @@ enum TeamDependabot {
                     next += 1
                 }
             }
-            // Conserva el orden y la precedencia al deduplicar, aunque las
-            // respuestas lleguen en otro orden. Un fallo descarta el conjunto.
+            // Preserve ordering and deduplication precedence despite out-of-order responses.
+            // Any failure discards the result set.
             return results.flatMap { $0 }.uniquedByID()
         }
     }
 }
 
-/// Caché persistente por cuenta y selección efectiva. Nunca publica un recorrido
-/// parcial ni reutiliza repos de equipos que el usuario acaba de desmarcar.
+/// Persistent cache by account and effective selection. Never publish partial
+/// discovery or reuse repositories from teams the user just deselected.
 actor TeamDependabotCache {
     static let shared = TeamDependabotCache()
     typealias Loader = @Sendable ([String], String) async throws -> [String]

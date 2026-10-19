@@ -1,7 +1,7 @@
 import Foundation
 
-/// PRs ajenos donde hubo una mención o participación propia. Reviewed-by cubre
-/// también las reviews sobre código; no exigimos que sigan pidiendo tu review.
+/// Other authors' PRs with your mentions or participation. Reviewed-by also
+/// covers code reviews; an outstanding review request is not required.
 enum ConversationCandidates {
     static let searches = [
         "is:open is:pr -author:@me involves:@me archived:false",

@@ -2,10 +2,10 @@ import Foundation
 import Testing
 @testable import WorkBuddy
 
-@Suite("Recuperación de acciones")
+@Suite("Action recovery")
 @MainActor
 struct PullRequestRecoveryTests {
-    @Test("Una aprobación ya registrada aplica el efecto local sin repetir la escritura")
+    @Test("Existing approvals apply local effects without repeating writes")
     func alreadyApproved() async throws {
         let pr = fixture(1)
         let batch = PullRequestBatch()
@@ -15,13 +15,13 @@ struct PullRequestRecoveryTests {
             var approved = pr
             approved.approvedByMe = true
             return .init(viewer: viewer, pullRequest: approved, isOpen: true)
-        }, write: { _ in Issue.record("Ya está aprobada") }, isAllowed: { _ in true },
+        }, write: { _ in Issue.record("Already approved") }, isAllowed: { _ in true },
            didComplete: { _ in reconciled = true })
         await (try #require(task)).value
         #expect(reconciled && batch.skippedCount == 1 && batch.succeededCount == 0)
     }
 
-    @Test("Sólo una escritura enviada con resultado ambiguo requiere verificación")
+    @Test("Only sent writes with ambiguous outcomes require verification")
     func classifyFailures() throws {
         #expect(!GitHubActionRunner.needsVerification(GH.Failure.noAttempts, submitted: false))
         #expect(GitHubActionRunner.needsVerification(GH.Failure.noAttempts, submitted: true))
@@ -32,7 +32,7 @@ struct PullRequestRecoveryTests {
         }
     }
 
-    @Test("Una escritura incierta impide que un lote repita la acción")
+    @Test("Uncertain writes prevent batches from repeating actions")
     func uncertainActionsStayBlocked() {
         let pr = fixture(1)
         let store = ReviewQueueStore.preview(reviews: [pr], merges: [])
@@ -43,7 +43,7 @@ struct PullRequestRecoveryTests {
         #expect(store.activity.needsVerification(for: pr, viewer: "someone-else") == false)
     }
 
-    @Test("El menú ofrece verificar sólo el resultado incierto de esta cuenta y commit")
+    @Test("Menus offer verification only for uncertain outcomes of the same account and commit")
     func verificationFromPullRequest() {
         let pr = fixture(1)
         let store = ReviewQueueStore.preview(reviews: [pr], merges: [])
@@ -54,12 +54,12 @@ struct PullRequestRecoveryTests {
         #expect(store.actionToVerify(for: pr)?.id == id)
         #expect(store.actionToVerify(for: fixture(1, head: "new")) == nil)
         #expect(store.actionToVerify(for: fixture(2)) == nil)
-        // Una actividad posterior sobre el mismo PR no esconde el resultado pendiente.
+        // Later activity on the same PR must not hide its pending outcome.
         store.activity.record(.open, on: pr)
         #expect(store.actionToVerify(for: pr)?.id == id)
     }
 
-    @Test("Verificar una aprobación aplicada corrige la lista sin ejecutar otra escritura")
+    @Test("Verifying applied approvals corrects the list without another write")
     func verifyApproval() async throws {
         let pr = fixture(1)
         let store = ReviewQueueStore.preview(reviews: [pr], merges: [])
@@ -75,7 +75,7 @@ struct PullRequestRecoveryTests {
         #expect(store.actionToVerify(for: pr) == nil && store.inFlightActions.isEmpty)
     }
 
-    @Test("Verificar un merge aplicado retira el PR")
+    @Test("Verifying applied merges removes the PR")
     func verifyMerge() async {
         let pr = fixture(1, mergeState: .clean)
         let store = ReviewQueueStore.preview(reviews: [pr], merges: [pr])
@@ -87,7 +87,7 @@ struct PullRequestRecoveryTests {
         #expect(store.activity.entries.first?.status.isError == false)
     }
 
-    @Test("Una acción ausente habilita el reintento explícito; otro error conserva la incertidumbre")
+    @Test("Absent actions allow explicit retry; further errors preserve uncertainty")
     func verifyMissingOrFailed() async throws {
         let pr = fixture(1)
         let store = ReviewQueueStore.preview(reviews: [pr], merges: [])
@@ -101,7 +101,7 @@ struct PullRequestRecoveryTests {
         #expect(!store.currentPullRequest(id: pr.id)!.approvedByMe)
     }
 
-    @Test("Verificar nunca atribuye el resultado a otra cuenta ni a otro commit")
+    @Test("Verification never attributes outcomes to another account or commit")
     func changedIdentity() async {
         let pr = fixture(1)
         let store = ReviewQueueStore.preview(reviews: [pr], merges: [])

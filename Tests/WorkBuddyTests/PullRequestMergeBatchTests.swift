@@ -3,10 +3,10 @@ import SwiftUI
 import Testing
 @testable import WorkBuddy
 
-@Suite("Batch integrado y merge")
+@Suite("Integrated batches and merge")
 @MainActor
 struct PullRequestMergeBatchTests {
-    @Test("Selección mixta: incluye personas y bots, prioriza merge y ejecuta cada subconjunto por separado")
+    @Test("Mixed selection includes people and bots, prioritizes merge, and executes subsets separately")
     func mixedSelection() async throws {
         let review = fixture(1, author: "alice", checks: .pending)
         let merge = fixture(2, own: true, mergeState: .clean)
@@ -35,7 +35,7 @@ struct PullRequestMergeBatchTests {
         if case .completed(.merge) = batch.entries[0].status {} else { Issue.record("Resultado de merge") }
     }
 
-    @Test("El refresh conserva selecciones por commit, acción, base y método; agrega nuevos sin seleccionar")
+    @Test("Refresh retains selections by commit, action, base, and method; new items remain unselected")
     func liveSelection() {
         let batch = PullRequestBatch()
         let review = fixture(1, author: "alice")
@@ -53,7 +53,7 @@ struct PullRequestMergeBatchTests {
         #expect(batch.selectedIDs.isEmpty)
     }
 
-    @Test("El lote en ejecución queda fijo aunque lleguen PRs nuevos; conserva la selección del otro grupo")
+    @Test("Running batches stay fixed as new PRs arrive and retain the other group's selection")
     func arrivalsDuringRun() async throws {
         let batch = PullRequestBatch()
         let review = fixture(1, author: "alice")
@@ -79,7 +79,7 @@ struct PullRequestMergeBatchTests {
         #expect(await calls.ids == [review.id])
     }
 
-    @Test("Merge revalida cuenta, head, método y condiciones de GitHub")
+    @Test("Merge revalidates account, head, method, and GitHub conditions")
     func mergeValidation() {
         let original = fixture(1, mergeState: .clean)
         func reason(_ current: PullRequest?, viewer: String = "me", open: Bool = true, merged: Bool = false) -> PullRequestActionSkipReason? {
@@ -105,7 +105,7 @@ struct PullRequestMergeBatchTests {
         #expect(reason(fixture(1, mergeState: .hasHooks)) == nil)
     }
 
-    @Test("El primer merge puede bloquear el siguiente; se vuelve a leer antes de escribir")
+    @Test("The first merge can block the next; reread before writing")
     func mergeAffectsNext() async throws {
         let batch = PullRequestBatch(runner: MergeClock().runner())
         let first = fixture(1, mergeState: .clean)
@@ -122,7 +122,7 @@ struct PullRequestMergeBatchTests {
         #expect(batch.succeededCount == 1 && batch.skippedCount == 1)
     }
 
-    @Test("Merge respeta rate limits y detecta un merge ya registrado antes de repetir", arguments: [false, true])
+    @Test("Merge respects rate limits and detects existing merges before retrying", arguments: [false, true])
     func mergeRetry(alreadyMerged: Bool) async throws {
         let clock = MergeClock()
         let batch = PullRequestBatch(runner: clock.runner())
@@ -147,7 +147,7 @@ struct PullRequestMergeBatchTests {
         #expect(clock.date.timeIntervalSince1970 == 7)
     }
 
-    @Test("Un 409 por cambio de SHA no se reintenta y conserva el resultado fallido")
+    @Test("SHA-change 409 responses are not retried and retain failed outcomes")
     func mergeConflict() async throws {
         let batch = PullRequestBatch()
         batch.enter(PullRequestBatch.candidates(reviews: [], merges: [fixture(1, mergeState: .clean)]), viewer: "me")
@@ -159,7 +159,7 @@ struct PullRequestMergeBatchTests {
         #expect(await calls.count() == 1 && batch.failedCount == 1)
     }
 
-    @Test("Escribe el SHA y el método exactos; un HTTP exitoso sin merged=true no cuenta como merge")
+    @Test("Write the exact SHA and method; HTTP success without merged=true is not a merge")
     func mergeTransport() async throws {
         let pr = fixture(1, mergeState: .clean)
         let calls = MergeCalls()
@@ -177,7 +177,7 @@ struct PullRequestMergeBatchTests {
         #expect(await calls.count() == 1)
     }
 
-    @Test("La lectura de merge conserva estado final, método y cuentas de máquina configuradas")
+    @Test("Merge reads retain final state, method, and configured machine accounts")
     func mergeQuery() async throws {
         let snapshot = try await PullRequestActionCheck.fetch(fixture(1), viewer: "me", action: .merge, machineAccounts: ["build-bot"]) { args in
             let query = try #require(args.first { $0.hasPrefix("query=") })
@@ -189,7 +189,7 @@ struct PullRequestMergeBatchTests {
         #expect(snapshot.pullRequest?.defaultMergeMethod == .squash)
     }
 
-    @Test("La cola del store expone ambas acciones y limpia la selección al cambiar de cuenta")
+    @Test("Store queues expose both actions and clear selection on account changes")
     func storeSelection() {
         let review = fixture(1, author: "alice")
         let merge = fixture(2, own: true, mergeState: .clean)
@@ -204,7 +204,7 @@ struct PullRequestMergeBatchTests {
         #expect(store.batch.selectedIDs.isEmpty)
     }
 
-    @Test("Preview del panel real: filas originales con checkbox, selección mixta, progreso y resultados")
+    @Test("Render real panel rows with checkboxes, mixed selection, progress, and outcomes")
     func visualPreview() async throws {
         guard let directory = ProcessInfo.processInfo.environment["WORK_BUDDY_BATCH_PREVIEW_DIR"] else { return }
         try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)

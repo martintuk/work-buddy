@@ -1,6 +1,6 @@
 import Foundation
 
-/// El subconjunto de un work item de Jira que necesita el panel.
+/// The Jira work item fields required by the panel.
 struct JiraWorkItem: Decodable, Equatable, Identifiable, Sendable {
     let key: String
     let fields: Fields

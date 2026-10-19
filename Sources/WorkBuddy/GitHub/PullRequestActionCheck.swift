@@ -1,6 +1,6 @@
 import Foundation
 
-/// Lectura individual antes de cada acción. No reutiliza el refresh de la cola.
+/// Read the individual PR before each action instead of reusing a queue refresh.
 enum PullRequestActionCheck {
     struct Snapshot: Sendable {
         let viewer: String

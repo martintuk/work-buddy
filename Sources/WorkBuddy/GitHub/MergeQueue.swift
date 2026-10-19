@@ -1,27 +1,16 @@
 import Foundation
 
-/// Trae los PRs que ya se podrían mergear.
-///
-/// Son tres búsquedas, pero van en una sola request usando alias de GraphQL.
+/// Fetch merge candidates using three searches in one aliased GraphQL request.
 enum MergeQueue {
-    /// Tres búsquedas, porque ninguna sola cubre lo que podés mergear:
-    ///
-    /// - `author:@me` — los tuyos.
-    /// - `reviewed-by:@me` — los que revisaste. **Es la que más aporta.**
-    ///   Aprobar un PR te saca de sus review requests, así que el acto que lo
-    ///   vuelve mergeable es el mismo que lo sacaría de la búsqueda de abajo.
-    ///   Sin ésta, un PR de automatización que aprobaste desaparecía: medido,
-    ///   la sección pasó de 1 a 5 PRs al agregarla.
-    /// - `review-requested:@me review:approved` — los aprobados por otros donde
-    ///   todavía figurás como reviewer. Es el caso raro, pero existe.
-    ///
-    /// Sólo la última lleva `review:approved`, y ahí es imprescindible: recorta
-    /// de 56 PRs a 2. Medido, no pierde nada, porque en esta org todos los repos
-    /// exigen review y un PR mergeable siempre tiene `APPROVED` (45 de 56
-    /// estaban `BLOCKED`). Ver `docs/supuestos.md`.
-    ///
-    /// A `reviewed-by:@me` **no** se lo ponemos: da 12 sin el filtro y 7 con, y a
-    /// esa escala no compra nada y agrega un supuesto que puede podrirse.
+    /// No single search covers every merge candidate:
+    /// - author:@me finds your own PRs.
+    /// - reviewed-by:@me keeps approved PRs after approval removes the review request.
+    ///   Adding it grew the measured section from one PR to five.
+    /// - review-requested:@me review:approved finds PRs approved by others that still request you.
+    /// Only the last query uses review:approved: it reduced 56 candidates to two in
+    /// the original environment without losing mergeable PRs. See docs/assumptions.md.
+    /// The reviewed-by set was only 12 without the filter versus seven with it; adding
+    /// that assumption there offered little benefit.
     static func query(configuration: AppConfiguration) -> String {
         let authored = configuration.scopedSearch("is:open is:pr author:@me archived:false")
         let reviewed = configuration.scopedSearch("is:open is:pr reviewed-by:@me archived:false")
@@ -63,8 +52,7 @@ enum MergeQueue {
         let reviewing: SearchPage
     }
 
-    /// Devuelve los candidatos ya deduplicados. Filtrar por "listo para mergear"
-    /// es responsabilidad de `[PullRequest].readyToMerge`.
+    /// Return deduplicated candidates; readyToMerge applies merge eligibility.
     static func fetch(configuration: AppConfiguration = .empty, viewer: Viewer) async throws -> [PullRequest] {
         let query = query(configuration: configuration)
         let data = try await GH.runRetrying([
@@ -78,8 +66,7 @@ enum MergeQueue {
                 $0?.toPullRequest(me: me, machineAccounts: configuration.machineAccounts)
             }
 
-        // Las búsquedas se solapan: un PR que revisaste y en el que todavía
-        // figurás como reviewer aparece en dos de las tres.
+        // Searches overlap: a reviewed PR that still requests you can appear in two sets.
         var seen: Set<String> = []
         return candidates.filter { seen.insert($0.id).inserted }
     }

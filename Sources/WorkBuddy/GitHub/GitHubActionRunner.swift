@@ -1,15 +1,15 @@
 import Foundation
 
-/// Cola compartida de aprobación y merge. Serializa
-/// también las revalidaciones y conserva el cooldown entre operaciones.
+/// Shared approval and merge queue. Serializes revalidation
+/// and retains cooldown between operations.
 @MainActor
 final class GitHubActionRunner {
     static let shared = GitHubActionRunner()
     enum Result { case completed, skipped(PullRequestActionSkipReason) }
     enum Progress { case checking, executing, waiting(seconds: Int, attempt: Int) }
 
-    /// Una lectura fallida o un rechazo HTTP no significan una escritura incierta.
-    /// Transporte, 5xx o una respuesta ilegible después de enviar sí la requieren.
+    /// A failed read or HTTP rejection is not an uncertain write.
+    /// Transport failure, 5xx, or an unreadable response after sending is uncertain.
     nonisolated static func needsVerification(_ error: Error, submitted: Bool) -> Bool {
         guard submitted, !(error is PullRequestActionSkipped) else { return false }
         if let api = error as? GitHubAPIError, (400..<500).contains(api.response.status) { return false }
@@ -48,7 +48,7 @@ final class GitHubActionRunner {
         defer { release() }
         for attempt in 0..<3 {
             do {
-                // Esperas cortas para que Detener responda durante el cooldown.
+                // Short waits keep Stop responsive during cooldown.
                 while nextRequest > now() {
                     if shouldStop() { return .skipped(.stopped) }
                     if !isAllowed(original) { return .skipped(.scopeChanged) }
@@ -66,7 +66,7 @@ final class GitHubActionRunner {
                 if let reason = action.skipReason(
                     for: original, snapshot: snapshot, viewer: viewer, batch: batch
                 ) {
-                    // No repetimos una review que ya quedó registrada.
+                    // Do not repeat a review that was already recorded.
                     if attempt > 0, reason == .alreadyApproved || reason == .alreadyMerged { return .completed }
                     return .skipped(reason)
                 }
@@ -109,8 +109,8 @@ final class GitHubActionRunner {
     private func acquire(shouldStop: @escaping () -> Bool, isAllowed: @escaping () -> Bool) async -> Bool {
         guard busy else { busy = true; return true }
         let id = UUID()
-        // Una acción manual puede estar esperando a GitHub. Detener un
-        // lote encolado no necesita esperar a que termine esa otra operación.
+        // A manual action may be waiting for GitHub. Stopping a queued batch
+        // need not wait for that other operation to finish.
         let monitor = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(100))

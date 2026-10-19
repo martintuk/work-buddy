@@ -49,7 +49,7 @@ final class Localization: Sendable {
 }
 
 enum L10n {
-    // Permite guardar ambas traducciones sin cambiar el idioma de la UI.
+    // Render saved translations without changing the interface language.
     @TaskLocal static var renderLanguage: AppLanguage?
 
     static func text(_ key: Key, _ arguments: String..., language: AppLanguage? = nil) -> String {

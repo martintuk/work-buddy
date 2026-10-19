@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Selección, acciones, progreso y resultados permanecen al pie de la lista.
+/// Selection, actions, progress, and results stay at the bottom of the list.
 struct PullRequestBatchBar: View {
     let batch: PullRequestBatch
     let start: (PullRequestBatchAction) -> Void

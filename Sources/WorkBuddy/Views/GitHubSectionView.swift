@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Cola de PRs de la sección GitHub.
+/// PR queue for the GitHub section.
 struct GitHubSectionView: View {
     let store: ReviewQueueStore
     var showsExecutionControls = true
@@ -19,7 +19,7 @@ struct GitHubSectionView: View {
         case folder(String)
     }
 
-    /// Una identidad estable conserva el plegado cuando se actualiza la cola.
+    /// Stable identity preserves collapse state when the queue updates.
     private enum QueueSection: Hashable {
         case readyToMerge
         case needingCIFix
@@ -43,7 +43,7 @@ struct GitHubSectionView: View {
             }
         }
 
-        /// Claves de preferencias independientes de los títulos visibles.
+        /// Preference keys are independent of visible titles.
         var persistenceID: String {
             switch self {
             case .readyToMerge: "readyToMerge"
@@ -119,7 +119,7 @@ struct GitHubSectionView: View {
                             active: store.repositoryFilter.isActive)
             }
             .buttonStyle(.plain)
-            // El selector compacto deja el espacio restante al filtro de automatización.
+            // The compact selector leaves the remaining space for the automation filter.
             .fixedSize(horizontal: true, vertical: false)
             .help(L10n.text(.repositoriesFilterHelp))
             .accessibilityLabel(L10n.text(.repositoriesFilterHelp))
@@ -182,7 +182,7 @@ struct GitHubSectionView: View {
         .padding(.vertical, 6)
     }
 
-    /// Ambos controles comparten el aspecto aunque abran destinos distintos.
+    /// Both controls share styling while opening different destinations.
     private func filterLabel(_ title: String, symbol: String, active: Bool) -> some View {
         HStack(spacing: 6) {
             Image(systemName: symbol)
@@ -205,12 +205,11 @@ struct GitHubSectionView: View {
         .contentShape(.capsule)
     }
 
-    /// Los avisos flotan sobre la lista para no alterar su altura ni el scroll.
+    /// Notices float over the list without changing its height or scroll position.
     @ViewBuilder
     private var topNotice: some View {
         Group {
-            // La confirmación tapa el aviso: son el mismo lugar y nunca hacen
-            // falta las dos a la vez.
+            // Confirmation covers the notice: they share a location and are never needed together.
             if let warning = store.projectOpener.warning {
                 branchWarning(warning)
             } else if let error = store.projectOpener.error {
@@ -304,11 +303,7 @@ struct GitHubSectionView: View {
         .background(Color.orange.opacity(0.16))
     }
 
-    /// Confirmación inline en vez de un diálogo del sistema.
-    ///
-    /// Un `.confirmationDialog` dentro de un `NSPopover` tiene que negociar el
-    /// foco con la ventana del panel, y el panel se cierra justamente cuando
-    /// pierde el foco. Inline no hay nada que negociar.
+    /// Inline confirmation avoids a system dialog. A `.confirmationDialog` inside an `NSPopover` competes for focus with the panel, which closes when focus is lost.
     private func confirmBar(_ pending: PendingPullRequestAction, pullRequest: PullRequest) -> some View {
         HStack(spacing: 8) {
             Image(systemName: pending.action.systemImage)
@@ -355,15 +350,14 @@ struct GitHubSectionView: View {
         case .dependabotRebase:
             L10n.text(.githubDependabotWarning)
         case .merge:
-            // El método sale del repo: lo mostramos para que sepas qué va a
-            // pasar, no para que elijas.
+            // The repository determines the method; display it to explain the action.
             pending.mergeMethod?.title ?? L10n.text(.githubUnknownMergeMethod)
         default:
             nil
         }
     }
 
-    // MARK: - Contenido
+    // MARK: - Content
 
     private var hasVisiblePullRequests: Bool {
         !store.reviewSections.isEmpty || !store.readyToMerge.isEmpty || !store.needingCIFix.isEmpty
@@ -375,7 +369,7 @@ struct GitHubSectionView: View {
         switch store.state {
         case .idle:
             loading
-        // Mostramos lo que ya llegó, pero no un estado vacío con colas pendientes.
+        // Show available results, but no empty state while queues are pending.
         case .loading where !hasVisiblePullRequests:
             loading
         case .failed(let message):
@@ -402,10 +396,7 @@ struct GitHubSectionView: View {
         let sections = store.reviewSections
         let merge = store.readyToMerge
         ScrollView {
-            // En macOS 26, las actualizaciones de esta cola pueden dejar al
-            // LazyVStack con headers fijos recalculando posiciones sin terminar
-            // (LazySubviewPlacements), bloqueando el hilo principal. La pila
-            // eager evita ese ciclo; los encabezados se desplazan con las filas.
+            // On macOS 26, queue updates can leave a LazyVStack with pinned headers endlessly recalculating positions (LazySubviewPlacements), blocking the main thread. An eager stack avoids this cycle; headers scroll with rows.
             VStack(alignment: .leading, spacing: 0) {
                 if !hasVisiblePullRequests && (!showEmptySections || store.hasFilteredResults) {
                     centered {
@@ -421,7 +412,7 @@ struct GitHubSectionView: View {
                         }
                     }
                 }
-                // Primero, porque es lo que se resuelve con un click.
+                // First because these items can be resolved with one click.
                 queueSection(.readyToMerge, title: L10n.text(.githubMerge), items: merge)
                 queueSection(.needingCIFix, title: L10n.text(.githubFix), items: store.needingCIFix)
                 queueSection(.needingRebase, title: L10n.text(.githubRebase), items: store.needingRebase)
@@ -578,7 +569,7 @@ enum QueueLayout {
     static let rowSpacing: CGFloat = 4
 }
 
-/// Todas las categorías comparten tamaño, contraste y área de interacción.
+/// All categories share sizing, contrast, and interaction areas.
 struct QueueSectionHeader: View {
     let title: String
     let subtitle: String?
@@ -637,9 +628,9 @@ struct QueueSectionHeader: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        // El margen viaja con el encabezado para conservarlo al fijarse al techo.
+        // Keep padding attached to the header when pinned to the top.
         .padding(.top, QueueLayout.sectionSpacing)
-        // El fondo opaco evita que las filas se vean detrás del encabezado fijo.
+        // An opaque background prevents rows from showing through pinned headers.
         .background(Color(nsColor: .windowBackgroundColor))
         .onHover { isHovering = $0 }
         .accessibilityLabel("\(title), \(count) \(accessibilityItemName)")
@@ -649,7 +640,7 @@ struct QueueSectionHeader: View {
     }
 }
 
-/// Presentación de las categorías; las reglas viven en PullRequestQueuePolicy.
+/// Category presentation; rules live in PullRequestQueuePolicy.
 extension ReviewBucket {
     var title: String {
         switch self {
@@ -666,7 +657,7 @@ extension ReviewBucket {
     }
 }
 
-/// El panel también mantiene estos controles accesibles al navegar o ampliar Actividad.
+/// The panel keeps these controls accessible while navigating or expanding Activity.
 struct PullRequestExecutionControls: View {
     let store: ReviewQueueStore
     var compact = false

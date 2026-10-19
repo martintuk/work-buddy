@@ -1,11 +1,11 @@
 import Foundation
 import Observation
 
-/// El aviso vive en la sección, no en una fila que puede desaparecer al refrescar.
+/// Keep notices at section level, not in a row that may disappear during refresh.
 @MainActor
 @Observable
 final class ProjectOpener {
-    /// El fallback reabre con lo mismo que pidió el usuario: editor o agente.
+    /// Fallback uses the original target: editor or agent.
     enum Target { case editor, agent }
 
     struct Warning {
@@ -38,10 +38,10 @@ final class ProjectOpener {
             try await checkout(request)
         } catch let failure as LocalBranchCheckout.VerificationError {
             error = failure
-            return // No ofrecer abrir código cuya identidad o revisión no coincide.
+            return // Do not offer to open code with a mismatched identity or revision.
         } catch {
             warning = Warning(request: request, target: target, reason: error)
-            return // Abrir sin el branch siempre requiere el click del usuario.
+            return // Opening without the branch always requires a user click.
         }
         await launchProject(request.folder, launch: launch)
     }

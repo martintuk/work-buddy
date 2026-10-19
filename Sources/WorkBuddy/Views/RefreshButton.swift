@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// El mismo botón indica la carga, sin reemplazarse por un spinner.
+/// The same button indicates loading without being replaced by a spinner.
 struct RefreshButton: View {
     let isRefreshing: Bool
     let label: String

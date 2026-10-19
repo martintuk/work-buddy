@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// La elección del editor se realiza únicamente desde Configuración.
+/// The editor can only be selected in Settings.
 struct EditorPicker: View {
     let store: EditorStore
     @State private var error: String?

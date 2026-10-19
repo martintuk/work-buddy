@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Superficie común para separar los controles persistentes del listado de PRs.
+/// Shared surface separating persistent controls from the PR list.
 private struct QueueControlSurface: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var contrast

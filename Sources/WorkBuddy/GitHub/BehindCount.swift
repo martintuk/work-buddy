@@ -1,24 +1,21 @@
 import Foundation
 
-/// Cuántos commits atrás está la rama de cada PR respecto de su base.
+/// Commits each PR branch is behind its base.
 ///
-/// **Por qué no alcanza `mergeStateStatus`.** Esa flag sólo dice `BEHIND` cuando
-/// el repo exige ramas actualizadas, y la mayoría de estos repos no lo exige: una
-/// rama 10 commits atrás sigue leyendo `BLOCKED`. Medido sobre 20 PRs de
-/// dependabot de la org, la flag ve **1 de 4** atrasados.
+/// mergeStateStatus reports BEHIND only when the repository requires up-to-date
+/// branches. A branch ten commits behind may still read BLOCKED. In a sample of
+/// 20 Dependabot PRs, that flag identified only one of four outdated branches.
 ///
-/// **Por qué GraphQL y no la compare API de REST.** REST devuelve el diff
-/// completo —27 KB por PR, medido— y `per_page` no lo reduce, porque el bulto son
-/// los `files`. `Ref.compare` devuelve sólo el número, y se batchea con alias:
-/// para 20 PRs, **820 bytes en una request** contra 540 KB en veinte.
+/// REST comparison returned the full diff (27 KB per PR); per_page did not reduce
+/// the dominant files payload. GraphQL Ref.compare returns just the count and
+/// supports aliases: 820 bytes in one request for 20 PRs versus 540 KB in twenty.
 enum BehindCount {
-    /// Comparaciones por request. Con 20 la respuesta tarda ~3.8s; es la razón de
-    /// que esto corra como segunda fase y no bloqueando el dibujado del panel.
+    /// Comparisons per request. Twenty took roughly 3.8 seconds,
+    /// so this runs after queue loading rather than blocking panel display.
     static let batchSize = 20
 
-    /// - Returns: `behindBy` por id de PR. Un PR **ausente** del diccionario es
-    ///   "no medido", que no es lo mismo que `0` = "al día". Confundirlos es lo
-    ///   que convierte el rebase en una adivinanza.
+    /// Returns behindBy by PR ID. A missing key means unmeasured,
+    /// not zero (up to date); preserving that distinction matters for rebase decisions.
     static func fetch(for pullRequests: [PullRequest]) async -> [String: Int] {
         var results: [String: Int] = [:]
         let comparable = pullRequests.filter {
@@ -30,15 +27,14 @@ enum BehindCount {
             guard let data = try? await GH.runRetrying(
                 ["api", "graphql", "-f", "query=\(query(for: batch))"]
             ) else {
-                // Un batch que falla deja esos PRs sin medir, y eso se ve en la
-                // UI. Preferimos eso antes que reportar 0 y mentir.
+                // Leave failed batches unmeasured and show that in the UI rather than reporting zero.
                 continue
             }
             guard let response = try? JSONDecoder.github.decode(BatchResponse.self, from: data)
             else { continue }
 
-            // GraphQL puede devolver `data` parcial junto con `errors` — por
-            // ejemplo si un repo se archivó. Tomamos lo que resolvió.
+            // GraphQL can return partial data with errors, for example for an archived repository.
+            // Keep the comparisons it successfully resolved.
             for (index, pullRequest) in batch.enumerated() {
                 if let behind = response.data?["p\(index)"]??.ref?.compare?.behindBy {
                     results[pullRequest.id] = behind
@@ -50,7 +46,7 @@ enum BehindCount {
         return results
     }
 
-    /// Un alias de `repository` por PR, todos en una request.
+    /// One repository alias per PR in a single request.
     static func query(for pullRequests: [PullRequest]) -> String {
         let fields = pullRequests.enumerated().map { index, pullRequest in
             let parts = pullRequest.repository.split(separator: "/", maxSplits: 1)
@@ -67,18 +63,18 @@ enum BehindCount {
         return "query {\n\(fields.joined(separator: "\n"))\n}"
     }
 
-    /// Un ref de git no puede contener comillas, barras invertidas ni espacios,
-    /// así que interpolarlo en la query es seguro. Lo verificamos igual: si eso
-    /// cambiara, es mejor no medir que emitir una query malformada.
+    /// Check the expected ref restrictions before GraphQL interpolation.
+    /// If an unsupported quote, backslash, or space appears, leave it unmeasured
+    /// rather than sending a malformed query.
     static func isSafeRef(_ ref: String) -> Bool {
         !ref.isEmpty && !ref.contains { "\"\\ \n\t\r".contains($0) }
     }
 }
 
-// MARK: - Respuesta
+// MARK: - Response
 
-/// Los alias son claves dinámicas (`p0`, `p1`, …), así que `data` se decodifica
-/// como diccionario en vez de una struct con campos fijos.
+/// Aliases are dynamic keys (p0, p1, ...), so decode data as a dictionary
+/// instead of a structure with fixed fields.
 private struct BatchResponse: Decodable {
     let data: [String: Entry?]?
 

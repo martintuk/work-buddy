@@ -3,10 +3,10 @@ import SwiftUI
 import Testing
 @testable import WorkBuddy
 
-@Suite("Presentación de Jira experimental")
+@Suite("Experimental Jira presentation")
 @MainActor
 struct JiraPresentationTests {
-    @Test("Render de GitHub sin tabs, tabs con Jira y configuración experimental")
+    @Test("Render GitHub without tabs, tabs with Jira, and experimental settings")
     func snapshots() throws {
         guard let directory = ProcessInfo.processInfo.environment["JIRA_SNAPSHOTS"] else { return }
         try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)

@@ -3,11 +3,11 @@ import Testing
 
 @testable import WorkBuddy
 
-@Suite("Conversaciones pendientes")
+@Suite("Pending conversations")
 struct ReplyQueueTests {
     private let mention = "<a class=\"user-mention notranslate\" href=\"https://github.com/me\">@me</a>"
 
-    @Test("PR propio: último comentario ajeno requiere respuesta, resolver siempre alcanza",
+    @Test("Own PRs need replies to the latest external comment; resolving always suffices",
           arguments: [(true, false, false), (true, true, false),
                       (false, true, false), (false, false, true)])
     func authored(resolved: Bool, mine: Bool, expected: Bool) throws {
@@ -15,44 +15,44 @@ struct ReplyQueueTests {
         #expect(value.attention(authoredByMe: true, me: "me") == (expected ? .needsReply : .none))
     }
 
-    @Test("PR ajeno: la mención sigue pendiente aunque otro comente después")
+    @Test("Mentions in others' PRs remain pending after further external comments")
     func pendingMention() throws {
         let value = try decode(thread(comments: [comment(html: mention), comment(html: "Otro mensaje")]))
         #expect(value.attention(authoredByMe: false, me: "me") == .needsReply)
     }
 
-    @Test("PR ajeno: mi respuesta atiende menciones anteriores y pasa a esperar")
+    @Test("Personal replies address earlier mentions and switch to waiting")
     func answeredMention() throws {
         let value = try decode(thread(comments: [comment(html: mention), comment(mine: true)]))
         #expect(value.attention(authoredByMe: false, me: "me") == .waitingForReply)
     }
 
-    @Test("Una respuesta ajena a mi comentario requiere respuesta aunque no me mencione")
+    @Test("Replies to personal comments require a response even without a mention")
     func answeredByOther() throws {
         let value = try decode(thread(comments: [comment(mine: true), comment()]))
         #expect(value.attention(authoredByMe: false, me: "me") == .needsReply)
     }
 
-    @Test("Una nueva mención después de mi respuesta vuelve a requerir atención")
+    @Test("New mentions after a personal reply require attention again")
     func mentionedAgain() throws {
         let value = try decode(thread(comments: [comment(mine: true), comment(html: mention)]))
         #expect(value.attention(authoredByMe: false, me: "me") == .needsReply)
     }
 
-    @Test("Resolver un hilo ajeno elimina tanto la espera como la mención",
+    @Test("Resolving others' threads clears waiting and mentions",
           arguments: [true, false])
     func resolvedForeign(mine: Bool) throws {
         let value = try decode(thread(resolved: true, comments: [comment(mine: mine, html: mention)]))
         #expect(value.attention(authoredByMe: false, me: "me") == .none)
     }
 
-    @Test("Un comentario ajeno sin mención no requiere mi respuesta")
+    @Test("External comments without mentions need no personal reply")
     func unrelated() throws {
         let value = try decode(thread(comments: [comment()]))
         #expect(value.attention(authoredByMe: false, me: "me") == .none)
     }
 
-    @Test("Los borradores no atienden una mención ni crean una espera")
+    @Test("Drafts neither address mentions nor create waiting states")
     func drafts() throws {
         let value = try decode(thread(comments: [comment(html: mention), comment(mine: true, state: "PENDING")]))
         #expect(value.attention(authoredByMe: false, me: "me") == .needsReply)
@@ -60,7 +60,7 @@ struct ReplyQueueTests {
         #expect(onlyDraft.attention(authoredByMe: false, me: "me") == .none)
     }
 
-    @Test("Las menciones respetan identidad exacta y el HTML renderizado")
+    @Test("Mentions respect exact identity and rendered HTML")
     func mentions() throws {
         for html in ["<code>@me</code>", "name@me.com", "@me", mention.replacingOccurrences(of: "@me<", with: "@me-other<"),
                      "<a class=\"team-mention\">@org/me</a>"] {
@@ -71,7 +71,7 @@ struct ReplyQueueTests {
             .attention(authoredByMe: false, me: "me") == .needsReply)
     }
 
-    @Test("Pagina hilos propios y corta al encontrar un pendiente")
+    @Test("Paginate own threads and stop at the first pending item")
     func threadPagination() async throws {
         let own = try pullRequest(1)
         var calls = 0
@@ -90,7 +90,7 @@ struct ReplyQueueTests {
         #expect(result.waitingForReply.isEmpty)
     }
 
-    @Test("Busca una mención fuera de los últimos 20 comentarios")
+    @Test("Find mentions beyond the latest 20 comments")
     func commentPagination() async throws {
         let other = try pullRequest(1, author: "other")
         var calls = 0
@@ -110,7 +110,7 @@ struct ReplyQueueTests {
         #expect(result.waitingForReply.isEmpty)
     }
 
-    @Test("Mi comentario en una página antigua seguido de respuestas requiere respuesta")
+    @Test("Personal comments on older pages followed by external replies require a response")
     func olderOwnComment() async throws {
         var calls = 0
         let result = try await ReplyQueue.fetch(for: [pullRequest(1, author: "other")], me: "me") { _ in
@@ -124,7 +124,7 @@ struct ReplyQueueTests {
         #expect(result.waitingForReply.isEmpty)
     }
 
-    @Test("Una página de borradores permite consultar el último comentario publicado")
+    @Test("Draft-only pages allow querying the last published comment")
     func draftPagination() async throws {
         var calls = 0
         let result = try await ReplyQueue.fetch(for: [pullRequest(1, author: "other")], me: "me") { _ in
@@ -140,7 +140,7 @@ struct ReplyQueueTests {
         #expect(result.needingReply.isEmpty)
     }
 
-    @Test("Un PR puede tener distintos hilos para responder y esperando respuesta")
+    @Test("A PR can have separate threads needing replies and awaiting responses")
     func bothCategories() async throws {
         var calls = 0
         let pr = try pullRequest(1, author: "other")
@@ -156,7 +156,7 @@ struct ReplyQueueTests {
         #expect(result.waitingForReply.map(\.id) == [pr.id])
     }
 
-    @Test("Consulta varios PRs por request, divide lotes y deduplica")
+    @Test("Query multiple PRs per request, split batches, and deduplicate")
     func batching() async throws {
         let prs = try (1...26).map { try pullRequest($0) }
         var batchSizes: [Int] = []
@@ -173,7 +173,7 @@ struct ReplyQueueTests {
         #expect(Set(result.needingReply.map(\.id)) == Set(prs.map(\.id)))
     }
 
-    @Test("Una respuesta incompleta falla en lugar de indicar que está todo atendido")
+    @Test("Incomplete responses fail instead of reporting everything addressed")
     func missingNode() async throws {
         let pr = try pullRequest(1)
         await #expect(throws: GH.Failure.self) {
@@ -181,16 +181,16 @@ struct ReplyQueueTests {
         }
     }
 
-    @Test("Sin candidatos no consulta GitHub")
+    @Test("No candidates means no GitHub queries")
     func empty() async throws {
         let result = try await ReplyQueue.fetch(for: [], me: "me") { _ in
-            Issue.record("No debería consultar GitHub")
+            Issue.record("Must not query GitHub")
             return Data()
         }
         #expect(result.needingReply.isEmpty && result.waitingForReply.isEmpty)
     }
 
-    @Test("La búsqueda incluye menciones y reviews propias sin exigir pedidos de review")
+    @Test("Search includes mentions and personal reviews without requiring review requests")
     func discoveryScope() {
         #expect(ConversationCandidates.searches.contains { $0.contains("involves:@me") })
         #expect(ConversationCandidates.searches.contains { $0.contains("reviewed-by:@me") })

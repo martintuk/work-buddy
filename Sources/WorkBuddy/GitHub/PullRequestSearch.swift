@@ -1,19 +1,15 @@
 import Foundation
 
-/// Búsqueda paginada de PRs. La comparten las colas, que sólo difieren en el
-/// filtro de búsqueda y en el tamaño de página que aguanta cada una.
-///
-/// Está acá y no repetida en cada cola porque el bug que importa —dejar de
-/// paginar y truncar resultados en silencio— se arregla en un solo lugar.
+/// Shared paginated PR search. Queues vary by filter and supported page size.
+/// Keeping pagination here avoids fixing silent truncation separately in every queue.
 enum PullRequestSearch {
     struct Payload: Decodable {
         let viewer: Viewer
         let search: SearchPage
     }
 
-    /// Expuesta para poder fijar la forma de la query en los tests: el filtro es
-    /// lo único que decide qué entra y qué no, y un typo ahí no falla, devuelve
-    /// menos.
+    /// Expose query construction for contract tests. A filter typo can silently
+    /// return fewer results instead of failing.
     static func query(search: String, fields: String, pageSize: Int) -> String {
         """
         query($cursor: String, $reviewAuthor: String!) {

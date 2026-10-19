@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Contenido del selector de repositorios dentro del panel principal.
+/// Repository selector content inside the main panel.
 struct RepositoryFilterView: View {
     let store: ReviewQueueStore
     var parentWindow: () -> NSWindow? = { nil }
@@ -75,7 +75,7 @@ struct RepositoryFilterView: View {
             }
         }
         if let window = parentWindow() {
-            // Una sheet queda ligada al popover y AppKit la mantiene por delante.
+            // A sheet stays attached to the popover and AppKit keeps it in front.
             panel.beginSheetModal(for: window, completionHandler: completion)
         } else {
             completion(panel.runModal())

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Selección inmediata y apertura con doble click, sin interceptar los controles superpuestos.
+/// Immediate selection and double-click opening without intercepting overlaid controls.
 struct QueueItemInteraction: ViewModifier {
     let isSelected: Bool
     var isHovering = false

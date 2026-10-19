@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Contenedor de las categorías del panel de la barra de menú.
+/// Container for menu bar panel categories.
 struct PanelView: View {
     static let preferredSize = NSSize(width: 420, height: 560)
 
@@ -27,7 +27,7 @@ struct PanelView: View {
     var body: some View {
         panel
         .frame(width: Self.preferredSize.width, height: Self.preferredSize.height)
-        // La misma base opaca que los encabezados fijos, también en márgenes y pie.
+        // Use the same opaque background as pinned headers, including margins and footer.
         .background(Color(nsColor: .windowBackgroundColor))
         .environment(\.locale, Locale(identifier: Localization.shared.language.rawValue))
         .onChange(of: jiraStore.isEnabled) { _, enabled in

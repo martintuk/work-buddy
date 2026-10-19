@@ -3,21 +3,17 @@ import Testing
 
 @testable import WorkBuddy
 
-/// Los filtros de búsqueda no fallan cuando están mal: devuelven **menos**. Un
-/// typo en un qualifier no tira error, hace que la app omita PRs en silencio.
-/// Por eso están fijados acá.
-@Suite("Forma de las queries de búsqueda")
+/// Malformed search qualifiers can silently return fewer results instead of errors, causing the app to omit PRs. Pin them here.
+@Suite("Search query shape")
 struct QueryShapeTests {
-    @Test("Las dos colas de review son complementarias exactas")
-    func complementarias() {
-        // Si las dos excluyeran dependabot, desaparecerían 50 PRs. Si las dos lo
-        // incluyeran, cada uno aparecería dos veces y el store no deduplica la
-        // cola de review, justamente porque confía en esto.
+    @Test("Review queues are exact complements")
+    func complementary() {
+        // The queries must be complementary: excluding Dependabot from both loses items; including it in both duplicates results.
         #expect(ReviewQueue.baseSearchQuery.contains("-author:app/dependabot"))
         #expect(DependabotQueue.baseSearchQuery.contains("author:app/dependabot"))
         #expect(!DependabotQueue.baseSearchQuery.contains("-author:app/dependabot"))
 
-        // Fuera del filtro de autor, tienen que pedir lo mismo.
+        // Apart from the author filter, both queries must request the same data.
         let sinFiltro: (String) -> String = { query in
             query
                 .replacingOccurrences(of: "-author:app/dependabot", with: "")
@@ -29,24 +25,21 @@ struct QueryShapeTests {
     }
 
     @Test(
-        "Las colas usan el review-requested que incluye pedidos vía equipo",
+        "Queues use review-requested to include team requests",
         arguments: [ReviewQueue.baseSearchQuery, DependabotQueue.baseSearchQuery]
     )
-    func incluyePedidosDeEquipo(query: String) {
-        // Medido: `review-requested:@me` trae 57 PRs y `user-review-requested:@me`
-        // sólo 27, porque el segundo excluye los que te llegan por pertenecer a un
-        // equipo. Usar el segundo perdería más de la mitad de la cola —y es
-        // justamente lo que hace que no necesitemos una lista de repos a mano.
+    func includesTeamRequests(query: String) {
+        // Measured: `review-requested:@me` returned 57 PRs versus 27 for `user-review-requested:@me`, which excludes team requests. The latter would lose more than half the queue; the former avoids maintaining a repository list manually.
         #expect(query.contains("review-requested:@me"))
         #expect(!query.contains("user-review-requested:@me"))
         #expect(query.contains("is:open"))
         #expect(query.contains("is:pr"))
-        // Sin esto entran PRs de repos archivados, que no se pueden mergear.
+        // Exclude archived repositories, whose PRs cannot be merged.
         #expect(query.contains("archived:false"))
     }
 
-    @Test("Dependabot consulta conflictos con páginas de 25 y conserva las ocho páginas")
-    func dependabotPideMergeable() async throws {
+    @Test("Dependabot queries conflicts in pages of 25 and retains eight pages")
+    func dependabotRequestsMergeability() async throws {
         let prs = try await DependabotQueue.fetch(viewer: Viewer(login: "me")) { arguments in
             let query = try #require(arguments.first { $0.hasPrefix("query=") })
             #expect(query.contains(DependabotQueue.baseSearchQuery))
@@ -76,15 +69,14 @@ struct QueryShapeTests {
         #expect(prs.awaitingYourReview.count == 8)
     }
 
-    @Test("La query paginada declara cursor y lo pide de vuelta")
-    func paginacion() {
+    @Test("Paginated queries declare and request the cursor")
+    func pagination() {
         let query = PullRequestSearch.query(
             search: "is:open is:pr",
             fields: "id",
             pageSize: 25
         )
-        // Sin `hasNextPage`/`endCursor` la paginación se corta en la primera
-        // página sin avisar.
+        // Without `hasNextPage` and `endCursor`, pagination silently stops at the first page.
         #expect(query.contains("query($cursor: String, $reviewAuthor: String!)"))
         #expect(query.contains("after: $cursor"))
         #expect(query.contains("hasNextPage"))
@@ -92,23 +84,23 @@ struct QueryShapeTests {
         #expect(query.contains("first: 25"))
     }
 
-    @Test("La cola de merge sí pide el estado de merge")
-    func mergeQueuePideMergeable() {
-        // Merge también necesita el veredicto sobre las condiciones requeridas.
+    @Test("Merge queues request merge state")
+    func mergeQueueRequestsMergeability() {
+        // Merge queries also need the verdict on required conditions.
         #expect(PullRequestFields.withMergeState.contains("mergeable"))
         #expect(PullRequestFields.withMergeState.contains("mergeStateStatus"))
         #expect(!PullRequestFields.base.contains("mergeable"))
     }
 
-    @Test("La decisión personal no depende de una página de reviews ajenas")
-    func reviewPersonalPorAutor() {
+    @Test("Personal decisions do not depend on a page of others' reviews")
+    func personalReviewByAuthor() {
         #expect(PullRequestFields.base.contains(
             "myReview: reviews(author: $reviewAuthor, last: 1, states: [APPROVED, CHANGES_REQUESTED, DISMISSED])"
         ))
         #expect(MergeQueue.query(configuration: .empty).contains("query($reviewAuthor: String!)"))
     }
 
-    @Test("Para Fixear busca autoría propia sin exigir review ni CI exitosa")
+    @Test("Fix queries search own PRs without requiring review or successful CI")
     func fixQueueScope() throws {
         #expect(FixQueue.baseSearchQuery == "is:open is:pr author:@me archived:false")
         let configuration = try AppConfiguration(organizations: ["example-org"], machineAccountsText: "")
@@ -116,8 +108,8 @@ struct QueryShapeTests {
         #expect(FixQueue.searchQuery(configuration: .empty) == FixQueue.baseSearchQuery)
     }
 
-    @Test("La organización configurada limita todas las búsquedas")
-    func alcancePorOrganizacion() throws {
+    @Test("Configured organizations constrain every search")
+    func organizationScope() throws {
         let configuration = try AppConfiguration(
             organizations: ["example-org"],
             machineAccountsText: ""
@@ -132,8 +124,8 @@ struct QueryShapeTests {
         #expect(mergeQuery.components(separatedBy: "org:example-org").count - 1 == 3)
     }
 
-    @Test("Sin organización configurada el alcance sigue siendo global")
-    func alcanceGlobalPorDefecto() {
+    @Test("Without configured organizations the scope remains global")
+    func globalDefaultScope() {
         #expect(ReviewQueue.searchQuery(configuration: .empty)
             == ReviewQueue.baseSearchQuery)
         #expect(DependabotQueue.searchQuery(configuration: .empty)

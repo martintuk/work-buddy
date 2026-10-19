@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Corre los tests.
+# Run tests.
 #
-# Los flags son para que swift-testing funcione con las Command Line Tools:
-# SwiftPM no le pasa el search path de Testing.framework ni el rpath de
-# lib_TestingInterop.dylib, aunque los dos vienen incluidos. Sin esto, `swift
-# test` falla con "no such module 'Testing'".
+# These flags support swift-testing with the Command Line Tools. SwiftPM omits
+# the Testing.framework search path and lib_TestingInterop.dylib rpath, even
+# though both are bundled. Without them, swift test reports no such module Testing.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -23,5 +22,5 @@ if [[ -d "$FRAMEWORKS/Testing.framework" ]]; then
         "$@"
 fi
 
-# Con Xcode como developer dir activo, SwiftPM resuelve todo solo.
+# With full Xcode selected, SwiftPM resolves these paths itself.
 exec swift test "$@"

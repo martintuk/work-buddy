@@ -1,6 +1,6 @@
 import Foundation
 
-/// La acción de un PR en selección múltiple sale de su categoría actual.
+/// A selected PR's batch action follows its current category.
 enum PullRequestBatchAction: String, CaseIterable, Sendable {
     case approve, merge
 

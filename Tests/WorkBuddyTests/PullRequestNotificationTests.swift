@@ -3,10 +3,10 @@ import Testing
 
 @testable import WorkBuddy
 
-@Suite("Entradas a las secciones notificables")
+@Suite("Entries into notifiable sections")
 @MainActor
 struct PullRequestNotificationTests {
-    @Test("Cada sección tiene una primera carga silenciosa", arguments: PullRequestNotification.Queue.allCases)
+    @Test("Each section has a silent initial load", arguments: PullRequestNotification.Queue.allCases)
     func firstLoad(queue: PullRequestNotification.Queue) {
         withDefaults { defaults in
             let tracker = PullRequestNotificationTracker(defaults: defaults)
@@ -17,7 +17,7 @@ struct PullRequestNotificationTests {
         }
     }
 
-    @Test("Más de tres entradas generan avisos individuales con el enlace de cada PR",
+    @Test("More than three entries produce individual notifications with each PR link",
           arguments: PullRequestNotification.Queue.allCases)
     func noGrouping(queue: PullRequestNotification.Queue) {
         let prs = (1...10).map { makePullRequest($0) }
@@ -27,7 +27,7 @@ struct PullRequestNotificationTests {
         #expect(notifications.allSatisfy { $0.queue == queue })
     }
 
-    @Test("Un PR que pasa de review a merge recibe un aviso para mergear")
+    @Test("PRs moving from review to merge receive a merge notification")
     func transition() {
         withDefaults { defaults in
             let tracker = PullRequestNotificationTracker(defaults: defaults)
@@ -43,7 +43,7 @@ struct PullRequestNotificationTests {
         }
     }
 
-    @Test("Salir y volver a entrar vuelve a notificar, incluso tras reiniciar",
+    @Test("Leaving and reentering notifies again, even after restarting",
           arguments: PullRequestNotification.Queue.allCases)
     func reentry(queue: PullRequestNotification.Queue) {
         withDefaults { defaults in
@@ -57,7 +57,7 @@ struct PullRequestNotificationTests {
         }
     }
 
-    @Test("Los bots de Para mergear también notifican, sin duplicados")
+    @Test("Merge-ready bots also notify without duplicates")
     func botsInMerge() {
         let bot = makePullRequest(1, bot: true)
         let visible = [bot, bot].readyToMerge
@@ -65,7 +65,7 @@ struct PullRequestNotificationTests {
         #expect(notifications.map(\.pullRequest.id) == [bot.id])
     }
 
-    @Test("Cambiar el alcance reinicia ambas bases")
+    @Test("Changing scope resets both baselines")
     func reset() {
         withDefaults { defaults in
             let tracker = PullRequestNotificationTracker(defaults: defaults)
@@ -79,7 +79,7 @@ struct PullRequestNotificationTests {
         }
     }
 
-    @Test("Una sección sin consulta exitosa mantiene pendiente su primera carga")
+    @Test("Sections without successful queries keep their initial load pending")
     func independentLoads() {
         withDefaults { defaults in
             let tracker = PullRequestNotificationTracker(defaults: defaults)
@@ -89,7 +89,7 @@ struct PullRequestNotificationTests {
         }
     }
 
-    @Test("Migrar conserva la base anterior de review sin afectar merge")
+    @Test("Migration preserves the review baseline without affecting merge")
     func migration() {
         withDefaults { defaults in
             let pr = makePullRequest(1)

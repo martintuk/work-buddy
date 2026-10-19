@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// Una cola viva; sólo la operación en curso conserva su snapshot.
+/// A live queue; only the active operation retains its snapshot.
 @MainActor
 @Observable
 final class PullRequestAutopilot {
@@ -26,13 +26,10 @@ final class PullRequestAutopilot {
 
     private(set) var viewer = ""
     private var latest: [Candidate] = []
-    // Conservamos éxitos y errores inciertos durante toda la sesión de la app.
-    // Un refresh atrasado o apagar/encender no debe repetir una escritura.
+    // Retain successes and uncertain failures for the app session.
+    // A stale refresh or toggling the mode must not repeat a write.
     private var handled: Set<String> = []
-    // Un omitido se reintenta cuando un refresh lo sigue viendo listo, con
-    // espera creciente para no girar en bucle si GitHub insiste en que no.
-    // Sin esto quedaba afuera hasta reiniciar la app: tras mergear un hermano,
-    // GitHub recalcula la mergeabilidad y la lectura fresca lo ve no listo.
+    // Retry skipped items when a refresh still reports them ready, with increasing delays to avoid spinning while GitHub rejects them. After merging a sibling, GitHub may temporarily recalculate mergeability.
     private var deferred: [String: (until: Date, delay: TimeInterval)] = [:]
     static let retryDelay: TimeInterval = 60
     static let maxRetryDelay: TimeInterval = 15 * 60
@@ -102,7 +99,7 @@ final class PullRequestAutopilot {
         }
         stopDeadline = deadline
         let timer = Timer(fire: deadline, interval: 0, repeats: false) { [weak self] _ in
-            // Registrado en el run loop principal, incluso con el panel cerrado.
+            // Registered on the main run loop, even while the panel is closed.
             MainActor.assumeIsolated { _ = self?.shouldStop() }
         }
         stopTimer = timer
@@ -110,8 +107,7 @@ final class PullRequestAutopilot {
     }
 
     private func shouldStop() -> Bool {
-        // Revalidar también al retomar una lectura o espera: el timer puede
-        // seguir pendiente al despertar la Mac después de medianoche.
+        // Revalidate after reads and waits: the timer may still be pending when the Mac wakes after midnight.
         if isEnabled, let stopDeadline, now() >= stopDeadline { stop() }
         return !isEnabled
     }
@@ -133,7 +129,7 @@ final class PullRequestAutopilot {
         latest = candidates.filter {
             $0.pullRequest.author.isDependabot && $0.action.isEligible($0.pullRequest) && seen.insert($0.id).inserted
         }
-        // Al salir de la cola general se olvida la espera: si vuelve, va directo.
+        // Leaving the main queue clears the delay, allowing immediate processing on return.
         let fingerprints = Set(latest.map(\.fingerprint))
         deferred = deferred.filter { fingerprints.contains($0.key) }
         rebuildQueue()
@@ -237,6 +233,6 @@ final class PullRequestAutopilot {
         }
     }
 
-    /// Espera sólo el trabajo disponible; no necesita apagar el modo continuo.
+    /// Wait only for available work; continuous mode can remain enabled.
     func waitUntilIdle() async { await task?.value }
 }

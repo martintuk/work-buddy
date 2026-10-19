@@ -1,10 +1,8 @@
 import Foundation
 
-/// Método de merge. El `rawValue` es el flag de `gh pr merge`.
-///
-/// No lo elegís vos: sale de `viewerDefaultMergeMethod`, que es el método que
-/// GitHub te daría en la web. En estos repos es siempre `SQUASH`, porque es el
-/// único habilitado, y ahí la web muestra un solo botón.
+/// Merge method; rawValue is the gh pr merge flag.
+/// Use GitHub's viewerDefaultMergeMethod rather than asking the user.
+/// The original repositories allowed only SQUASH, matching their single web action.
 enum MergeMethod: String, Codable, CaseIterable, Sendable {
     case squash
     case merge
@@ -18,8 +16,8 @@ enum MergeMethod: String, Codable, CaseIterable, Sendable {
         }
     }
 
-    /// Convierte el enum de GraphQL. Un valor nuevo devuelve `nil`, y entonces la
-    /// app no ofrece mergear: preferimos no ofrecerlo antes que adivinar.
+    /// Convert the GraphQL enum. Unknown values return nil,
+    /// disabling merge rather than guessing a method.
     init?(graphQL value: String) {
         switch value {
         case "SQUASH": self = .squash
@@ -30,11 +28,8 @@ enum MergeMethod: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// Las únicas escrituras que la app hace contra GitHub.
-///
-/// Los argumentos están declarados como plantilla y no se arman sobre la marcha:
-/// así una acción nueva no puede convertirse por descuido en una invocación
-/// arbitraria de `gh`. Un PR por llamada, sin batching.
+/// The app's GitHub writes. Arguments are fixed templates rather than
+/// arbitrary gh invocations. Each call acts on one PR without batching.
 enum GitHubWrite: Sendable {
     case approve(repository: String, number: Int)
     case approveCommit(repository: String, number: Int, commitID: String)
@@ -45,42 +40,36 @@ enum GitHubWrite: Sendable {
 
     var arguments: [String] {
         switch self {
-        // Sin `--body`: es una aprobación sin comentario. `gh pr review
-        // --approve` cuenta como review event, así que satisface una regla de
-        // required reviewers.
+        // Without --body, this is an approval without a comment.
+        // gh pr review --approve records a review event for required-reviewer rules.
         case .approve(let repository, let number):
             ["pr", "review", String(number), "--repo", repository, "--approve"]
 
-        // La review queda asociada al commit que se mostró y se verificó.
-        // Una actualización de Dependabot durante la request no amplía el lote.
+        // Bind the review to the displayed, verified commit.
+        // A Dependabot update during the request cannot expand the approved revision.
         case .approveCommit(let repository, let number, let commitID):
             ["api", "repos/\(repository)/pulls/\(number)/reviews", "--method", "POST",
              "-f", "event=APPROVE", "-f", "commit_id=\(commitID)"]
 
-        // GitHub rechaza el merge si el head cambió desde la revalidación.
+        // GitHub rejects the merge if HEAD changed after revalidation.
         case .mergeCommit(let repository, let number, let commitID, let method):
             ["api", "repos/\(repository)/pulls/\(number)/merge", "--method", "PUT",
              "-f", "sha=\(commitID)", "-f", "merge_method=\(method.rawValue)"]
 
-        // Actualiza la rama y mantiene el PR abierto. Sin --rebase, GitHub
-        // crearía un commit de merge en vez de rebasear.
+        // Update the branch while keeping the PR open. Without --rebase,
+        // GitHub would create a merge commit instead.
         case .rebase(let repository, let number):
             ["pr", "update-branch", String(number), "--repo", repository, "--rebase"]
 
-        // Dependabot interpreta este comentario como una orden. Es una
-        // escritura y no una operación local sobre la rama.
+        // Dependabot interprets this comment as a command.
+        // This is a remote write, not a local branch operation.
         case .dependabotRebase(let repository, let number):
             ["pr", "comment", String(number), "--repo", repository,
              "--body", "@dependabot rebase"]
 
-        // El método va siempre explícito: `gh pr merge` sin flag pregunta de
-        // forma interactiva, y preguntar dentro de un subproceso cuelga.
-        //
-        // Tampoco usamos `--auto`: el auto-merge está deshabilitado en estos
-        // repos, así que armarlo para después nunca funcionó. Un merge común sí,
-        // y no es menos seguro: GitHub valida la mergeabilidad server-side en el
-        // momento del merge, así que un PR que se puso en rojo desde el último
-        // refresh es **rechazado**, no mergeado. La data vieja falla cerrada.
+        // Always specify the method; gh pr merge otherwise prompts interactively.
+        // Do not use --auto: the original repositories disabled automatic merging.
+        // GitHub evaluates merge eligibility server-side when processing the request.
         case .merge(let repository, let number, let method):
             ["pr", "merge", String(number), "--repo", repository, "--\(method.rawValue)"]
         }

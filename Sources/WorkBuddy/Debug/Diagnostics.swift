@@ -1,13 +1,13 @@
 import Foundation
 
-/// Sólo valores enumerados y cantidades: nunca argumentos, respuestas ni errores crudos.
+/// Only enumerated values and counts: never raw arguments, responses, or errors.
 enum Diagnostics {
     enum Service: String, Codable, Sendable { case github, jira, panel }
     enum Phase: String, Codable, Sendable {
         case preflight, viewer, review, merge, own, conversationCandidates, replies
         case dependabot, teamDependabot, ownership, teamSearch, behind, notifications
         case gh, jiraAuth, jiraRecent, acli
-        case jiraPrimary = "jiraSHR" // Conserva la lectura de diagnósticos anteriores.
+        case jiraPrimary = "jiraSHR" // Preserve compatibility with earlier diagnostics.
         case panelOpen, panelRefresh, panelLayout, panelShow, panelResponsiveness
     }
     enum Kind: String, Codable, Sendable {
@@ -113,13 +113,13 @@ enum Diagnostics {
     static func elapsed(_ context: Context) -> Double { milliseconds(context.started.duration(to: .now)) }
 }
 
-/// El estado y los archivos viven únicamente en `queue`. Encolar no suspende al
-/// store ni escribe desde el hilo de UI. Exportar espera las escrituras encoladas.
+/// State and files belong exclusively to queue. Enqueuing neither suspends the
+/// store nor writes on the UI thread. Export waits for queued writes.
 final class DiagnosticLog: @unchecked Sendable {
     static let shared = DiagnosticLog(directory: FileManager.default.urls(
         for: .applicationSupportDirectory, in: .userDomainMask
     )[0].appendingPathComponent("work-buddy/Diagnostics", isDirectory: true))
-    // Abrir el panel no debe expulsar las últimas cargas de GitHub/Jira.
+    // Opening the panel must not evict recent GitHub/Jira refresh records.
     static let panels = DiagnosticLog(directory: shared.directory.appendingPathComponent("Panels", isDirectory: true),
                                       maxCycles: 10, maxBytesPerCycle: 16_384)
 
@@ -198,10 +198,10 @@ final class DiagnosticLog: @unchecked Sendable {
                                                      started: context.started)
                 append(Entry(kind: .refreshStarted, refresh: context.refresh,
                              metrics: ["forced": forced ? 1 : 0], metadata: metadata))
-                // Una consulta colgada debe sobrevivir al polling del otro
-                // servicio. Si hay más de diez activas, igual respetamos el tope.
-                // Los nombres son UUIDs únicos dentro del mismo directorio.
-                // No comparar URLs: Foundation puede resolver /var a /private/var al listar.
+                // A stuck request must survive polling by the other service.
+                // Keep the cap even with more than ten active requests.
+                // Filenames are unique UUIDs in this directory; do not compare URLs,
+                // since Foundation may resolve /var to /private/var while listing.
                 let active = Set(openFiles.values.map { $0.url.lastPathComponent })
                 let obsolete = try files().sorted {
                     if active.contains($0.lastPathComponent) != active.contains($1.lastPathComponent) {
@@ -243,7 +243,7 @@ final class DiagnosticLog: @unchecked Sendable {
         guard var file = openFiles[entry.refresh], !file.truncated || final else { return }
         do {
             var data = try encode(entry)
-            // Reserva espacio para indicar truncamiento y el fin del ciclo.
+            // Reserve space for a truncation marker and the end of the cycle.
             if !final, file.bytes + data.count > maxBytesPerCycle - 512 {
                 data = try encode(Entry(kind: .truncated, refresh: entry.refresh, elapsedMs: entry.elapsedMs))
                 file.truncated = true
@@ -260,7 +260,7 @@ final class DiagnosticLog: @unchecked Sendable {
             return try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
                 .filter { $0.pathExtension == "jsonl" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
         } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
-            return [] // Todavía no hubo muestras, por ejemplo antes de abrir el panel.
+            return [] // No samples yet, such as before opening the panel.
         }
     }
 
@@ -273,8 +273,8 @@ final class DiagnosticLog: @unchecked Sendable {
         return data
     }
 
-    /// Un encabezado distingue ciclos actuales pendientes de procesos anteriores
-    /// interrumpidos. Los registros originales quedan intactos al volver a abrir.
+    /// A header distinguishes current pending cycles from interrupted earlier processes.
+    /// Original records remain intact when the app reopens.
     func exportData() async throws -> Data {
         try await withCheckedThrowingContinuation { continuation in
             queue.async { [self] in

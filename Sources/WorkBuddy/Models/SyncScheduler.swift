@@ -1,6 +1,6 @@
 import Foundation
 
-/// Un único ciclo para GitHub y Jira, independiente de las vistas del panel.
+/// One cycle for GitHub and Jira, independent of panel views.
 @MainActor
 final class SyncScheduler {
     static let autoRefreshInterval: Duration = .seconds(300)
@@ -23,7 +23,7 @@ final class SyncScheduler {
         guard task == nil else { return }
         refresh()
 
-        // Cada store inicia su consulta sin esperar al otro y evita solapamientos.
+        // Each store starts its query independently and prevents overlapping requests.
         task = Task { [interval, refresh] in
             while !Task.isCancelled {
                 do {

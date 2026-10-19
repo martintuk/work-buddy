@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// Identidad local, independiente de la sección en la que aparece el ítem.
+/// Local identity independent of the item's displayed section.
 struct LocalNoteID: Hashable {
     let storageKey: String
 
@@ -22,7 +22,7 @@ struct LocalNoteID: Hashable {
     }
 }
 
-/// Notas privadas de esta instalación. Nunca forman parte de modelos ni payloads remotos.
+/// Private installation-local notes, never included in remote models or payloads.
 @MainActor
 @Observable
 final class LocalNoteStore {

@@ -3,28 +3,28 @@ import Testing
 
 @testable import WorkBuddy
 
-@Suite("Comparación contra la rama base")
+@Suite("Base branch comparison")
 struct BehindCountTests {
-    @Test("Un alias por PR, todos en una request")
-    func aliasPorPR() {
+    @Test("One alias per PR, all in one request")
+    func aliasPerPR() {
         let query = BehindCount.query(for: [
-            makePullRequest(repository: "example-org/uno", base: "main", head: "rama-a"),
-            makePullRequest(repository: "example-org/dos", base: "master", head: "rama-b")
+            makePullRequest(repository: "example-org/one", base: "main", head: "branch-a"),
+            makePullRequest(repository: "example-org/dos", base: "master", head: "branch-b")
         ])
 
-        // Los alias son posicionales: el índice mapea de vuelta al PR.
-        #expect(query.contains("p0: repository(owner: \"example-org\", name: \"uno\")"))
+        // Aliases are positional: each index maps back to its PR.
+        #expect(query.contains("p0: repository(owner: \"example-org\", name: \"one\")"))
         #expect(query.contains("p1: repository(owner: \"example-org\", name: \"dos\")"))
         #expect(query.contains("ref(qualifiedName: \"main\")"))
         #expect(query.contains("ref(qualifiedName: \"master\")"))
-        #expect(query.contains("compare(headRef: \"rama-a\")"))
+        #expect(query.contains("compare(headRef: \"branch-a\")"))
         #expect(query.contains("behindBy"))
-        // Una sola operación, no una por PR.
+        // One operation, not one per PR.
         #expect(query.hasPrefix("query {"))
     }
 
-    @Test("El repo se parte en owner y name")
-    func repoPartido() {
+    @Test("Split repositories into owner and name")
+    func repositoryComponents() {
         let query = BehindCount.query(for: [
             makePullRequest(repository: "org/nombre-con-guiones", base: "main", head: "x")
         ])
@@ -32,9 +32,9 @@ struct BehindCountTests {
         #expect(query.contains("name: \"nombre-con-guiones\""))
     }
 
-    @Test("Las barras del nombre de rama no rompen nada")
-    func ramaConBarras() {
-        // Los nombres de dependabot son así: dependabot/npm_and_yarn/lodash-4.17.21
+    @Test("Branch names containing slashes remain valid")
+    func branchWithSlashes() {
+        // Dependabot branch names follow this pattern: dependabot/npm_and_yarn/lodash-4.17.21
         let head = "dependabot/npm_and_yarn/fast-uri-3.1.7"
         let query = BehindCount.query(for: [
             makePullRequest(repository: "org/repo", base: "main", head: head)
@@ -43,11 +43,9 @@ struct BehindCountTests {
         #expect(BehindCount.isSafeRef(head))
     }
 
-    @Test("Refs con caracteres que romperían la query se consideran inseguros")
-    func refsInseguros() {
-        // Git no permite estos caracteres en un ref, así que interpolar es
-        // seguro. La verificación existe para que, si eso cambiara, no midamos en
-        // vez de emitir una query malformada.
+    @Test("Reject refs containing characters that could break the query")
+    func unsafeRefs() {
+        // Git forbids these characters in refs, making interpolation safe. If that changes, validation skips measurement instead of emitting a malformed query.
         #expect(!BehindCount.isSafeRef("rama\"con-comilla"))
         #expect(!BehindCount.isSafeRef("rama\\con-barra"))
         #expect(!BehindCount.isSafeRef("rama con espacio"))
@@ -58,10 +56,10 @@ struct BehindCountTests {
         #expect(BehindCount.isSafeRef("release/1.2.3"))
     }
 
-    @Test("Sin PRs no se arma una query vacía inválida")
-    func sinPRs() async {
-        let resultado = await BehindCount.fetch(for: [])
-        #expect(resultado.isEmpty)
+    @Test("No PRs means no invalid empty query")
+    func noPRs() async {
+        let result = await BehindCount.fetch(for: [])
+        #expect(result.isEmpty)
     }
 }
 
