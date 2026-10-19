@@ -66,10 +66,12 @@ struct JiraQueueTests {
             #expect(error.reason == reason)
             #expect(Diagnostics.Failure(error).category == Diagnostics.Failure(error.underlying).category)
             #expect(Diagnostics.Failure(error).exitCode == 2)
-            let message = error.localizedDescription
-            #expect(message.contains(output))
-            #expect(message.contains("2"))
-            #expect(!message.contains("%@"))
+            for language in [AppLanguage.spanish, .english] {
+                let message = L10n.$renderLanguage.withValue(language) { error.localizedDescription }
+                #expect(message.contains(output))
+                #expect(message.contains("2"))
+                #expect(!message.contains("%@"))
+            }
         }
     }
 

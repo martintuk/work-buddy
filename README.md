@@ -1,6 +1,6 @@
 # Work Buddy
 
-The interface, documentation, and code are in English.
+The interface supports English and Spanish. Documentation and code are in English.
 
 A macOS app that brings together pull requests needing your attention. Review,
 approve, merge, or open them in your editor or AI agent. Jira integration is
@@ -15,7 +15,7 @@ available as an experimental feature, disabled by default.
 
 ## Settings
 
-The gear opens general preferences for appearance, automatic action confirmation,
+The gear opens general preferences for language, appearance, automatic action confirmation,
 notifications, editor, terminal, and AI agent. Integration settings have two
 navigable subsections:
 

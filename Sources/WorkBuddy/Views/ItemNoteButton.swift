@@ -5,12 +5,16 @@ struct ItemNoteButton: View {
     var isRowHovering = false
     var store: LocalNoteStore = .shared
 
+    @AppStorage("appearance.language") private var language = "es"
     @State private var isPresented = false
     @State private var isHovering = false
 
     private var hasNote: Bool { !store.text(for: itemID).isEmpty }
     private var label: String {
-        hasNote ? "Edit local note" : "Add local note"
+        if language == "en" {
+            return hasNote ? "Edit local note" : "Add local note"
+        }
+        return hasNote ? "Editar nota local" : "Agregar nota local"
     }
 
     var body: some View {

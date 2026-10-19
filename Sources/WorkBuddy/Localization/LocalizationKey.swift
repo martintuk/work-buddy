@@ -33,6 +33,7 @@ extension L10n {
         // MARK: - Settings
         case settingsTitle
         case settingsClose
+        case settingsLanguage
         case settingsEmptySections
         case settingsEmptySectionsHelp
         case settingsAutoConfirmActions

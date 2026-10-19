@@ -5,7 +5,7 @@ import Testing
 @Suite("Activity persistence")
 @MainActor
 struct ActivityPersistenceTests {
-    @Test("A new store restores manual actions, batches, and Autopilot with data and English text")
+    @Test("A new store restores manual actions, batches, and Autopilot with data and translations")
     func roundTrip() throws {
         let url = temporaryURL()
         defer { removeDirectory(url) }
@@ -19,6 +19,7 @@ struct ActivityPersistenceTests {
                    status: .failed(LocalizedMessage("GitHub unavailable"))), source: .autopilot, viewer: "me")
         let skipped = log.record(.approve, on: fixture(4),
             status: .skipped(LocalizedMessage(L10n.text(.batchChanged))), viewer: "me")
+        let language = Localization.shared.language
         let restored = ActivityLog(storageURL: url)
         #expect(restored.entries.map(\.id) == log.entries.map(\.id))
         #expect(restored.entries.map(\.source) == [.manual, .autopilot, .batch, .manual])
@@ -30,9 +31,14 @@ struct ActivityPersistenceTests {
         let approved = try #require(restored.entries.first { $0.source == .batch })
         #expect(approved.action == .approve && approved.pullRequest?.headRefOID == fixture(2).headRefOID)
         #expect(approved.pullRequest?.author.isDependabot == true && approved.viewer == "me")
-        #expect(entry.title.text == L10n.text(.editorOpen))
-        #expect(approved.statusText == L10n.text(.prApproved))
-        #expect(restored.entries.first { $0.id == skipped }?.status.text == L10n.text(.batchChanged))
+        for selected in [AppLanguage.spanish, .english] {
+            L10n.$renderLanguage.withValue(selected) {
+                #expect(entry.title.text == L10n.text(.editorOpen))
+                #expect(approved.statusText == L10n.text(.prApproved))
+                #expect(restored.entries.first { $0.id == skipped }?.status.text == L10n.text(.batchChanged))
+            }
+        }
+        #expect(Localization.shared.language == language)
     }
 
     @Test("Updated outcomes and read activity survive another restart")

@@ -42,6 +42,24 @@ struct ConfigurationView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 8) {
+                    Text(L10n.text(.settingsLanguage))
+                        .font(.system(size: 12, weight: .semibold))
+                    Spacer()
+                    Picker(L10n.text(.settingsLanguage), selection: Binding(
+                        get: { Localization.shared.language },
+                        set: { Localization.shared.setLanguage($0) }
+                    )) {
+                        ForEach(AppLanguage.allCases, id: \.self) { language in
+                            Text(language.nativeName).tag(language)
+                        }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                    .accessibilityLabel(L10n.text(.settingsLanguage))
+                }
+                .controlSize(.small)
+
+                HStack(spacing: 8) {
                     Text(L10n.text(.settingsEmptySections))
                         .font(.system(size: 12, weight: .semibold))
                     Spacer()

@@ -117,8 +117,9 @@ project file.
 
 ## Interface text
 
-All repository documentation, code comments, test descriptions, and app-owned
-interface text are in English. The app has no language selector.
+Repository documentation, code comments, identifiers, and test descriptions are
+in English. The interface supports English and Spanish through the language
+selector in Settings. Keep both catalogs and their format placeholders aligned.
 
 Interface text, tooltips, accessibility labels, errors, and notifications live in
 `Sources/WorkBuddy/Localization/`, grouped by feature. `LocalizationKey.swift`

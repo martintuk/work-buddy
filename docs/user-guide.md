@@ -1,5 +1,8 @@
 # User guide
 
+Choose **English** or **Español** in **Settings → Language**. Interface labels,
+tooltips, notifications, and activity messages follow the selected language.
+
 The queue includes personal and team review requests. Categories distinguish
 required actions, approved pull requests, and automation.
 

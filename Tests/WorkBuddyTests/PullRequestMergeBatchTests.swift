@@ -211,54 +211,59 @@ struct PullRequestMergeBatchTests {
         let defaults = UserDefaults(suiteName: "batch-preview-\(UUID().uuidString)")!
         defaults.set(false, forKey: "appearance.showEmptySections")
         defaults.set("", forKey: "github.collapsedSections")
-        let reviews = [fixture(1, author: "alice"), fixture(2)]
-        let merges = [fixture(3, own: true, mergeState: .clean), fixture(4, mergeState: .clean)]
-        let store = ReviewQueueStore.preview(reviews: reviews, merges: merges)
-        for scheme in [ColorScheme.light, .dark] {
-            try render(store, defaults: defaults, directory: directory, name: "normal-en-\(scheme)", scheme: scheme)
+        let language = Localization.shared.language
+        defer { Localization.shared.setLanguage(language, defaults: defaults) }
+        for language in [AppLanguage.spanish, .english] {
+            Localization.shared.setLanguage(language, defaults: defaults)
+            let reviews = [fixture(1, author: "alice"), fixture(2)]
+            let merges = [fixture(3, own: true, mergeState: .clean), fixture(4, mergeState: .clean)]
+            let store = ReviewQueueStore.preview(reviews: reviews, merges: merges)
+            for scheme in [ColorScheme.light, .dark] {
+                try render(store, defaults: defaults, directory: directory, name: "normal-\(language.rawValue)-\(scheme)", scheme: scheme)
+            }
+            store.toggleBatchSelection()
+            try render(store, defaults: defaults, directory: directory, name: "empty-\(language.rawValue)", scheme: .light)
+            for id in ["batch-1", "batch-2", "batch-3"] { store.batch.toggle(id) }
+            for scheme in [ColorScheme.light, .dark] {
+                try render(store, defaults: defaults, directory: directory, name: "mixed-\(language.rawValue)-\(scheme)", scheme: scheme)
+            }
+            let gate = MergeGate()
+            let started = store.batch.start(.approve, read: { pr, viewer in
+                if pr.number == 1 { await gate.enter() }
+                return .init(viewer: viewer, pullRequest: pr, isOpen: true)
+            }, write: { pr in
+                if pr.number == 2 { throw GH.Failure.commandFailed(exitCode: 1, stderr: "GitHub unavailable") }
+            }, isAllowed: { _ in true })
+            let task = try #require(started)
+            await gate.waitUntilEntered()
+            for scheme in [ColorScheme.light, .dark] {
+                try render(store, defaults: defaults, directory: directory, name: "running-\(language.rawValue)-\(scheme)", scheme: scheme)
+            }
+            await gate.release()
+            await task.value
+            for scheme in [ColorScheme.light, .dark] {
+                try render(store, defaults: defaults, directory: directory, name: "result-\(language.rawValue)-\(scheme)", scheme: scheme)
+            }
+            store.toggleAutopilot()
+            for scheme in [ColorScheme.light, .dark] {
+                try render(store, defaults: defaults, directory: directory, name: "autopilot-preview-\(language.rawValue)-\(scheme)", scheme: scheme)
+            }
+            let autopilotGate = MergeGate()
+            store.autopilot.enable(store.batchCandidates, viewer: "me", operations: .init(
+                read: { candidate, viewer in
+                    if candidate.id == "batch-4" { await autopilotGate.enter() }
+                    return .init(viewer: viewer, pullRequest: candidate.pullRequest, isOpen: true)
+                }, write: { _ in }))
+            await autopilotGate.waitUntilEntered()
+            for scheme in [ColorScheme.light, .dark] {
+                try render(store, defaults: defaults, directory: directory, name: "autopilot-running-\(language.rawValue)-\(scheme)", scheme: scheme)
+            }
+            store.autopilot.isExpanded = false
+            try render(store, defaults: defaults, directory: directory, name: "autopilot-collapsed-\(language.rawValue)", scheme: .light)
+            store.autopilot.stop()
+            await autopilotGate.release()
+            await store.autopilot.waitUntilIdle()
         }
-        store.toggleBatchSelection()
-        try render(store, defaults: defaults, directory: directory, name: "empty-en", scheme: .light)
-        for id in ["batch-1", "batch-2", "batch-3"] { store.batch.toggle(id) }
-        for scheme in [ColorScheme.light, .dark] {
-            try render(store, defaults: defaults, directory: directory, name: "mixed-en-\(scheme)", scheme: scheme)
-        }
-        let gate = MergeGate()
-        let started = store.batch.start(.approve, read: { pr, viewer in
-            if pr.number == 1 { await gate.enter() }
-            return .init(viewer: viewer, pullRequest: pr, isOpen: true)
-        }, write: { pr in
-            if pr.number == 2 { throw GH.Failure.commandFailed(exitCode: 1, stderr: "GitHub unavailable") }
-        }, isAllowed: { _ in true })
-        let task = try #require(started)
-        await gate.waitUntilEntered()
-        for scheme in [ColorScheme.light, .dark] {
-            try render(store, defaults: defaults, directory: directory, name: "running-en-\(scheme)", scheme: scheme)
-        }
-        await gate.release()
-        await task.value
-        for scheme in [ColorScheme.light, .dark] {
-            try render(store, defaults: defaults, directory: directory, name: "result-en-\(scheme)", scheme: scheme)
-        }
-        store.toggleAutopilot()
-        for scheme in [ColorScheme.light, .dark] {
-            try render(store, defaults: defaults, directory: directory, name: "autopilot-preview-en-\(scheme)", scheme: scheme)
-        }
-        let autopilotGate = MergeGate()
-        store.autopilot.enable(store.batchCandidates, viewer: "me", operations: .init(
-            read: { candidate, viewer in
-                if candidate.id == "batch-4" { await autopilotGate.enter() }
-                return .init(viewer: viewer, pullRequest: candidate.pullRequest, isOpen: true)
-            }, write: { _ in }))
-        await autopilotGate.waitUntilEntered()
-        for scheme in [ColorScheme.light, .dark] {
-            try render(store, defaults: defaults, directory: directory, name: "autopilot-running-en-\(scheme)", scheme: scheme)
-        }
-        store.autopilot.isExpanded = false
-        try render(store, defaults: defaults, directory: directory, name: "autopilot-collapsed-en", scheme: .light)
-        store.autopilot.stop()
-        await autopilotGate.release()
-        await store.autopilot.waitUntilIdle()
     }
 
     private func render(_ store: ReviewQueueStore, defaults: UserDefaults, directory: String, name: String, scheme: ColorScheme) throws {

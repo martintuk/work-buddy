@@ -116,14 +116,19 @@ struct ActivityLogTests {
         #expect(store.activity.entries.first?.source == .manual)
     }
 
-    @Test("History uses English action titles and error messages")
-    func englishHistory() {
+    @Test("History text follows language changes")
+    func localizedHistory() throws {
+        var language = AppLanguage.spanish
         let log = ActivityLog()
-        let id = log.record(title: LocalizedMessage(L10n.text(.prApprove)),
+        let id = log.record(title: LocalizedMessage(L10n.text(.prApprove, language: language)),
                             target: "org/api #1", symbol: "checkmark.circle")
+        #expect(log.entries.first?.title.text == "Aprobar")
+        language = .english
         #expect(log.entries.first?.title.text == "Approve")
-        log.update(id, status: .failed(LocalizedMessage(L10n.text(.activityOpenFailed))))
+        log.update(id, status: .failed(LocalizedMessage(L10n.text(.activityOpenFailed, language: language))))
         #expect(log.entries.first?.status.text == "Could not open the link")
+        language = .spanish
+        #expect(log.entries.first?.status.text == "No se pudo abrir el enlace")
     }
 
     private func runner() -> GitHubActionRunner {
