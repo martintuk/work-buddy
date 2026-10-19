@@ -133,8 +133,7 @@ un clone o worktree local (con `.git`). La asociación se guarda entre reinicios
 y mantiene el repo en la lista aunque no tenga PRs. Pasar el mouse muestra la
 ruta; otro click permite cambiarla y el menú contextual permite quitarla. Este
 paso solo guarda la carpeta elegida: no clona ni cambia de rama, y no verifica
-que el remoto corresponda al repo; las acciones locales deberán validarlo antes
-de operar.
+que el remoto corresponda al repo; las acciones locales lo validan antes de operar.
 
 Con una carpeta asociada, el menú `⋯` del PR ofrece **Abrir en editor**.
 Si todavía no elegiste uno, indica que lo configures en **Configuración → Editor**.
@@ -142,7 +141,13 @@ La elección se hace únicamente ahí y se guarda como preferencia global; despu
 el menú muestra **Abrir en RubyMine**, por ejemplo.
 Detecta los IDEs de JetBrains (incluidas instalaciones de Toolbox), VS Code,
 Cursor, Xcode y otros editores instalados, con **Elegir otra app…** para ubicaciones
-personalizadas. Abre la carpeta en su rama actual, sin cambiar el checkout.
+personalizadas. Antes de abrir el editor o un agente, verifica un remoto del
+repositorio y que la rama local coincida con el commit mostrado en el PR. Si falta
+la rama local, usa la rama del remoto verificado y consulta ese remoto si hace
+falta. No resetea ramas ni descarta cambios locales. Si la rama está desactualizada,
+el PR viene de un fork con otra revisión o la carpeta es incorrecta, explica el
+problema y no abre automáticamente: actualizá o hacé checkout del PR manualmente
+y reintentá. Luego del cambio de rama vuelve a verificar el commit.
 
 ## Requisitos
 

@@ -450,6 +450,9 @@ final class ReviewQueueStore {
         if let warning = projectOpener.warning {
             activity.record(title: LocalizedMessage(self.agentCLI.openTitle), target: "\(pr.repository) #\(pr.number)",
                 detail: pr.title, url: pr.url, symbol: "terminal", status: .skipped(LocalizedMessage(warning.text)))
+        } else if let error = projectOpener.error {
+            activity.record(title: LocalizedMessage(self.agentCLI.openTitle), target: "\(pr.repository) #\(pr.number)",
+                detail: pr.title, url: pr.url, symbol: "terminal", status: .failed(LocalizedMessage(error.localizedDescription)))
         }
     }
 

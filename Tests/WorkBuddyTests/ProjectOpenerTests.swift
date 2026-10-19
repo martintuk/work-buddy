@@ -21,6 +21,20 @@ struct ProjectOpenerTests {
         #expect(!opener.isOpening)
     }
 
+    @Test("Identity or revision mismatches block both opening targets without a fallback", arguments: [
+        ProjectOpener.Target.editor, .agent,
+    ])
+    func verificationFailure(target: ProjectOpener.Target) async {
+        for failure in [LocalBranchCheckout.VerificationError.wrongRepository, .missingCommit, .wrongRevision("feature/test")] {
+            let opener = ProjectOpener(checkout: { _ in throw failure })
+            await opener.open(request, target: target) { _ in Issue.record("Must not launch") }
+            await opener.openWithoutBranch { _ in Issue.record("Must not bypass verification") }
+            #expect(opener.error is LocalBranchCheckout.VerificationError)
+            #expect(opener.warning == nil)
+            #expect(!opener.isOpening)
+        }
+    }
+
     @Test("A failed checkout waits for the fallback button and never retries Git")
     func fallback() async {
         let attempts = Attempts()

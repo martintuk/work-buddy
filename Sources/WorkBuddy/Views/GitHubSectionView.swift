@@ -213,6 +213,8 @@ struct GitHubSectionView: View {
             // falta las dos a la vez.
             if let warning = store.projectOpener.warning {
                 branchWarning(warning)
+            } else if let error = store.projectOpener.error {
+                projectError(error)
             } else if let pendingAction, store.isAvailable(pendingAction),
                       let pullRequest = store.currentPullRequest(id: pendingAction.pullRequestID) {
                 confirmBar(pendingAction, pullRequest: pullRequest)
@@ -251,6 +253,21 @@ struct GitHubSectionView: View {
             }
             .controlSize(.small)
             .buttonStyle(.borderedProminent)
+            dismissProjectNoticeButton
+        }
+        .font(.system(size: 10))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Color.orange.opacity(0.16))
+    }
+
+    private func projectError(_ error: Error) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text(error.localizedDescription)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
             dismissProjectNoticeButton
         }
         .font(.system(size: 10))

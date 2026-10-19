@@ -70,6 +70,8 @@ extension L10n {
         case .editorBranchLocalChanges: "Hay cambios locales sin guardar en un commit."
         case .editorBranchOperationInProgress: "Hay una operación de Git en curso."
         case .editorBranchWrongRepository: "La carpeta asociada no tiene un remoto del repositorio del PR."
+        case .editorBranchMissingCommit: "No pude verificar el commit del PR. Actualizá la cola y reintentá."
+        case .editorBranchWrongRevision: "El branch %@ no coincide con el commit del PR. Actualizalo o hacé checkout del PR en la carpeta asociada y reintentá."
 
         // MARK: - Agent CLI
         case .agentTerminal: "Terminal"

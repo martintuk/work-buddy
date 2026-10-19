@@ -36,6 +36,9 @@ final class ProjectOpener {
         defer { openingID = nil }
         do {
             try await checkout(request)
+        } catch let failure as LocalBranchCheckout.VerificationError {
+            error = failure
+            return // No ofrecer abrir código cuya identidad o revisión no coincide.
         } catch {
             warning = Warning(request: request, target: target, reason: error)
             return // Abrir sin el branch siempre requiere el click del usuario.

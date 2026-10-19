@@ -70,6 +70,8 @@ extension L10n {
         case .editorBranchLocalChanges: "There are uncommitted local changes."
         case .editorBranchOperationInProgress: "A Git operation is in progress."
         case .editorBranchWrongRepository: "The associated folder has no remote matching the PR repository."
+        case .editorBranchMissingCommit: "Could not verify the PR commit. Refresh the queue and try again."
+        case .editorBranchWrongRevision: "Branch %@ does not match the PR commit. Update it or check out the PR in the associated folder and try again."
 
         // MARK: - Agent CLI
         case .agentTerminal: "Terminal"

@@ -69,6 +69,8 @@ extension L10n {
         case editorBranchLocalChanges
         case editorBranchOperationInProgress
         case editorBranchWrongRepository
+        case editorBranchMissingCommit
+        case editorBranchWrongRevision
 
         // MARK: - Agent CLI
         case agentTerminal
