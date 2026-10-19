@@ -8,16 +8,24 @@ available as an experimental feature, disabled by default.
 
 ## Install
 
-With [Homebrew](https://brew.sh):
+Install with [Homebrew](https://brew.sh):
 
 ```bash
 brew install --cask martintuk/tap/work-buddy
-gh auth login
 ```
 
 Open **Work Buddy** from Applications. The download supports Apple silicon and
 Intel, is signed with Developer ID, and is notarized by Apple. Homebrew also
 installs the GitHub CLI dependency.
+
+To use the app's GitHub features, connect the GitHub CLI to your account:
+
+```bash
+gh auth login
+```
+
+This sign-in is not required to install Work Buddy. Skip it if `gh` is already
+authenticated on this Mac.
 
 To update:
 
