@@ -6,10 +6,34 @@ A macOS app that brings together pull requests needing your attention. Review,
 approve, merge, or open them in your editor or AI agent. Jira integration is
 available as an experimental feature, disabled by default.
 
+## Install
+
+With [Homebrew](https://brew.sh):
+
+```bash
+brew install --cask martintuk/tap/work-buddy
+gh auth login
+```
+
+Open **Work Buddy** from Applications. The download supports Apple silicon and
+Intel, is signed with Developer ID, and is notarized by Apple. Homebrew also
+installs the GitHub CLI dependency.
+
+To update:
+
+```bash
+brew update
+brew upgrade --cask work-buddy
+```
+
+For a manual installation, download the ZIP from
+[GitHub Releases](https://github.com/martintuk/work-buddy/releases/latest),
+extract it, and move **Work Buddy.app** to Applications. Install the GitHub CLI
+with `brew install gh` and sign in with `gh auth login`.
+
 ## Requirements
 
 - macOS 14+
-- Xcode Command Line Tools (`xcode-select --install`). Full Xcode is not required.
 - GitHub CLI (`gh`), authenticated with `gh auth login`.
 - Optional: Atlassian CLI (`acli`), authenticated with `acli jira auth login`, for Jira.
 
@@ -28,7 +52,10 @@ Jira starts disabled. When disabled, the panel opens GitHub directly, without
 category tabs or new Atlassian requests. Credentials remain with `gh` and `acli`;
 the app stores its preferences in `UserDefaults`.
 
-## Run
+## Build from source
+
+Install Xcode Command Line Tools (`xcode-select --install`), then clone this
+repository. Full Xcode is not required for ordinary local builds.
 
 ```bash
 ./scripts/run.sh          # build in debug mode, install, and restart

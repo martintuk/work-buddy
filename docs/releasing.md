@@ -1,8 +1,9 @@
 # Releasing Work Buddy
 
-The distribution target is a Developer ID-signed, notarized app in GitHub
-Releases. A Homebrew cask can download that same archive once public releases
-are available. The local release script prepares the archive; it does not
+Work Buddy is distributed as a Developer ID-signed, notarized app in
+[GitHub Releases](https://github.com/martintuk/work-buddy/releases).
+The [Homebrew cask](https://github.com/martintuk/homebrew-tap/blob/main/Casks/work-buddy.rb)
+downloads the same archive. The local release script prepares the archive; it does not
 create a release, push a tag, or change repository visibility.
 
 ## One-time setup
@@ -80,16 +81,46 @@ tag. Users can extract **Work Buddy.app**, move it to Applications, and open it.
 They need macOS 14+ and an authenticated GitHub CLI (`gh auth login`); they do
 not need Xcode or Swift to run the packaged app.
 
-For Homebrew, the next step is a public `martintuk/homebrew-tap` repository with
-`Casks/work-buddy.rb` referencing the release URL, SHA-256, macOS minimum, `gh`
-dependency, and `app "Work Buddy.app"`. That will enable
-`brew install --cask martintuk/tap/work-buddy` and `brew upgrade --cask work-buddy`.
-These commands are not available until the tap and downloadable release exist.
-The source repository can stay private if the release artifacts are hosted
-separately at a public URL. Review repository history before making it public.
+### Publish to GitHub and Homebrew
 
-After the local release passes, CI can call the same script with a temporary
-signing keychain and notarization credentials supplied through GitHub secrets.
+The first public release is **0.1.0, build 2**. For each subsequent version:
+
+1. Commit the source changes, run the tests, push the commit, and wait for CI
+   to pass. Build from a clean checkout so `WorkBuddyRevision` identifies that
+   exact commit. Pick a new version and an increasing build number.
+2. Run `release.sh` with that version and build number. Check the notarization
+   log for issues, and test the final ZIP as described above.
+3. Create and push a tag pointing to the **commit used for that build**, then
+   create a draft GitHub Release with the ZIP and checksum. For example:
+
+   ```bash
+   git tag -a v0.1.1 -m 'Work Buddy 0.1.1' <built-commit>
+   git push origin v0.1.1
+   gh release create v0.1.1 \
+     build/releases/0.1.1-3/work-buddy-0.1.1-universal.zip \
+     build/releases/0.1.1-3/work-buddy-0.1.1-universal.zip.sha256 \
+     --repo martintuk/work-buddy --verify-tag --draft \
+     --title 'Work Buddy 0.1.1' --notes-file /path/to/release-notes.md
+   ```
+
+4. Review the draft, then publish with
+   `gh release edit v0.1.1 --repo martintuk/work-buddy --draft=false --latest`.
+   Verify the download works without GitHub authentication.
+5. In `martintuk/homebrew-tap`, update `version` and `sha256` in
+   `Casks/work-buddy.rb` using the final ZIP's checksum. The URL interpolates
+   the version automatically. Commit and push the cask only after the release
+   is downloadable.
+6. Verify `brew fetch --cask martintuk/tap/work-buddy` and test installation.
+   Existing users update with `brew update` followed by
+   `brew upgrade --cask work-buddy`.
+
+Keep published release assets immutable. Ship a new version when the app or
+archive changes so checksums and Homebrew updates remain consistent.
+
+Signing and notarization currently run on the maintainer's Mac; GitHub CI runs
+tests and a build. The signing private key and notarization credentials remain
+in the local Keychain. A future signing workflow would need a temporary
+keychain and explicitly configured GitHub secrets.
 
 References: Apple's [notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow)
 and [Apple Events entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.automation.apple-events).
