@@ -38,13 +38,21 @@ final class PullRequestAutopilot {
     static let maxRetryDelay: TimeInterval = 15 * 60
     private var operations: Operations?
     private var task: Task<Void, Never>?
+    private var stopTimer: Timer?
+    private var stopDeadline: Date?
     var onActivity: (Entry) -> Void = { _ in }
     private let runner: GitHubActionRunner
     private let now: () -> Date
+    private let calendar: Calendar
+    private let scheduleTimer: (Timer) -> Void
 
-    init(runner: GitHubActionRunner = .shared, now: @escaping () -> Date = { .now }) {
+    init(runner: GitHubActionRunner = .shared, now: @escaping () -> Date = { .now },
+         calendar: Calendar = .autoupdatingCurrent,
+         scheduleTimer: @escaping (Timer) -> Void = { RunLoop.main.add($0, forMode: .common) }) {
         self.runner = runner
         self.now = now
+        self.calendar = calendar
+        self.scheduleTimer = scheduleTimer
     }
 
     func present(_ candidates: [Candidate], viewer: String) {
@@ -69,6 +77,7 @@ final class PullRequestAutopilot {
         self.operations = operations
         notice = nil
         isEnabled = true
+        scheduleMidnightStop()
         reconcile(candidates, viewer: viewer)
     }
 
@@ -80,11 +89,36 @@ final class PullRequestAutopilot {
 
     func stop() {
         isEnabled = false
+        stopTimer?.invalidate()
+        stopTimer = nil
+        stopDeadline = nil
         rebuildQueue()
+    }
+
+    private func scheduleMidnightStop() {
+        guard let deadline = calendar.dateInterval(of: .day, for: now())?.end else {
+            stop()
+            return
+        }
+        stopDeadline = deadline
+        let timer = Timer(fire: deadline, interval: 0, repeats: false) { [weak self] _ in
+            // Registrado en el run loop principal, incluso con el panel cerrado.
+            MainActor.assumeIsolated { _ = self?.shouldStop() }
+        }
+        stopTimer = timer
+        scheduleTimer(timer)
+    }
+
+    private func shouldStop() -> Bool {
+        // Revalidar también al retomar una lectura o espera: el timer puede
+        // seguir pendiente al despertar la Mac después de medianoche.
+        if isEnabled, let stopDeadline, now() >= stopDeadline { stop() }
+        return !isEnabled
     }
 
     func reconcile(_ candidates: [Candidate], viewer: String) {
         guard isPresented else { return }
+        _ = shouldStop()
         if self.viewer.lowercased() != viewer.lowercased() {
             if isActive {
                 notice = LocalizedMessage(L10n.text(.batchAccountChanged))
@@ -127,11 +161,11 @@ final class PullRequestAutopilot {
     }
 
     private func pump() {
-        guard isEnabled, task == nil, !queue.isEmpty, let operations else { return }
+        guard !shouldStop(), task == nil, !queue.isEmpty, let operations else { return }
         let read = operations.read
         let write = operations.write
         task = Task {
-            while isEnabled, let candidate = queue.first {
+            while !shouldStop(), let candidate = queue.first {
                 guard operations.reserve(candidate) else {
                     deferRetry(candidate.fingerprint)
                     rebuildQueue()
@@ -153,7 +187,7 @@ final class PullRequestAutopilot {
                             return snapshot
                         },
                         write: { _ in try await write(candidate) },
-                        shouldStop: { !self.isEnabled },
+                        shouldStop: { self.shouldStop() },
                         isAllowed: { _ in
                             operations.isAllowed(candidate) && self.latest.contains { $0.fingerprint == candidate.fingerprint }
                         },

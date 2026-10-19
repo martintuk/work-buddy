@@ -176,7 +176,7 @@ extension L10n {
         case .autopilotStart: "Start"
         case .autopilotStop: "Stop"
         case .autopilotOpen: "Abrir autopilot de Dependabot"
-        case .autopilotHelp: "Aprueba y mergea Dependabot con los filtros actuales, incluidos PRs nuevos. Sigue activo con la cola vacía o el panel cerrado hasta pulsar Stop."
+        case .autopilotHelp: "Aprueba y mergea Dependabot con los filtros actuales, incluidos PRs nuevos. Sigue activo con la cola vacía o el panel cerrado hasta pulsar Stop o las 00:00 de la hora local."
         case .autopilotEmpty: "Sin PRs de Dependabot listos"
         case .autopilotWaiting: "Esperando PRs de Dependabot"
         case .autopilotPaused: "Autopilot detenido · Revisar resultado"

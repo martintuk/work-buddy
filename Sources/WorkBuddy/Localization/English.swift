@@ -176,7 +176,7 @@ extension L10n {
         case .autopilotStart: "Start"
         case .autopilotStop: "Stop"
         case .autopilotOpen: "Open Dependabot autopilot"
-        case .autopilotHelp: "Approves and merges Dependabot within the current filters, including new PRs. Stays active with an empty queue or a closed panel until Stop."
+        case .autopilotHelp: "Approves and merges Dependabot within the current filters, including new PRs. Stays active with an empty queue or a closed panel until Stop or 00:00 local time."
         case .autopilotEmpty: "No Dependabot PRs ready"
         case .autopilotWaiting: "Waiting for Dependabot PRs"
         case .autopilotPaused: "Autopilot stopped · Check result"

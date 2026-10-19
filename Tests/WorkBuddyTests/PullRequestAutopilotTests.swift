@@ -45,6 +45,113 @@ struct PullRequestAutopilotTests {
               write: { await calls.append($0.fingerprint) })
     }
 
+    private func date(_ value: String) -> Date { ISO8601DateFormatter().date(from: value)! }
+    private func calendar(_ timeZone: String = "America/Montevideo") -> Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: timeZone)!
+        return calendar
+    }
+
+    @Test("Se apaga a medianoche aun sin trabajo ni refresh, usando el día local", arguments: [
+        ("America/Montevideo", "2026-10-19T23:59:59-03:00", "2026-10-20T00:00:00-03:00"),
+        ("America/Montevideo", "2026-10-19T00:00:00-03:00", "2026-10-20T00:00:00-03:00"),
+        ("America/New_York", "2026-03-08T00:00:00-05:00", "2026-03-09T00:00:00-04:00"),
+        ("America/New_York", "2026-11-01T00:00:00-04:00", "2026-11-02T00:00:00-05:00")
+    ])
+    func midnightWhileIdle(timeZone: String, start: String, midnight: String) throws {
+        let clock = AutopilotClock()
+        clock.date = date(start)
+        var scheduled: Timer?
+        let autopilot = PullRequestAutopilot(now: { clock.date }, calendar: calendar(timeZone),
+                                            scheduleTimer: { scheduled = $0 })
+        autopilot.enable([], viewer: "me", operations: operations(AutopilotCalls()))
+        let timer = try #require(scheduled)
+        #expect(timer.fireDate == date(midnight))
+        clock.date = date(midnight).addingTimeInterval(-1)
+        autopilot.reconcile([], viewer: "me")
+        #expect(autopilot.isEnabled)
+        clock.date = date(midnight)
+        timer.fire()
+        #expect(!autopilot.isActive && autopilot.isPresented && autopilot.history.isEmpty)
+        #expect(!timer.isValid)
+
+        // El corte no se revierte por un refresh; Start habilita un día nuevo.
+        autopilot.reconcile([], viewer: "me")
+        #expect(!autopilot.isEnabled)
+        autopilot.enable([], viewer: "me", operations: operations(AutopilotCalls()))
+        #expect(autopilot.isEnabled && scheduled !== timer)
+        #expect(scheduled?.fireDate == calendar(timeZone).date(byAdding: .day, value: 1, to: date(midnight)))
+        autopilot.stop()
+        #expect(scheduled?.isValid == false)
+    }
+
+    @Test("Una lectura que termina después de medianoche no envía la acción aunque el timer siga pendiente")
+    func midnightDuringRead() async {
+        let clock = AutopilotClock()
+        clock.date = date("2026-10-19T23:59:59-03:00")
+        let autopilot = PullRequestAutopilot(runner: clock.runner(), now: { clock.date },
+                                            calendar: calendar(), scheduleTimer: { _ in })
+        let gate = AutopilotGate()
+        let calls = AutopilotCalls()
+        autopilot.enable(candidates([fixture(1), fixture(2)]), viewer: "me", operations: .init(
+            read: { candidate, viewer in
+                await gate.enter()
+                return .init(viewer: viewer, pullRequest: candidate.pullRequest, isOpen: true)
+            }, write: { await calls.append($0.id) }))
+        await gate.wait()
+        clock.date = date("2026-10-20T00:00:00-03:00")
+        await gate.release()
+        await autopilot.waitUntilIdle()
+        #expect(!autopilot.isActive && autopilot.queue.count == 2)
+        if case .skipped(.stopped)? = autopilot.history.last?.status {} else { Issue.record("Debe indicar el corte de Autopilot") }
+        #expect(await calls.values.isEmpty)
+    }
+
+    @Test("El corte a medianoche deja terminar una escritura enviada y conserva los pendientes")
+    func midnightDuringWrite() async throws {
+        let clock = AutopilotClock()
+        clock.date = date("2026-10-19T23:59:59-03:00")
+        var scheduled: Timer?
+        let autopilot = PullRequestAutopilot(runner: clock.runner(), now: { clock.date },
+                                            calendar: calendar(), scheduleTimer: { scheduled = $0 })
+        let gate = AutopilotGate()
+        let calls = AutopilotCalls()
+        autopilot.enable(candidates([fixture(1), fixture(2)]), viewer: "me", operations: .init(
+            read: { .init(viewer: $1, pullRequest: $0.pullRequest, isOpen: true) },
+            write: { candidate in
+                await calls.append(candidate.id)
+                if candidate.id == "batch-1" { await gate.enter() }
+            }))
+        await gate.wait()
+        clock.date = date("2026-10-20T00:00:00-03:00")
+        try #require(scheduled).fire()
+        #expect(!autopilot.isEnabled && autopilot.current?.id == "batch-1")
+        await gate.release()
+        await autopilot.waitUntilIdle()
+        #expect(!autopilot.isActive && autopilot.queue.map(\.id) == ["batch-2"])
+        if case .completed(.approve)? = autopilot.history.last?.status {} else { Issue.record("Debe registrar la aprobación enviada") }
+        #expect(await calls.values == ["batch-1"])
+    }
+
+    @Test("El cooldown que cruza medianoche detiene la cola antes de leer el próximo PR")
+    func midnightDuringCooldown() async {
+        let clock = AutopilotClock()
+        clock.date = date("2026-10-19T23:59:59-03:00")
+        let autopilot = PullRequestAutopilot(runner: clock.runner(), now: { clock.date },
+                                            calendar: calendar(), scheduleTimer: { _ in })
+        let reads = AutopilotCalls()
+        let calls = AutopilotCalls()
+        autopilot.enable(candidates([fixture(1), fixture(2)]), viewer: "me", operations: .init(
+            read: { candidate, viewer in
+                await reads.append(candidate.id)
+                return .init(viewer: viewer, pullRequest: candidate.pullRequest, isOpen: true)
+            }, write: { await calls.append($0.id) }))
+        await autopilot.waitUntilIdle()
+        #expect(!autopilot.isActive && autopilot.queue.map(\.id) == ["batch-2"])
+        #expect(await reads.values == ["batch-1"])
+        #expect(await calls.values == ["batch-1"])
+    }
+
     @Test("Entrar sólo muestra la cola, que se mantiene viva estando apagado")
     func preview() {
         let autopilot = PullRequestAutopilot()
