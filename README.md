@@ -54,6 +54,7 @@ Quit with Command-Q, the panel's Quit button, the app menu, or the Dock menu.
 
 - [User guide](docs/user-guide.md): queues, actions, filters, agents, and activity.
 - [Development](docs/development.md): builds, tests, architecture, and interface text.
+- [Releasing](docs/releasing.md): signing, notarization, and distribution packaging.
 - [Diagnostics](docs/diagnostics.md): logs and performance measurements.
 - [Measured assumptions](docs/assumptions.md): evidence and limits behind decisions.
 - [Open decisions](docs/open-decisions.md): proposals and scope decisions.
