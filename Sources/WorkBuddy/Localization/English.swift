@@ -33,7 +33,6 @@ extension L10n {
         // MARK: - Settings
         case .settingsTitle: "Settings"
         case .settingsClose: "Close settings"
-        case .settingsLanguage: "Language"
         case .settingsEmptySections: "Show empty sections"
         case .settingsEmptySectionsHelp: "Show or hide sections with no items"
         case .settingsAutoConfirmActions: "Auto-confirm actions"

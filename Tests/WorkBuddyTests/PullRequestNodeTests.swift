@@ -63,7 +63,7 @@ struct PullRequestNodeTests {
     ) throws -> PullRequest {
         let personalReviews = personalState.map { [review(author: personalAuthor, state: $0)] } ?? []
         let fixture: [String: Any] = [
-            "id": "PR_1", "number": 1, "title": "Un cambio",
+            "id": "PR_1", "number": 1, "title": "A change",
             "url": "https://github.com/org/repo/pull/1",
             "repository": ["nameWithOwner": "org/repo"],
             "baseRefName": "main", "headRefName": "feature",

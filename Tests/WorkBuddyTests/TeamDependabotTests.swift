@@ -7,7 +7,7 @@ struct TeamDependabotTests {
     @Test("General ownership handles comments, case, and the last global rule")
     func ownership() {
         let identities: Set<String> = ["@org/team", "@me"]
-        #expect(TeamDependabot.hasGeneralOwnership("* @ORG/TEAM # comentario", identities: identities))
+        #expect(TeamDependabot.hasGeneralOwnership("* @ORG/TEAM # comment", identities: identities))
         #expect(TeamDependabot.hasGeneralOwnership("* @me\n/docs/ @other", identities: identities))
         #expect(!TeamDependabot.hasGeneralOwnership("# * @me\n/folder/ @org/team", identities: identities))
         #expect(!TeamDependabot.hasGeneralOwnership("* @org/team\n* @other", identities: identities))

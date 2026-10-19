@@ -7,7 +7,6 @@ struct PanelView: View {
 
     let store: ReviewQueueStore
     let jiraStore: JiraStore
-    var onLanguageChange: () -> Void = {}
     var onPinChange: (Bool) -> Void = { _ in }
     var repositoryPickerWindow: () -> NSWindow? = { nil }
 
@@ -29,11 +28,10 @@ struct PanelView: View {
         .frame(width: Self.preferredSize.width, height: Self.preferredSize.height)
         // Use the same opaque background as pinned headers, including margins and footer.
         .background(Color(nsColor: .windowBackgroundColor))
-        .environment(\.locale, Locale(identifier: Localization.shared.language.rawValue))
+        .environment(\.locale, L10n.locale)
         .onChange(of: jiraStore.isEnabled) { _, enabled in
             if !enabled { selectedCategory = .github }
         }
-        .onChange(of: Localization.shared.language) { _, _ in onLanguageChange() }
     }
 
     private var panel: some View {

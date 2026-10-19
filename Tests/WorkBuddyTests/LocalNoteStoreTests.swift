@@ -17,8 +17,8 @@ struct LocalNoteStoreTests {
         let text = "  Remember tomorrow 📝\n- without **formatting**\nhttps://example.com\n"
         store.setText(text, for: id)
         #expect(LocalNoteStore(defaults: defaults).text(for: id) == text)
-        store.setText("Una sola nota actualizada", for: id)
-        #expect(LocalNoteStore(defaults: defaults).text(for: id) == "Una sola nota actualizada")
+        store.setText("One updated note", for: id)
+        #expect(LocalNoteStore(defaults: defaults).text(for: id) == "One updated note")
     }
 
     @Test("Deleting notes leaves other items and preferences unchanged")
@@ -26,20 +26,20 @@ struct LocalNoteStoreTests {
         let suite = "local-notes-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set("es", forKey: "appearance.language")
+        defaults.set(true, forKey: "appearance.showEmptySections")
         let github = LocalNoteID.github(nodeID: "PR_123", host: "github.com")
         let other = LocalNoteID.github(nodeID: "PR_456", host: "github.com")
         let jira = LocalNoteID.jira(key: "APP-1", site: URL(string: "https://team.atlassian.net")!)
         let store = LocalNoteStore(defaults: defaults)
         store.setText("GitHub", for: github)
-        store.setText("Otro PR", for: other)
+        store.setText("Another PR", for: other)
         store.setText("Jira", for: jira)
         store.setText("", for: github)
         let restored = LocalNoteStore(defaults: defaults)
         #expect(restored.text(for: github).isEmpty)
-        #expect(restored.text(for: other) == "Otro PR")
+        #expect(restored.text(for: other) == "Another PR")
         #expect(restored.text(for: jira) == "Jira")
-        #expect(defaults.string(forKey: "appearance.language") == "es")
+        #expect(defaults.bool(forKey: "appearance.showEmptySections"))
     }
 
     @Test("Stable identities separated by provider and site")

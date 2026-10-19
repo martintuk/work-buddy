@@ -86,7 +86,7 @@ enum GitHubQueueRefresh {
         async let merge = try? fetch(.merge, queries.merge, update: Update.merge)
         async let ownAndReplies: Void = loadOwnAndReplies()
 
-        _ = try await review // Conserva la prioridad de review al iniciar Dependabot.
+        _ = try await review // Preserve review priority when starting Dependabot.
         try Task.checkCancellation()
         async let dependabot = try? fetch(.dependabot, queries.dependabot, update: Update.dependabot)
 

@@ -71,10 +71,6 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             rootView: PanelView(
                 store: store,
                 jiraStore: jiraStore,
-                onLanguageChange: { [weak self] in
-                    self?.updateBadge()
-                    self?.configureApplicationMenu()
-                },
                 onPinChange: { [weak self] isPinned in
                     self?.isPinned = isPinned
                     self?.popover.behavior = isPinned ? .applicationDefined : .transient

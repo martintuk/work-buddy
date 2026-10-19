@@ -9,12 +9,12 @@ struct BehindCountTests {
     func aliasPerPR() {
         let query = BehindCount.query(for: [
             makePullRequest(repository: "example-org/one", base: "main", head: "branch-a"),
-            makePullRequest(repository: "example-org/dos", base: "master", head: "branch-b")
+            makePullRequest(repository: "example-org/two", base: "master", head: "branch-b")
         ])
 
         // Aliases are positional: each index maps back to its PR.
         #expect(query.contains("p0: repository(owner: \"example-org\", name: \"one\")"))
-        #expect(query.contains("p1: repository(owner: \"example-org\", name: \"dos\")"))
+        #expect(query.contains("p1: repository(owner: \"example-org\", name: \"two\")"))
         #expect(query.contains("ref(qualifiedName: \"main\")"))
         #expect(query.contains("ref(qualifiedName: \"master\")"))
         #expect(query.contains("compare(headRef: \"branch-a\")"))
@@ -26,10 +26,10 @@ struct BehindCountTests {
     @Test("Split repositories into owner and name")
     func repositoryComponents() {
         let query = BehindCount.query(for: [
-            makePullRequest(repository: "org/nombre-con-guiones", base: "main", head: "x")
+            makePullRequest(repository: "org/name-with-hyphens", base: "main", head: "x")
         ])
         #expect(query.contains("owner: \"org\""))
-        #expect(query.contains("name: \"nombre-con-guiones\""))
+        #expect(query.contains("name: \"name-with-hyphens\""))
     }
 
     @Test("Branch names containing slashes remain valid")
@@ -46,10 +46,10 @@ struct BehindCountTests {
     @Test("Reject refs containing characters that could break the query")
     func unsafeRefs() {
         // Git forbids these characters in refs, making interpolation safe. If that changes, validation skips measurement instead of emitting a malformed query.
-        #expect(!BehindCount.isSafeRef("rama\"con-comilla"))
-        #expect(!BehindCount.isSafeRef("rama\\con-barra"))
-        #expect(!BehindCount.isSafeRef("rama con espacio"))
-        #expect(!BehindCount.isSafeRef("rama\ncon-newline"))
+        #expect(!BehindCount.isSafeRef("branch\"with-quote"))
+        #expect(!BehindCount.isSafeRef("branch\\with-backslash"))
+        #expect(!BehindCount.isSafeRef("branch with spaces"))
+        #expect(!BehindCount.isSafeRef("branch\nwith-newline"))
         #expect(!BehindCount.isSafeRef(""))
 
         #expect(BehindCount.isSafeRef("main"))
@@ -73,7 +73,7 @@ private func makePullRequest(
     PullRequest(
         id: "PR_\(UUID().uuidString)",
         number: 1,
-        title: "un cambio",
+        title: "a change",
         url: URL(string: "https://github.com/\(repository)/pull/1")!,
         repository: repository,
         baseRefName: base,

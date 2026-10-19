@@ -117,6 +117,9 @@ project file.
 
 ## Interface text
 
+All repository documentation, code comments, test descriptions, and app-owned
+interface text are in English. The app has no language selector.
+
 Interface text, tooltips, accessibility labels, errors, and notifications live in
 `Sources/WorkBuddy/Localization/`, grouped by feature. `LocalizationKey.swift`
 defines semantic keys. Use `L10n.text(.settingsTitle)` instead of embedding copy

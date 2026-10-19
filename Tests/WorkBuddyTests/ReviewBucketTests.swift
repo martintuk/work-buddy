@@ -579,7 +579,7 @@ private func makePullRequest(
     PullRequest(
         id: "PR_\(number)_\(UUID().uuidString)",
         number: number,
-        title: "un cambio",
+        title: "a change",
         url: URL(string: "https://github.com/\(repository)/pull/\(number)")!,
         repository: repository,
         baseRefName: "main",

@@ -1,5 +1,7 @@
 # Work Buddy
 
+The interface, documentation, and code are in English.
+
 A macOS app that brings together pull requests needing your attention. Review,
 approve, merge, or open them in your editor or AI agent. Jira integration is
 available as an experimental feature, disabled by default.

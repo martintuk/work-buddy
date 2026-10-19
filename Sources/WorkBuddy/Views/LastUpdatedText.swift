@@ -2,7 +2,7 @@ import Foundation
 
 enum LastUpdatedText {
     static func format(
-        _ lastUpdated: Date, relativeTo now: Date, language: AppLanguage? = nil
+        _ lastUpdated: Date, relativeTo now: Date
     ) -> String {
         // A refresh can finish after the current tick; never describe it as future.
         let seconds = max(0, Int(now.timeIntervalSince(lastUpdated)))
@@ -19,6 +19,6 @@ enum LastUpdatedText {
         default:
             (value, singular, plural) = (seconds / 86_400, .updatedDaysOne, .updatedDaysMany)
         }
-        return L10n.text(value == 1 ? singular : plural, String(value), language: language)
+        return L10n.text(value == 1 ? singular : plural, String(value))
     }
 }

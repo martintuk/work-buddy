@@ -40,12 +40,8 @@ struct JiraConfigurationTests {
         #expect(loaded.isEnabled)
         #expect(loaded.primaryJQL == "project = ABC")
         #expect(loaded.recentJQL == "creator = currentUser()")
-        for language in [AppLanguage.spanish, .english] {
-            L10n.$renderLanguage.withValue(language) {
-                #expect(loaded.primaryTitle == L10n.text(.jiraAssignedToMe))
-                #expect(loaded.recentTitle == L10n.text(.jiraRecentlyCreated))
-            }
-        }
+        #expect(loaded.primaryTitle == "Assigned to me")
+        #expect(loaded.recentTitle == "Recently created")
         try loaded.persist(defaults: defaults)
         let saved = try #require(defaults.data(forKey: JiraConfiguration.preferenceKey))
         let fields = try #require(JSONSerialization.jsonObject(with: saved) as? [String: Any])

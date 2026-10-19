@@ -17,7 +17,7 @@ struct ReplyQueueTests {
 
     @Test("Mentions in others' PRs remain pending after further external comments")
     func pendingMention() throws {
-        let value = try decode(thread(comments: [comment(html: mention), comment(html: "Otro mensaje")]))
+        let value = try decode(thread(comments: [comment(html: mention), comment(html: "Another message")]))
         #expect(value.attention(authoredByMe: false, me: "me") == .needsReply)
     }
 
@@ -200,7 +200,7 @@ struct ReplyQueueTests {
         }
     }
 
-    private func comment(mine: Bool = false, html: String = "Un comentario", state: String = "SUBMITTED") -> [String: Any] {
+    private func comment(mine: Bool = false, html: String = "A comment", state: String = "SUBMITTED") -> [String: Any] {
         ["viewerDidAuthor": mine, "bodyHTML": html, "state": state]
     }
 
@@ -224,7 +224,7 @@ struct ReplyQueueTests {
 
     private func pullRequest(_ number: Int, author: String = "me") throws -> PullRequest {
         let data = try JSONSerialization.data(withJSONObject: [
-            "id": "PR_\(number)", "number": number, "title": "Un cambio",
+            "id": "PR_\(number)", "number": number, "title": "A change",
             "url": "https://github.com/org/repo/pull/\(number)",
             "repository": ["nameWithOwner": "org/repo"],
             "baseRefName": "main", "headRefName": "feature",

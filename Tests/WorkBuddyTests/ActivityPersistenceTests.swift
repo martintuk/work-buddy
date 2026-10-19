@@ -5,13 +5,13 @@ import Testing
 @Suite("Activity persistence")
 @MainActor
 struct ActivityPersistenceTests {
-    @Test("A new store restores manual actions, batches, and Autopilot with data and translations")
+    @Test("A new store restores manual actions, batches, and Autopilot with data and English text")
     func roundTrip() throws {
         let url = temporaryURL()
         defer { removeDirectory(url) }
         let log = ActivityLog(storageURL: url)
         let date = Date(timeIntervalSince1970: 1_700_000_000)
-        let manual = log.record(title: LocalizedMessage(L10n.text(.editorOpen)), target: "org/café #1",
+        let manual = log.record(title: LocalizedMessage(L10n.text(.editorOpen)), target: "org/rocket-🚀 #1",
             detail: "Project with Unicode and 100%", url: fixture(1).url, symbol: "terminal", date: date)
         log.record(PullRequestBatch.Entry(candidate: .init(pullRequest: fixture(2), action: .approve),
                    status: .completed(.approve)), source: .batch, viewer: "me")
@@ -19,26 +19,20 @@ struct ActivityPersistenceTests {
                    status: .failed(LocalizedMessage("GitHub unavailable"))), source: .autopilot, viewer: "me")
         let skipped = log.record(.approve, on: fixture(4),
             status: .skipped(LocalizedMessage(L10n.text(.batchChanged))), viewer: "me")
-        let language = Localization.shared.language
         let restored = ActivityLog(storageURL: url)
         #expect(restored.entries.map(\.id) == log.entries.map(\.id))
         #expect(restored.entries.map(\.source) == [.manual, .autopilot, .batch, .manual])
         #expect(restored.unreadIDs == log.unreadIDs)
         let entry = try #require(restored.entries.first { $0.id == manual })
-        #expect(entry.date == date && entry.target == "org/café #1")
+        #expect(entry.date == date && entry.target == "org/rocket-🚀 #1")
         #expect(entry.detail == "Project with Unicode and 100%" && entry.url == fixture(1).url)
         #expect(entry.symbol == "terminal")
         let approved = try #require(restored.entries.first { $0.source == .batch })
         #expect(approved.action == .approve && approved.pullRequest?.headRefOID == fixture(2).headRefOID)
         #expect(approved.pullRequest?.author.isDependabot == true && approved.viewer == "me")
-        for selected in [AppLanguage.spanish, .english] {
-            L10n.$renderLanguage.withValue(selected) {
-                #expect(entry.title.text == L10n.text(.editorOpen))
-                #expect(approved.statusText == L10n.text(.prApproved))
-                #expect(restored.entries.first { $0.id == skipped }?.status.text == L10n.text(.batchChanged))
-            }
-        }
-        #expect(Localization.shared.language == language)
+        #expect(entry.title.text == L10n.text(.editorOpen))
+        #expect(approved.statusText == L10n.text(.prApproved))
+        #expect(restored.entries.first { $0.id == skipped }?.status.text == L10n.text(.batchChanged))
     }
 
     @Test("Updated outcomes and read activity survive another restart")

@@ -17,7 +17,7 @@ struct PanelDiagnosticsTests {
         let value = panel.measure(.panelRefresh) { instant += .milliseconds(2); return 42 }
         panel.measure(.panelLayout) { instant += .milliseconds(25) }
         panel.measure(.panelShow) { instant += .milliseconds(8); panel.shown() }
-        panel.shown() // Un callback duplicado no registra dos aperturas.
+        panel.shown() // A duplicate callback does not record two openings.
         let open = try DiagnosticExport(await log.exportData())
         #expect(value == 42)
         #expect(open.text.contains("· in_progress"))

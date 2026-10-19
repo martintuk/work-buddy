@@ -65,11 +65,11 @@ struct GitHubWriteTests {
     func separateArguments() {
         // Each value gets its own argv element so unusual repository names cannot become extra flags.
         let arguments = GitHubWrite.merge(
-            repository: "org/repo con espacios",
+            repository: "org/repo with spacess",
             number: 3,
             method: .squash
         ).arguments
-        #expect(arguments.contains("org/repo con espacios"))
+        #expect(arguments.contains("org/repo with spacess"))
         #expect(arguments.count == 6)
     }
 }
@@ -242,12 +242,12 @@ private func makePullRequest(
     PullRequest(
         id: id,
         number: 1,
-        title: "un cambio",
+        title: "a change",
         url: URL(string: "https://github.com/org/repo/pull/1")!,
         repository: "org/repo",
         baseRefName: "main",
         headRefName: "feature-branch",
-        author: author ?? Author(login: authoredByMe ? "yo" : "otro", typename: "User"),
+        author: author ?? Author(login: authoredByMe ? "me" : "other", typename: "User"),
         updatedAt: .now,
         isDraft: isDraft,
         checks: .success,

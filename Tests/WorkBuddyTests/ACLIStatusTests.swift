@@ -66,12 +66,10 @@ struct JiraQueueTests {
             #expect(error.reason == reason)
             #expect(Diagnostics.Failure(error).category == Diagnostics.Failure(error.underlying).category)
             #expect(Diagnostics.Failure(error).exitCode == 2)
-            for language in [AppLanguage.spanish, .english] {
-                let message = L10n.$renderLanguage.withValue(language) { error.localizedDescription }
-                #expect(message.contains(output))
-                #expect(message.contains("2"))
-                #expect(!message.contains("%@"))
-            }
+            let message = error.localizedDescription
+            #expect(message.contains(output))
+            #expect(message.contains("2"))
+            #expect(!message.contains("%@"))
         }
     }
 
@@ -105,7 +103,7 @@ struct JiraQueueTests {
     @Test("Valid queries retain tickets and empty responses remain valid")
     func successfulFetch() async throws {
         let items = try await JiraQueue.fetch(jql: JiraConfiguration.defaultPrimaryJQL, title: "My queue") { _ in
-            Data(#"[{"key":"LABOS-42","fields":{"summary":"Revisar cambio","issuetype":{"name":"Story"}}}]"#.utf8)
+            Data(#"[{"key":"LABOS-42","fields":{"summary":"Review change","issuetype":{"name":"Story"}}}]"#.utf8)
         }
         #expect(items.map(\.key) == ["LABOS-42"])
         let empty = try await JiraQueue.fetch(jql: JiraConfiguration.defaultPrimaryJQL, title: "My queue") { _ in Data("[]".utf8) }
@@ -114,11 +112,11 @@ struct JiraQueueTests {
 
     @Test("Decode ACLI JSON responses")
     func decoding() throws {
-        let data = Data(#"[{"key":"LABOS-42","fields":{"summary":"Revisar cambio","issuetype":{"name":"Story"}}}]"#.utf8)
+        let data = Data(#"[{"key":"LABOS-42","fields":{"summary":"Review change","issuetype":{"name":"Story"}}}]"#.utf8)
         let items = try JSONDecoder().decode([JiraWorkItem].self, from: data)
         let item = try #require(items.first)
         #expect(item.key == "LABOS-42")
-        #expect(item.title == "Revisar cambio")
+        #expect(item.title == "Review change")
         #expect(item.issueType == "Story")
     }
 }

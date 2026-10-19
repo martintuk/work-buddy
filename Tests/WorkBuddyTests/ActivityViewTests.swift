@@ -27,7 +27,7 @@ struct ActivityViewTests {
                        path: "\(directory)/activity-\(scheme).png")
             let store = ReviewQueueStore.preview(reviews: [], merges: [])
             store.autopilot.enable([], viewer: "me", operations: .init(
-                read: { _, _ in fatalError("Sin candidatos") }, write: { _ in fatalError("Sin escrituras") }))
+                read: { _, _ in fatalError("No candidates") }, write: { _ in fatalError("No writes") }))
             try render(VStack(spacing: 0) {
                 ActivityView(activity: log, onBack: {})
                 PullRequestExecutionControls(store: store, compact: true)
