@@ -59,8 +59,8 @@ fi
         path.write_text("#!/bin/bash\nset -eu\n" + body + "\n")
         path.chmod(0o755)
 
-    def run_install(self, failure=""):
-        return subprocess.run([str(self.root / "scripts/run.sh")],
+    def run_install(self, failure="", arguments=()):
+        return subprocess.run([str(self.root / "scripts/run.sh"), *arguments],
                               env=dict(self.environment, TEST_FAIL=failure),
                               capture_output=True, text=True)
 
@@ -88,6 +88,13 @@ fi
                 self.assertEqual((self.app / "version").read_text(), "old")
                 self.assertEqual(self.events.read_text(), "")
                 self.assert_clean()
+
+    def test_rejects_unknown_configuration_before_building(self):
+        result = self.run_install(arguments=["bogus"])
+        self.assertEqual(result.returncode, 64)
+        self.assertIn("Usage:", result.stderr)
+        self.assertEqual((self.app / "version").read_text(), "old")
+        self.assertEqual(self.events.read_text(), "")
 
     def test_cannot_replace_app_that_did_not_exit(self):
         self.assertNotEqual(self.run_install("stop").returncode, 0)

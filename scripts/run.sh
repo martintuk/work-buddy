@@ -2,10 +2,25 @@
 # Build, install at a stable location, and open through Launch Services.
 set -euo pipefail
 
+usage() {
+    cat <<EOF
+Usage: scripts/run.sh [debug|release]
+
+Build (default: debug), install at \$WORK_BUDDY_APP_DIR/Work Buddy.app
+(default: ~/Applications), and restart the app.
+EOF
+}
+
+case "${1:-debug}" in
+    debug | release) CONFIG="${1:-debug}" ;;
+    -h | --help) usage; exit 0 ;;
+    *) usage >&2; exit 64 ;;
+esac
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_DIR="${WORK_BUDDY_APP_DIR:-$HOME/Applications}"
 APP="$APP_DIR/Work Buddy.app"
-BUNDLE="$("$ROOT/scripts/build.sh" "${1:-debug}")"
+BUNDLE="$("$ROOT/scripts/build.sh" "$CONFIG")"
 
 # Prepare and verify the complete copy before closing the running app.
 mkdir -p "$APP_DIR"
@@ -48,7 +63,7 @@ if ! mv "$STAGING/Work Buddy.app" "$APP"; then
 fi
 
 # Launch Services owns the process independently of this terminal.
-# -g avoids stealing focus whenever the watcher installs an update.
+# -g keeps focus in the terminal.
 if ! open -g "$APP"; then
     rm -rf "$APP"
     if [[ -e "$STAGING/previous.app" ]]; then

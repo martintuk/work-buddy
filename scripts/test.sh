@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run tests.
+# Run the Swift tests. Extra arguments are passed to swift test.
 #
 # These flags support swift-testing with the Command Line Tools. SwiftPM omits
 # the Testing.framework search path and lib_TestingInterop.dylib rpath, even

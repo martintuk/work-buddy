@@ -3,8 +3,22 @@
 # The Command Line Tools are sufficient; full Xcode is not required.
 set -euo pipefail
 
+usage() {
+    cat <<EOF
+Usage: scripts/build.sh [debug|release]
+
+Build build/work-buddy.app (default: debug) and print its path.
+Set WORK_BUDDY_SIGNING_IDENTITY to choose a code-signing identity.
+EOF
+}
+
+case "${1:-debug}" in
+    debug | release) CONFIG="${1:-debug}" ;;
+    -h | --help) usage; exit 0 ;;
+    *) usage >&2; exit 64 ;;
+esac
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CONFIG="${1:-debug}"
 
 APP_NAME="work-buddy"
 EXECUTABLE="WorkBuddy"
