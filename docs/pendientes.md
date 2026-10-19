@@ -7,7 +7,8 @@ implementado pero sin verificar. Lo que ya está medido vive en
 Existe porque el riesgo de este proyecto no es olvidarse *el código*, es
 olvidarse **por qué algo no se hizo** y volver a proponerlo.
 
-Última revisión: **2026-09-03**.
+Última limpieza documental: **2026-10-19**. Las comprobaciones manuales pendientes
+siguen sin darse por verificadas.
 
 ---
 
@@ -59,16 +60,9 @@ comportamiento observable.
 
 - **El menú `⋯` no cierra el panel.** El discriminante (`NSApp.isActive`) está
   medido, pero el gesto no se probó. Ver supuesto #5, que trae el comando con log.
-- **Aporte del merge al badge.** El badge suma review + merge deduplicando por id,
+- **Aporte del merge al badge.** El badge suma las colas que requieren acción deduplicando por id,
   y hay test de que ignorados no cuentan. Pero cuando se revisó a mano,
   `readyToMerge` era 0, así que la suma con ambos términos distintos de cero no se
   vio nunca.
 - **La sección de automatización con 50 filas.** Arranca colapsada. Nadie la
   expandió para ver si scrollea bien.
-
-### Ya verificado, se puede sacar de esta lista
-
-- **Costo de los batches de comparación a escala real.** Quedaba la duda de si
-  `BehindCount` aguantaba con la cola llena, porque los 502 habían aparecido con
-  56 PRs. Con 59 PRs (3 batches de 20) salieron **0 filas sin medir** — ningún
-  `↓?` en el volcado.

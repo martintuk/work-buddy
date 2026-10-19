@@ -66,8 +66,6 @@ extension L10n {
         case editorMissingFolder
         case editorBranchUnavailable
         case editorOpenProject
-        case editorBranchLocalChanges
-        case editorBranchOperationInProgress
         case editorBranchWrongRepository
         case editorBranchMissingCommit
         case editorBranchWrongRevision
@@ -121,7 +119,6 @@ extension L10n {
         case repositoriesAll
         case repositoriesFilterHelp
         case repositoriesFilteredEmpty
-        case repositoriesHiddenResults
         case repositoriesShowAll
         case repositoriesFavoriteAccessibility
         case repositoriesSelectAccessibility

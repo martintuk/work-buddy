@@ -102,9 +102,9 @@ Si dan el mismo número, o `review-requested` da menos, el supuesto ya no vale.
 sola query hacen falta 3 páginas y ~17s; separadas, la de personas entra en una
 página y el panel aparece en ~4s, y dependabot se carga en segunda fase.
 
-**Asumimos** que entre las dos no se pierde ni se duplica nada, y por eso
-`ReviewQueueStore.reviewQueue` las concatena **sin deduplicar**. Lo fija
-`QueryShapeTests.complementarias`.
+Las búsquedas de personas y Dependabot son complementarias; lo fija
+`QueryShapeTests.complementarias`. Actualmente `ReviewQueueStore.reviewQueue`
+también incorpora Dependabot de equipos y **deduplica por id** las tres fuentes.
 
 **Qué se rompe:** si la org migra a Renovate, sus PRs caen en la cola de
 ReviewQueue —el filtro no los excluye—. `Author.isBot` permite agruparlos
@@ -153,7 +153,7 @@ cierre el panel.
 Al activar otra app, el handler de `didResignKey` recibe `isActive = false`.
 macOS 26.6.2.
 
-**Qué se rompe:** si macOS cambia cuándo una app `.accessory` se considera
+**Qué se rompe:** si macOS cambia cuándo la app se considera
 activa, el panel se cierra al abrir el menú de acciones (o deja de cerrarse al
 perder el foco).
 
@@ -249,18 +249,18 @@ está. Agregar el prefijo a `candidatePaths`.
 
 ---
 
-## 9. La firma ad-hoc alcanza para notificaciones
+## 9. La firma y los permisos condicionan las notificaciones
 
-**Dónde:** `Scripts/build.sh` (`codesign --sign -`) y `Notifier`.
+**Medición histórica (2026-09-02):** una firma ad-hoc permitió autorizar y entregar
+una notificación de prueba en macOS 26.6.2. Ese resultado no garantiza que otras
+instalaciones acepten la misma firma.
 
-**Medición:** con el bundle firmado ad-hoc, `requestAuthorization` devolvió
-concedido y `authorizationStatus` quedó en `authorized`. La notificación de
-prueba se entregó. macOS 26.6.2.
+**Comportamiento actual:** `Scripts/build.sh` usa una identidad Apple disponible
+o `WORK_BUDDY_SIGNING_IDENTITY`. Sin identidad, firma ad-hoc y avisa que macOS
+puede rechazar las notificaciones. `Notifier` informa errores de autorización;
+la interfaz permite habilitar y probar los envíos.
 
-**Qué se rompe:** si Apple endurece los requisitos, las notificaciones se caen en
-silencio — la app no avisa que no puede avisar.
-
-**Cómo detectarlo:**
+**Cómo comprobar una instalación:**
 
 ```bash
 "build/work-buddy.app/Contents/MacOS/WorkBuddy" --check-notifications

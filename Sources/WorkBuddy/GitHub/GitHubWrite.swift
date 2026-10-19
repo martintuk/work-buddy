@@ -95,13 +95,4 @@ enum GitHubWrite: Sendable {
         }
     }
 
-    /// Lo que la acción hizo, en pasado, para el aviso al usuario.
-    var pastTense: String {
-        switch self {
-        case .approve, .approveCommit: L10n.text(.prApproved)
-        case .rebase: L10n.text(.prRebased)
-        case .dependabotRebase: L10n.text(.prDependabotRequested)
-        case .merge, .mergeCommit: L10n.text(.prMerged)
-        }
-    }
 }
