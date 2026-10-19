@@ -31,8 +31,8 @@ the app stores its preferences in `UserDefaults`.
 ## Run
 
 ```bash
-./Scripts/run.sh          # build in debug mode, install, and restart
-./Scripts/run.sh release  # same workflow with an optimized build
+./scripts/run.sh          # build in debug mode, install, and restart
+./scripts/run.sh release  # same workflow with an optimized build
 ```
 
 The app is installed at `~/Applications/Work Buddy.app` with its own icon.

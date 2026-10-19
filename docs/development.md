@@ -5,12 +5,12 @@ Run commands from the repository root.
 ## Tests
 
 ```bash
-./Scripts/test.sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s Tests/Scripts
+./scripts/test.sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s Tests/scripts
 ```
 
 With the Command Line Tools and SDK 27, run Swift tests using
-`SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk ./Scripts/test.sh`.
+`SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk ./scripts/test.sh`.
 Script tests verify installation and error recovery without touching the
 installed app.
 
@@ -37,7 +37,7 @@ the panel, must run from the executable inside the `.app` so `Bundle.main`
 resolves correctly:
 
 ```bash
-./Scripts/build.sh
+./scripts/build.sh
 APP="build/work-buddy.app/Contents/MacOS/WorkBuddy"
 WORK_BUDDY_DEBUG=1 "$APP" --open-panel   # open on startup; log to stderr
 "$APP" --check-notifications            # diagnose notification permissions
@@ -46,7 +46,7 @@ WORK_BUDDY_DEBUG=1 "$APP" --open-panel   # open on startup; log to stderr
 ## Build without launching
 
 ```bash
-./Scripts/build.sh  # print the generated .app path under build/
+./scripts/build.sh  # print the generated .app path under build/
 swift build         # executable only, without a bundle
 ```
 
@@ -95,9 +95,9 @@ Sources/WorkBuddy/
 └── Debug/                    CLI dumps and diagnostics.
 
 Resources/Info.plist          App metadata and bundle identifier.
-Resources/AppIcon.icns        App icon; generator under Scripts/.
-Scripts/                     Build, install, and test utilities.
-Tests/                       Domain, lifecycle, persistence, and script tests.
+Resources/AppIcon.icns        App icon; generator under scripts/.
+scripts/                      Build, install, and test utilities.
+Tests/                        Domain, lifecycle, persistence, and script tests.
 ```
 
 ## Design decisions

@@ -1,5 +1,5 @@
 // Regenerate Resources/AppIcon.icns using the menu bar's orbit design.
-// Run from the repository root: swift Scripts/generate-app-icon.swift
+// Run from the repository root: swift scripts/generate-app-icon.swift
 import AppKit
 
 let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()

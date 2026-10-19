@@ -144,7 +144,7 @@ opens, or keep it open after focus moves elsewhere.
 **Detection:** open `⋯` and observe panel behavior with logging:
 
 ```bash
-./Scripts/build.sh
+./scripts/build.sh
 WORK_BUDDY_DEBUG=1 "build/work-buddy.app/Contents/MacOS/WorkBuddy" --open-panel
 ```
 
@@ -225,7 +225,7 @@ prefix to `candidatePaths`.
 authorization and delivered a test notification on macOS 26.6.2. This does not
 guarantee acceptance on other installations.
 
-**Current behavior:** `Scripts/build.sh` uses an available Apple identity or
+**Current behavior:** `scripts/build.sh` uses an available Apple identity or
 `WORK_BUDDY_SIGNING_IDENTITY`. Without one, it signs ad hoc and warns that macOS
 may reject notifications. `Notifier` reports authorization errors. Settings
 provides enable and test controls.

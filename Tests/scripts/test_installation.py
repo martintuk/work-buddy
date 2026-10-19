@@ -1,6 +1,6 @@
 """Exercise installation failures without touching the real app or processes.
 
-Run with: python3 -m unittest discover -s Tests/Scripts
+Run with: python3 -m unittest discover -s Tests/scripts
 """
 import os
 from pathlib import Path
@@ -18,9 +18,9 @@ class InstallationTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix="work-buddy scripts ")
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
-        scripts = self.root / "Scripts"
+        scripts = self.root / "scripts"
         scripts.mkdir()
-        shutil.copy2(ROOT / "Scripts/run.sh", scripts / "run.sh")
+        shutil.copy2(ROOT / "scripts/run.sh", scripts / "run.sh")
         self.bundle = self.root / "build/work-buddy.app"
         self.bundle.mkdir(parents=True)
         (self.bundle / "version").write_text("new")
@@ -60,7 +60,7 @@ fi
         path.chmod(0o755)
 
     def run_install(self, failure=""):
-        return subprocess.run([str(self.root / "Scripts/run.sh")],
+        return subprocess.run([str(self.root / "scripts/run.sh")],
                               env=dict(self.environment, TEST_FAIL=failure),
                               capture_output=True, text=True)
 

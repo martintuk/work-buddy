@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_DIR="${WORK_BUDDY_APP_DIR:-$HOME/Applications}"
 APP="$APP_DIR/Work Buddy.app"
-BUNDLE="$("$ROOT/Scripts/build.sh" "${1:-debug}")"
+BUNDLE="$("$ROOT/scripts/build.sh" "${1:-debug}")"
 
 # Prepare and verify the complete copy before closing the running app.
 mkdir -p "$APP_DIR"
