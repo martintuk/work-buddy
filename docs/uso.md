@@ -3,7 +3,7 @@
 La cola incluye pedidos de review personales y a tus equipos. Las categorías
 separan la acción pendiente de los PRs aprobados y la automatización.
 
-En **Configuración**, **Incluir Dependabot de mis equipos** permite seleccionar
+En **Configuración → GitHub**, **Incluir Dependabot de mis equipos** permite seleccionar
 los equipos de trabajo con checkboxes, sin mantener una lista de repositorios.
 La app consulta sus repos y lee CODEOWNERS en la rama principal: incluye aquellos
 cuya última regla general `*` menciona al usuario o a los equipos seleccionados.
@@ -115,19 +115,22 @@ categorías: el panel abre GitHub directamente y no inicia consultas a Jira.
 Al apagarlo se descarta la carga pendiente y se limpian los tickets visibles;
 las consultas guardadas se conservan para la próxima vez.
 
-La configuración permite editar el nombre y JQL de dos colas. Por defecto:
+Cada lista se identifica por su nombre en el panel. **Nombre en el panel** cambia
+su título; **Qué tickets mostrar (JQL)** define qué tickets incluye y su orden.
+Las listas predeterminadas son:
 
 - **Asignados a mí:** `assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC`.
 - **Creados recientemente:** `creator = currentUser() ORDER BY created DESC`, con un máximo de 10 tickets.
 
-**Guardar consultas** aplica los cambios y recarga. El botón de restablecer
+**Guardar cambios** aplica los cambios y recarga. El botón de restablecer
 recupera los valores predeterminados en los campos; hay que guardarlos para
 aplicarlos. El orden de cada cola lo define su JQL. Los errores indican qué cola
 falló, qué configuración revisar y conservan el detalle del CLI.
 
-La cuenta y el sitio son los de la sesión activa de `acli`. Desde Configuración
-podés copiar `acli jira auth login` para conectar o cambiar de sitio en Terminal
-y después volver a verificar. Work Buddy no solicita ni almacena credenciales.
+La cuenta y el sitio son los de la sesión activa de `acli`. Dentro de
+**Configuración → Jira (experimental)**, **Copiar comando para iniciar sesión**
+copia `acli jira auth login`; pegalo en Terminal para conectar o cambiar de
+cuenta/sitio y después usá **Verificar conexión con Jira**. Work Buddy no solicita ni almacena credenciales.
 No requiere campos personalizados ni estados propios de un equipo.
 
 Dentro de la categoría **GitHub**, el botón **Repositorios** abre una lista con búsqueda
@@ -149,7 +152,7 @@ paso solo guarda la carpeta elegida: no clona ni cambia de rama, y no verifica
 que el remoto corresponda al repo; las acciones locales lo validan antes de operar.
 
 Con una carpeta asociada, el menú `⋯` del PR ofrece **Abrir en editor**.
-Si todavía no elegiste uno, indica que lo configures en **Configuración → Editor**.
+Si todavía no elegiste uno, indica que lo configures en **Configuración → GitHub → Editor**.
 La elección se hace únicamente ahí y se guarda como preferencia global; después
 el menú muestra **Abrir en RubyMine**, por ejemplo.
 Detecta los IDEs de JetBrains (incluidas instalaciones de Toolbox), VS Code,

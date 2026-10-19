@@ -54,7 +54,7 @@ El script usa una identidad Apple de firma de código disponible en el llavero.
 Podés elegir una con `WORK_BUDDY_SIGNING_IDENTITY`. Sin identidad disponible,
 usa firma ad-hoc y avisa que macOS puede rechazar las notificaciones.
 
-En Configuración, **Habilitar** guarda la preferencia de envíos automáticos y
+En Configuración → GitHub, **Habilitar** guarda la preferencia de envíos automáticos y
 **Probar** manda una notificación. Ambos requieren el permiso de macOS: si ya
 está denegado, se debe permitir una vez en Configuración del Sistema →
 Notificaciones → work-buddy; la app no puede concederse ese permiso.

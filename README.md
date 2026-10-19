@@ -13,22 +13,19 @@ de Jira mediante el CLI de Atlassian como función experimental, desactivada por
 
 ## Configuración
 
-El engranaje del panel abre la configuración del entorno:
+El engranaje abre las preferencias generales de idioma y apariencia, con dos
+subsecciones navegables:
 
-- **Idioma:** español o inglés, aplicado al instante y guardado entre reinicios.
-  Se conserva español por defecto.
+- **GitHub:** organizaciones, equipos de Dependabot, cuentas de automatización,
+  confirmación de acciones, notificaciones, editor y agente CLI.
+- **Jira (experimental):** habilitar la integración, copiar el comando de inicio
+  de sesión y editar las listas de tickets. Cada lista tiene un **Nombre en el
+  panel** y un filtro **Qué tickets mostrar (JQL)**. Por defecto son **Asignados
+  a mí** y **Creados recientemente** (hasta 10 tickets).
 
-- **Organizaciones de GitHub:** opcionales; limitan las búsquedas a los owners
-  seleccionados. Sin selección se conserva el alcance global de `@me`.
-- **Cuentas de automatización:** logins que GitHub reporta como `User`, pero que
-  deben tratarse como bots. Los GitHub Apps ya se detectan automáticamente.
-
-- **Jira (experimental):** apagado por defecto. Al habilitarlo aparecen las pestañas
-  GitHub/Jira y los campos para editar los nombres y consultas JQL de sus dos colas.
-  Sin Jira, el panel muestra GitHub directamente y no inicia consultas a Atlassian.
-
-Se guardan identificadores en `UserDefaults`, nunca tokens. La autenticación y
-los permisos siguen a cargo de la sesión activa del CLI `gh`.
+Jira empieza apagado. Sin Jira, el panel muestra GitHub directamente, sin pestañas
+superiores ni nuevas consultas a Atlassian. Las credenciales permanecen en los
+CLIs `gh` y `acli`; las preferencias de la app se guardan en `UserDefaults`.
 
 ## Correr
 

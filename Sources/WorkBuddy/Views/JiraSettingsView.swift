@@ -10,10 +10,10 @@ struct JiraSettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(L10n.text(.settingsJiraExperimental))
+                Text(L10n.text(.settingsJiraEnable))
                     .font(.system(size: 12, weight: .semibold))
                 Spacer()
-                Toggle(L10n.text(.settingsJiraExperimental), isOn: Binding(
+                Toggle(L10n.text(.settingsJiraEnable), isOn: Binding(
                     get: { store.isEnabled },
                     set: { enabled in
                         do {
@@ -25,44 +25,53 @@ struct JiraSettingsView: View {
                 ))
                 .labelsHidden()
                 .toggleStyle(.switch)
-                .accessibilityLabel(L10n.text(.settingsJiraExperimental))
+                .accessibilityLabel(L10n.text(.settingsJiraEnable))
             }
 
             if store.isEnabled {
-                HStack(spacing: 8) {
-                    Text(store.siteURL?.host ?? L10n.text(.settingsJiraAccount))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 8) {
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(JiraSectionView.loginCommand, forType: .string)
+                            copied = true
+                        } label: {
+                            Label(L10n.text(copied ? .jiraCommandCopied : .settingsJiraCopyLogin),
+                                  systemImage: copied ? "checkmark" : "doc.on.doc")
+                        }
                         .help(L10n.text(.settingsJiraAccountHelp))
-                    Spacer()
-                    Button {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(JiraSectionView.loginCommand, forType: .string)
-                        copied = true
-                    } label: {
-                        Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                        Spacer(minLength: 0)
+                        RefreshButton(isRefreshing: store.isChecking, label: L10n.text(.settingsJiraVerifyConnection)) {
+                            store.refresh()
+                        }
                     }
-                    .help(L10n.text(copied ? .jiraCommandCopied : .settingsJiraCopyLogin))
-                    .accessibilityLabel(L10n.text(.settingsJiraCopyLogin))
-                    RefreshButton(isRefreshing: store.isChecking, label: L10n.text(.jiraCheckAgain)) {
-                        store.refresh()
+                    Text(L10n.text(.settingsJiraAccountHelp))
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                    if let host = store.siteURL?.host {
+                        Text(L10n.text(.settingsJiraConnectedSite, host))
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
                     }
                 }
-                .font(.system(size: 11))
 
-                queryFields(title: .settingsJiraPrimary, name: $draft.primaryName,
+                Divider()
+                Text(L10n.text(.settingsJiraListsHelp))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                queryFields(title: store.configuration.primaryTitle, name: $draft.primaryName,
                             query: $draft.primaryJQL, placeholder: .jiraAssignedToMe)
-                queryFields(title: .settingsJiraRecent, name: $draft.recentName,
-                            query: $draft.recentJQL, placeholder: .jiraRecentlyCreated)
+                queryFields(title: L10n.text(.settingsJiraListLimit, store.configuration.recentTitle),
+                            name: $draft.recentName, query: $draft.recentJQL, placeholder: .jiraRecentlyCreated)
 
                 HStack {
-                    Button {
+                    Button(L10n.text(.settingsJiraReset)) {
                         draft = JiraConfiguration()
                         draft.isEnabled = store.isEnabled
                         error = nil
-                    } label: { Image(systemName: "arrow.counterclockwise") }
-                        .help(L10n.text(.settingsJiraReset))
-                        .accessibilityLabel(L10n.text(.settingsJiraReset))
+                    }
+                    .help(L10n.text(.settingsJiraResetHelp))
                     Spacer()
                     Button(L10n.text(.settingsJiraSave)) {
                         do {
@@ -84,16 +93,20 @@ struct JiraSettingsView: View {
         .onAppear { draft = store.configuration }
     }
 
-    private func queryFields(title: L10n.Key, name: Binding<String>, query: Binding<String>,
+    private func queryFields(title: String, name: Binding<String>, query: Binding<String>,
                              placeholder: L10n.Key) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(L10n.text(title)).font(.system(size: 11, weight: .medium))
+            Text(title).font(.system(size: 11, weight: .semibold))
+            Text(L10n.text(.settingsJiraQueueName))
+                .font(.system(size: 10)).foregroundStyle(.secondary)
             TextField(L10n.text(placeholder), text: name)
                 .accessibilityLabel(L10n.text(.settingsJiraQueueName))
+            Text(L10n.text(.settingsJiraQueryLabel))
+                .font(.system(size: 10)).foregroundStyle(.secondary)
             TextField("JQL", text: query, axis: .vertical)
                 .lineLimit(2...4)
                 .font(.system(size: 11, design: .monospaced))
-                .accessibilityLabel(L10n.text(.settingsJiraQuery, L10n.text(title)))
+                .accessibilityLabel(L10n.text(.settingsJiraQuery, title))
                 .help(L10n.text(.settingsJiraQueryHelp))
         }
         .textFieldStyle(.roundedBorder)

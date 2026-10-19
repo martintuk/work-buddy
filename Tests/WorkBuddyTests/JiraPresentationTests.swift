@@ -24,10 +24,18 @@ struct JiraPresentationTests {
         try render(PanelView(store: github, jiraStore: enabled), size: PanelView.preferredSize,
                    path: "\(directory)/github-jira.png")
         for scheme in [ColorScheme.light, .dark] {
-            try render(JiraSettingsView(store: enabled).padding(16)
-                .frame(width: 420, height: 410)
+            try render(ConfigurationView(store: github, jiraStore: enabled)
+                .frame(width: 420, height: 480)
                 .background(Color(nsColor: .windowBackgroundColor))
-                .environment(\.colorScheme, scheme), size: NSSize(width: 420, height: 410),
+                .environment(\.colorScheme, scheme), size: NSSize(width: 420, height: 480),
+                       path: "\(directory)/settings-home-\(scheme).png", scheme: scheme)
+            try render(VStack(spacing: 0) {
+                SubsectionHeader(title: "Jira", onBack: {})
+                ScrollView { JiraSettingsView(store: enabled).padding(16) }
+            }
+                .frame(width: 420, height: 480)
+                .background(Color(nsColor: .windowBackgroundColor))
+                .environment(\.colorScheme, scheme), size: NSSize(width: 420, height: 480),
                        path: "\(directory)/jira-settings-\(scheme).png", scheme: scheme)
         }
     }

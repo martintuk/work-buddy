@@ -44,8 +44,7 @@ struct PanelView: View {
                 ActivityView(activity: store.activity) { showingActivity = false }
                     .frame(maxHeight: .infinity)
             } else if showingConfiguration {
-                SubsectionHeader(title: L10n.text(.settingsTitle)) { showingConfiguration = false }
-                ConfigurationView(store: store, jiraStore: jiraStore)
+                ConfigurationView(store: store, jiraStore: jiraStore) { showingConfiguration = false }
             } else if showingRepositories {
                 SubsectionHeader(title: L10n.text(.repositoriesTitle)) { showingRepositories = false }
                 RepositoryFilterView(store: store, parentWindow: repositoryPickerWindow)

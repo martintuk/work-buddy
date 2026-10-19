@@ -141,11 +141,8 @@ extension L10n {
         case menuQuit
 
         case settingsJiraExperimental
-        case settingsJiraAccount
         case settingsJiraAccountHelp
         case settingsJiraCopyLogin
-        case settingsJiraPrimary
-        case settingsJiraRecent
         case settingsJiraReset
         case settingsJiraSave
         case settingsJiraQueueName
@@ -155,6 +152,14 @@ extension L10n {
         case errorJiraFieldUnavailable
         case errorJiraStatusUnavailable
         case errorJiraQuery
+
+        case settingsJiraEnable
+        case settingsJiraVerifyConnection
+        case settingsJiraConnectedSite
+        case settingsJiraListsHelp
+        case settingsJiraListLimit
+        case settingsJiraQueryLabel
+        case settingsJiraResetHelp
 
         // MARK: - Jira
         case jiraLoading
