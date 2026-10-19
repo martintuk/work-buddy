@@ -26,6 +26,7 @@ BUNDLE="$ROOT/build/$APP_NAME.app"
 
 cd "$ROOT"
 
+# shellcheck source=lib/toolchain.sh
 source "$ROOT/scripts/lib/toolchain.sh"
 
 # Send build logs to stderr so stdout contains only the bundle path.

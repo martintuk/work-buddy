@@ -9,6 +9,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/toolchain.sh
 source "$ROOT/scripts/lib/toolchain.sh"
 FRAMEWORKS="$DEVELOPER_DIR_PATH/Library/Developer/Frameworks"
 LIBS="$DEVELOPER_DIR_PATH/Library/Developer/usr/lib"

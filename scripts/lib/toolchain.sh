@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Shared toolchain setup for the build and test scripts. Source, do not run.
 
 # Starting with SDK 27, @State uses SwiftUIMacros, whose plugin ships with Xcode.
