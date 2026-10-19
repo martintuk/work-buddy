@@ -57,3 +57,8 @@ Quit with Command-Q, the panel's Quit button, the app menu, or the Dock menu.
 - [Diagnostics](docs/diagnostics.md): logs and performance measurements.
 - [Measured assumptions](docs/assumptions.md): evidence and limits behind decisions.
 - [Open decisions](docs/open-decisions.md): proposals and scope decisions.
+- [Contributing](CONTRIBUTING.md): checks to run before opening a pull request.
+
+## License
+
+[MIT](LICENSE)
