@@ -96,7 +96,7 @@ Sources/WorkBuddy/
 
 Resources/Info.plist          App metadata and bundle identifier.
 Resources/AppIcon.icns        App icon; generator under Scripts/.
-Scripts/                     Build, install, test, and watch utilities.
+Scripts/                     Build, install, and test utilities.
 Tests/                       Domain, lifecycle, persistence, and script tests.
 ```
 

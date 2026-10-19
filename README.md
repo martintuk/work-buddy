@@ -42,34 +42,13 @@ its Dock icon opens the panel. The orbit icon also appears in the menu bar.
 
 Each run replaces the installed copy after building and verifying its signature.
 If the build fails, the running app stays open. To install elsewhere, set
-`WORK_BUDDY_APP_DIR` for both the run and watch scripts.
+`WORK_BUDDY_APP_DIR`.
 
 - **Left click:** open or close the panel.
 - **Right click:** open the context menu (About / Quit).
 - Losing focus hides the panel without quitting the app.
 
 Quit with Command-Q, the panel's Quit button, the app menu, or the Dock menu.
-
-### Use another computer and update from Git
-
-On the computer running the app, clone the repository and install its dependencies:
-
-```bash
-./Scripts/run.sh
-./Scripts/watch-main.sh
-```
-
-The watcher checks `origin/main` every five seconds. When new commits arrive,
-it updates the checkout, builds, and installs the app in the same location.
-There is no need to copy the `.app` manually. The watcher must keep running to
-receive updates; stopping it does not quit the app. This computer needs the
-Command Line Tools and its own CLI sessions. The watcher does not push local
-commits and pauses on conflicts or when the checkout is on another branch.
-
-It also compares the checkout revision with the installed app. A manual pull,
-missing installation, or previous build failure triggers installation without
-requiring another commit. Failed installations retry every 60 seconds and log to
-`build/watch-main.log`. The watcher waits for a clean checkout before building.
 
 ## Documentation
 
