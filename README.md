@@ -12,8 +12,6 @@ agent to work on the code.
   <img src="docs/images/pull-request-queue-light.png" alt="Work Buddy showing pull requests grouped into To merge, To review, and Automation, with CI status and line changes." width="420">
 </picture>
 
-*The native app interface with fictional repositories and pull requests.*
-
 macOS 14+ · Apple silicon & Intel · English & Spanish · MIT licensed
 
 ## What you can do
